@@ -1,0 +1,155 @@
+<fieldset [formGroup]="form()">
+  <div formGroupName="referente" class="grid">
+    <legend>Referente</legend>
+    <p class="hint span">Chi userà l'app per questa struttura.</p>
+
+    <label>Nome<input type="text" formControlName="nome" /></label>
+    <label>Cognome<input type="text" formControlName="cognome" /></label>
+    <label>Ruolo<input type="text" formControlName="ruolo" placeholder="Direttore, revenue manager…" /></label>
+    <label>Telefono<input type="tel" formControlName="telefono" /></label>
+  </div>
+</fieldset>
+
+<fieldset [formGroup]="form()">
+  <div formGroupName="struttura" class="grid">
+    <legend>Struttura</legend>
+
+    <label class="span">Nome della struttura<input type="text" formControlName="nome" /></label>
+
+    <label>
+      Tipologia
+      <select formControlName="tipologia">
+        <option value="">—</option>
+        @for (option of tipologie; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+
+    <label>
+      Categoria
+      <select formControlName="categoria">
+        <option value="">—</option>
+        @for (option of categorie; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+
+    <label>Anno di apertura<input type="number" formControlName="annoApertura" placeholder="1998" /></label>
+    <label>Sito web<input type="url" formControlName="sitoWeb" placeholder="https://" /></label>
+  </div>
+</fieldset>
+
+<fieldset [formGroup]="form()">
+  <div formGroupName="indirizzo" class="grid">
+    <legend>Dove si trova</legend>
+
+    <label class="span">Indirizzo<input type="text" formControlName="via" /></label>
+    <label>Città<input type="text" formControlName="citta" /></label>
+    <label>Provincia<input type="text" formControlName="provincia" placeholder="AQ" /></label>
+    <label>CAP<input type="text" formControlName="cap" /></label>
+    <label>Regione<input type="text" formControlName="regione" /></label>
+    <label>Paese<input type="text" formControlName="paese" /></label>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Alloggi</legend>
+  <p class="hint">Categorie di unità e quantità. Il totale si calcola da solo.</p>
+
+  @for (row of alloggi.controls; track $index) {
+    <div class="alloggio" [formGroup]="row">
+      <select formControlName="tipologia">
+        <option value="">Tipologia…</option>
+        @for (option of tipologieAlloggio; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+      <input type="number" formControlName="quantita" min="0" placeholder="Quantità" />
+      <button type="button" class="ghost" (click)="removeAlloggio($index)">Rimuovi</button>
+    </div>
+  }
+
+  <div class="alloggi-footer">
+    <button type="button" class="ghost" (click)="addAlloggio()">Aggiungi categoria</button>
+    @if (alloggi.length) {
+      <span class="hint">Totale unità: <strong>{{ totale }}</strong></span>
+    }
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Servizi</legend>
+  <div class="chips">
+    @for (option of servizi; track option.value) {
+      <label class="chip" [class.on]="isChecked(multi('servizi'), option.value)">
+        <input
+          type="checkbox"
+          [checked]="isChecked(multi('servizi'), option.value)"
+          (change)="toggle(multi('servizi'), option.value)" />
+        {{ option.label }}
+      </label>
+    }
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Canali di vendita</legend>
+  <div class="chips">
+    @for (option of canali; track option.value) {
+      <label class="chip" [class.on]="isChecked(multi('canali'), option.value)">
+        <input
+          type="checkbox"
+          [checked]="isChecked(multi('canali'), option.value)"
+          (change)="toggle(multi('canali'), option.value)" />
+        {{ option.label }}
+      </label>
+    }
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>Target</legend>
+  <div class="chips">
+    @for (option of target; track option.value) {
+      <label class="chip" [class.on]="isChecked(multi('target'), option.value)">
+        <input
+          type="checkbox"
+          [checked]="isChecked(multi('target'), option.value)"
+          (change)="toggle(multi('target'), option.value)" />
+        {{ option.label }}
+      </label>
+    }
+  </div>
+</fieldset>
+
+<fieldset [formGroup]="form()">
+  <legend>Stagionalità e obiettivi</legend>
+
+  <label>
+    Stagionalità
+    <select formControlName="stagionalita">
+      <option value="">—</option>
+      @for (option of stagionalita; track option.value) {
+        <option [value]="option.value">{{ option.label }}</option>
+      }
+    </select>
+  </label>
+
+  <label>
+    Obiettivi dichiarati
+    <textarea
+      formControlName="obiettivi"
+      rows="3"
+      placeholder="Alzare l'ADR in bassa stagione, ridurre la dipendenza da OTA…"></textarea>
+  </label>
+
+  <label>
+    Note del consulente Revna
+    <textarea
+      formControlName="noteRevna"
+      rows="4"
+      placeholder="Contesto, storico, criticità note. Il cliente le vede nel suo profilo."></textarea>
+  </label>
+</fieldset>

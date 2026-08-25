@@ -1,0 +1,43 @@
+<app-shell />
+
+<main class="page">
+  <a class="back" routerLink="/clienti">← Torna ai clienti</a>
+
+  <nav class="subnav">
+    <a class="active" [routerLink]="['/clienti', uid]">Profilo</a>
+    <a [routerLink]="['/clienti', uid, 'documenti']">Documenti</a>
+  </nav>
+
+  <h1>Profilo struttura</h1>
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else if (form(); as profileForm) {
+    @if (noteCliente()) {
+      <section class="card">
+        <h2>Note del cliente</h2>
+        <p class="hint">Le ha scritte lui dall'app: da qui si leggono soltanto.</p>
+        <p class="quote">{{ noteCliente() }}</p>
+      </section>
+    }
+
+    <form (ngSubmit)="save()">
+      <app-profile-fields [form]="profileForm" />
+
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
+
+      <div class="actions">
+        <button type="submit" [disabled]="saving()">
+          {{ saving() ? 'Salvataggio…' : 'Salva profilo' }}
+        </button>
+        @if (saved()) {
+          <span class="hint">Salvato.</span>
+        }
+      </div>
+    </form>
+  } @else {
+    <p class="error">{{ error() }}</p>
+  }
+</main>

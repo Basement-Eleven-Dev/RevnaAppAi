@@ -1,0 +1,91 @@
+<app-shell />
+
+<main class="page">
+  <a class="back" routerLink="/clienti">← Torna ai clienti</a>
+
+  <nav class="subnav">
+    <a [routerLink]="['/clienti', uid]">Profilo</a>
+    <a class="active" [routerLink]="['/clienti', uid, 'documenti']">Documenti</a>
+  </nav>
+
+  <h1>Documenti condivisi</h1>
+  <p class="hint">
+    Quello che carichi qui il cliente lo trova nell'app, nella sua sezione Documenti.
+    Report, presentazioni, playbook, pick-up: solo lui li vede, nessun altro cliente.
+  </p>
+
+  <section class="card" [formGroup]="form">
+    <h2>Carica</h2>
+
+    <div class="fields">
+      <label>
+        Tipo
+        <select formControlName="categoria">
+          @for (option of categorie; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="grow">
+        Nota per il cliente <span class="optional">(facoltativa)</span>
+        <input
+          type="text"
+          formControlName="description"
+          placeholder="Pick-up di settembre, guarda il confronto con l'anno scorso" />
+      </label>
+    </div>
+
+    <label class="picker">
+      <input type="file" multiple (change)="onFiles($event)" [disabled]="uploading() !== ''" />
+    </label>
+
+    @if (uploading()) {
+      <div class="progress">
+        <span class="hint">{{ uploading() }} · {{ progress() }}%</span>
+        <div class="bar"><div class="fill" [style.width.%]="progress()"></div></div>
+      </div>
+    }
+
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+  </section>
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else if (!list().length) {
+    <p class="hint">Nessun documento condiviso con questo cliente.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Documento</th>
+          <th>Tipo</th>
+          <th>Dimensione</th>
+          <th>Caricato</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (document of list(); track document.id) {
+          <tr>
+            <td>
+              <strong>{{ document.name }}</strong>
+              @if (document.description) {
+                <span class="note">{{ document.description }}</span>
+              }
+            </td>
+            <td class="muted">{{ categoriaLabel(document.categoria) }}</td>
+            <td class="muted">{{ formatSize(document.size) }}</td>
+            <td class="muted">{{ date(document.uploadedAt) }}</td>
+            <td class="actions">
+              <button type="button" class="ghost" (click)="open(document)">Apri</button>
+              <button type="button" class="ghost danger" (click)="remove(document)">Elimina</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</main>

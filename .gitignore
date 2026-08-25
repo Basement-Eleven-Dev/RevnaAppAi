@@ -1,0 +1,20 @@
+# documentazione interna di progetto (non versionata)
+/docs
+
+# dipendenze
+node_modules/
+
+# variabili d'ambiente
+.env
+.env.local
+.env.*.local
+
+# Firebase
+.firebase/
+*-debug.log
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# macOS
+.DS_Store

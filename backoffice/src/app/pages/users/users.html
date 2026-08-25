@@ -1,0 +1,59 @@
+<app-shell />
+
+<main class="page">
+  <h1>Nuova utenza cliente</h1>
+  <p class="hint">
+    L'app non ha registrazione libera: gli account nascono solo da qui. Il profilo lo
+    compili tu adesso, così il cliente al primo accesso trova la sua struttura già
+    descritta invece di un questionario. Solo l'email è obbligatoria: il resto si può
+    completare più avanti da «Clienti».
+  </p>
+
+  <form (ngSubmit)="submit()">
+    <fieldset class="account" [formGroup]="account">
+      <legend>Accesso</legend>
+      <label>
+        Email del cliente
+        <input type="email" formControlName="email" placeholder="cliente@struttura.it" />
+      </label>
+    </fieldset>
+
+    <app-profile-fields [form]="profile" />
+
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+
+    <button type="submit" [disabled]="account.invalid || busy()">
+      {{ busy() ? 'Creazione in corso…' : 'Crea utenza e invia invito' }}
+    </button>
+  </form>
+
+  @if (created().length) {
+    <section class="card">
+      <h2>Create in questa sessione</h2>
+
+      <ul class="list">
+        @for (user of created(); track user.uid) {
+          <li>
+            <div class="row">
+              <strong>{{ user.email }}</strong>
+              <span class="badge" [class.on]="user.emailSent">
+                {{ user.emailSent ? 'Email inviata' : 'Email non inviata' }}
+              </span>
+              <button type="button" class="ghost" (click)="copy(user.activationUrl)">
+                {{ copied() === user.activationUrl ? 'Copiato' : 'Copia link' }}
+              </button>
+            </div>
+            @if (!user.emailSent) {
+              <p class="hint">
+                Il servizio di invio non è ancora configurato: consegna tu il link.
+              </p>
+            }
+            <code>{{ user.activationUrl }}</code>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</main>

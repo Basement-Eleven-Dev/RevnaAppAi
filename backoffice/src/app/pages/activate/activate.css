@@ -1,0 +1,51 @@
+.screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.card {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.logo {
+  width: 160px;
+  align-self: center;
+}
+
+h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.button {
+  background: var(--brand);
+  color: #ffffff;
+  text-decoration: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.button:hover {
+  background: var(--brand-dark);
+}

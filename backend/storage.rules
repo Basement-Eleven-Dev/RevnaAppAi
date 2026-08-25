@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// I documenti che Revna condivide con un cliente possono contenere qualsiasi cosa:
+// report gestionali, dati economici, contratti. Vanno trattati come riservati.
+//
+// Per questo la LETTURA diretta è negata a chiunque, referenti Revna compresi.
+// I file si ottengono solo tramite la Cloud Function `getDocumentUrl`, che verifica
+// chi sta chiedendo e rilascia un URL firmato valido pochi minuti. Non esistono
+// link permanenti: un indirizzo copiato e girato a qualcun altro scade da solo.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isRevnaAdmin() {
+      return request.auth != null && request.auth.token.revnaAdmin == true;
+    }
+
+    match /clients/{userId}/documents/{fileName} {
+      allow read: if false;
+
+      // Il caricamento resta diretto: far passare un binario da una function non
+      // aggiungerebbe sicurezza. In cancellazione `request.resource` è null, per
+      // questo il tetto di 50 MB va verificato solo quando un file c'è davvero.
+      allow write: if isRevnaAdmin()
+        && (request.resource == null || request.resource.size < 50 * 1024 * 1024);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,70 @@
+<app-shell />
+
+<main class="page">
+  <h1>Clienti</h1>
+  <p class="hint">
+    Disattivare un'utenza revoca anche le sessioni attive: il cliente viene buttato fuori
+    dall'app entro pochi minuti, senza aspettare la scadenza del token.
+  </p>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else if (!list().length) {
+    <p class="hint">Nessun cliente ancora. Creane uno da «Nuova utenza».</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Creata</th>
+          <th>Ultimo accesso</th>
+          <th>Stato</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (client of list(); track client.uid) {
+          <tr [class.off]="client.disabled">
+            <td>
+              @if (editing() === client.uid) {
+                <input type="text" [(ngModel)]="draftName" placeholder="Nome struttura" />
+                <div class="actions">
+                  <button type="button" (click)="saveName(client)">Salva</button>
+                  <button type="button" class="ghost" (click)="cancelEdit()">Annulla</button>
+                </div>
+              } @else {
+                <strong>{{ client.displayName || '—' }}</strong>
+                <span class="email">{{ client.email }}</span>
+              }
+            </td>
+            <td class="muted">{{ date(client.createdAt) }}</td>
+            <td class="muted">{{ date(client.lastSignInAt) }}</td>
+            <td>
+              <span class="badge" [class.on]="!client.disabled">
+                {{ client.disabled ? 'Disattivata' : 'Attiva' }}
+              </span>
+            </td>
+            <td class="actions">
+              @if (editing() !== client.uid) {
+                <a class="ghost link" [routerLink]="['/clienti', client.uid]">Profilo</a>
+                <a class="ghost link" [routerLink]="['/clienti', client.uid, 'documenti']">Documenti</a>
+                <button type="button" class="ghost" (click)="startEdit(client)">Rinomina</button>
+                <button
+                  type="button"
+                  class="ghost"
+                  [disabled]="pending() === client.uid"
+                  (click)="toggle(client)">
+                  {{ client.disabled ? 'Riattiva' : 'Disattiva' }}
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</main>

@@ -1,0 +1,31 @@
+<main class="screen">
+  <div class="card">
+    <img class="logo" src="brand/logo_dark.svg" alt="Revna" />
+
+    @if (hasCode) {
+      <h1>Attiva il tuo accesso</h1>
+      <p>
+        Stiamo aprendo l'app Revna AI, dove sceglierai la tua password.
+        Se non si apre da sola, usa il pulsante.
+      </p>
+
+      <a class="button" [href]="deepLink">Apri l'app Revna AI</a>
+
+      <p class="hint">
+        Non hai ancora installato l'app? Installala, poi torna qui dal telefono e
+        riapri questo link. In alternativa puoi copiare il codice e incollarlo
+        nell'app, nella schermata di attivazione.
+      </p>
+
+      <button type="button" class="ghost" (click)="copyCode()">
+        {{ copied() ? 'Codice copiato' : 'Copia il codice' }}
+      </button>
+    } @else {
+      <h1>Link non valido</h1>
+      <p>
+        Questo link non contiene un codice di attivazione. Chiedi al tuo referente
+        Revna di rimandartelo.
+      </p>
+    }
+  </div>
+</main>

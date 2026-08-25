@@ -1,0 +1,62 @@
+rules_version = '2';
+
+// Regole di partenza: tutto chiuso per default.
+// Le collezioni vere vanno aggiunte una alla volta, quando il modello dati è deciso.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isRevnaAdmin() {
+      return isSignedIn() && request.auth.token.revnaAdmin == true;
+    }
+
+    // Profilo del cliente, redatto da Revna dal backoffice.
+    //
+    // Il cliente lo legge e può integrarlo con note proprie, ma non riscrivere
+    // quello che ha steso il consulente: l'update dal client è ammesso solo se
+    // tocca `profile.noteCliente` e nient'altro.
+    //
+    // Il backoffice legge; per scrivere passa dalle Cloud Functions
+    // (`createInvite`, `saveClientProfile`), che normalizzano i campi.
+    match /users/{userId} {
+      allow read: if isSelf(userId) || isRevnaAdmin();
+
+      allow update: if isSelf(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['profile', 'updatedAt'])
+        && request.resource.data.profile.diff(resource.data.profile).affectedKeys()
+             .hasOnly(['noteCliente']);
+
+      allow create, delete: if false;
+
+      // Schede dei documenti condivisi da Revna. Il file vero sta su Storage,
+      // qui c'è solo la sua descrizione. Le scrive il backoffice, che carica
+      // anche il file: passare da una function costringerebbe a far transitare
+      // il binario dal server senza guadagnarci nulla.
+      match /documents/{documentId} {
+        allow read: if isSelf(userId) || isRevnaAdmin();
+        allow create, update, delete: if isRevnaAdmin();
+      }
+
+      // Conversazioni con l'assistente: le legge e le cancella solo il cliente.
+      // Le scrive esclusivamente `askAssistant`, che è anche l'unico posto in cui
+      // lo storico viene composto — così il client non può riscrivere il passato.
+      match /conversations/{conversationId} {
+        allow read, delete: if isSelf(userId);
+        allow create, update: if false;
+      }
+    }
+
+    // Tutto il resto è negato finché non viene aperto esplicitamente.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
