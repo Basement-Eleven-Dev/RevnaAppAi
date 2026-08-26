@@ -6,6 +6,7 @@ import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 import { getFirebaseDb, getFirebaseFunctions, getFirebaseStorage } from './firebase';
 import { toAnnouncement, type Announcement, type Destinatari } from './announcements.model';
 import { safeFileName } from './documents.model';
+import { prepareImage } from './image-prep';
 
 /** Oltre questo non si scorre più: le comunicazioni utili sono le recenti. */
 const MAX_LISTED = 300;
@@ -105,9 +106,17 @@ export class AnnouncementsService {
     file: File,
     onProgress?: (percent: number) => void
   ): Promise<string> {
-    const path = `announcements/${announcementId}/${Date.now()}-${safeFileName(file.name)}`;
-    const task = uploadBytesResumable(ref(getFirebaseStorage(), path), file, {
-      contentType: file.type || 'application/octet-stream',
+    // Ridotta prima di partire, non dopo un rifiuto: una foto della macchina
+    // fotografica pesa dieci megabyte, le regole di Storage la negherebbero, e in ogni
+    // caso finirebbe intera sul piano dati del cliente che apre l'avviso (vedi
+    // `image-prep.ts`).
+    const immagine = await prepareImage(file);
+
+    const path = `announcements/${announcementId}/${Date.now()}-${safeFileName(immagine.name)}`;
+    const task = uploadBytesResumable(ref(getFirebaseStorage(), path), immagine, {
+      // Il tipo deve esserci e deve essere quello vero: le regole ammettono solo
+      // `image/*`, e un file senza tipo arriverebbe come `application/octet-stream`.
+      contentType: immagine.type || 'image/jpeg',
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -115,11 +124,36 @@ export class AnnouncementsService {
         'state_changed',
         (snapshot) =>
           onProgress?.(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)),
-        reject,
+        (cause) => reject(uploadError(cause)),
         () => resolve()
       );
     });
 
     return getDownloadURL(task.snapshot.ref);
   }
+}
+
+/**
+ * L'errore di Storage, tradotto in qualcosa su cui si può agire.
+ *
+ * `storage/unauthorized` è la stessa risposta per ogni regola che nega, e da sola non
+ * distingue le due cose che possono essere andate storte: la sessione non è (più) di un
+ * referente Revna, oppure le regole di Storage per le comunicazioni non sono ancora
+ * state deployate sul progetto. Sono i due controlli da fare, e vale la pena dirli:
+ * questa pagina la usa chi lavora in Revna, non un cliente.
+ */
+function uploadError(cause: unknown): Error {
+  const code = (cause as { code?: string }).code;
+
+  if (code === 'storage/unauthorized') {
+    return new Error(
+      'Storage ha negato il caricamento. Controlla di essere ancora autenticato come ' +
+        'referente Revna; se il problema resta, le regole di Storage per le comunicazioni ' +
+        'non sono ancora state deployate sul progetto Firebase.'
+    );
+  }
+
+  if (code === 'storage/canceled') return new Error('Caricamento annullato.');
+
+  return cause instanceof Error ? cause : new Error('Immagine non caricata.');
 }
