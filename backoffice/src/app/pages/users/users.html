@@ -1,12 +1,11 @@
-<app-shell />
-
 <main class="page">
+  <a class="back" routerLink="/clienti">← Torna ai clienti</a>
+
   <h1>Nuova utenza cliente</h1>
   <p class="hint">
-    L'app non ha registrazione libera: gli account nascono solo da qui. Il profilo lo
-    compili tu adesso, così il cliente al primo accesso trova la sua struttura già
-    descritta invece di un questionario. Solo l'email è obbligatoria: il resto si può
-    completare più avanti da «Clienti».
+    L'app non ha registrazione libera: gli account nascono solo da qui. Il profilo lo compili tu
+    adesso, così il cliente al primo accesso trova la sua struttura già descritta invece di un
+    questionario. Solo l'email è obbligatoria: il resto si può completare più avanti da «Clienti».
   </p>
 
   <form (ngSubmit)="submit()">

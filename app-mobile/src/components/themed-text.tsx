@@ -1,6 +1,6 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { Fonts, ThemeColor, withSansFont } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
@@ -11,20 +11,24 @@ export type ThemedTextProps = TextProps & {
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
 
+  // Lo stile si appiattisce prima di scegliere il font: il peso può arrivare
+  // anche da chi chiama il componente, e in Rethink Sans il peso è la famiglia.
   return (
     <Text
-      style={[
-        { color: theme[themeColor ?? 'text'] },
-        type === 'default' && styles.default,
-        type === 'title' && styles.title,
-        type === 'small' && styles.small,
-        type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
-        type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
-        type === 'code' && styles.code,
-        style,
-      ]}
+      style={withSansFont(
+        StyleSheet.flatten([
+          { color: theme[themeColor ?? 'text'] },
+          type === 'default' && styles.default,
+          type === 'title' && styles.title,
+          type === 'small' && styles.small,
+          type === 'smallBold' && styles.smallBold,
+          type === 'subtitle' && styles.subtitle,
+          type === 'link' && styles.link,
+          type === 'linkPrimary' && styles.linkPrimary,
+          type === 'code' && styles.code,
+          style,
+        ]),
+      )}
       {...rest}
     />
   );

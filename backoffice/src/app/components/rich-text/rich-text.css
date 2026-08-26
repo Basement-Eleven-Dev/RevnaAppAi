@@ -1,0 +1,206 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.strumento {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.strumento:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Acceso: dice cosa è attivo dove sta il cursore, non cosa è stato premuto. */
+.strumento.on {
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.strumento svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.strumento.on svg {
+  stroke: #ffffff;
+}
+
+.separatore {
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+/* Il campo file di serie non si può vestire: si nasconde e si veste l'etichetta. */
+.picker {
+  position: relative;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.picker input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.picker:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.picker:focus-within {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.caricamento {
+  white-space: nowrap;
+}
+
+.foglio {
+  position: relative;
+}
+
+/* Il segnaposto non può essere un `::before` sul campo: un contenteditable vuoto
+   contiene comunque un paragrafo, quindi per il CSS non è vuoto. */
+.placeholder {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 15px;
+  pointer-events: none;
+}
+
+.testo {
+  min-height: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.testo:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.disabilitato .testo {
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+/*
+ * Da qui sotto è come si vede il testo mentre lo si scrive.
+ *
+ * Non è il foglio di stile dell'app — quello è React Native e non CSS — ma le
+ * proporzioni sono le sue: un titolo poco più grande del testo, i margini fra i
+ * blocchi, la citazione con il filetto arancio. Chi scrive deve poter giudicare la
+ * lunghezza di un avviso da qui, senza aprire il telefono.
+ */
+.testo :first-child {
+  margin-top: 0;
+}
+
+.testo :last-child {
+  margin-bottom: 0;
+}
+
+.testo p {
+  margin: 0 0 12px;
+}
+
+.testo h2 {
+  margin: 20px 0 8px;
+  font-size: 19px;
+}
+
+.testo h3 {
+  margin: 16px 0 8px;
+  font-size: 16px;
+}
+
+.testo ul,
+.testo ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.testo li {
+  margin-bottom: 4px;
+}
+
+.testo blockquote {
+  margin: 0 0 12px;
+  padding-left: 14px;
+  border-left: 3px solid var(--brand);
+  color: var(--text-muted);
+}
+
+.testo a {
+  color: var(--brand);
+}
+
+.testo img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 12px 0;
+  border-radius: 10px;
+}
+
+.testo hr {
+  margin: 20px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.testo code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+}

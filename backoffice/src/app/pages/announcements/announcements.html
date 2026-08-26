@@ -1,0 +1,110 @@
+<main class="page">
+  <div class="testata">
+    <h1>Comunicazioni</h1>
+    <div class="spacer"></div>
+    <a routerLink="/comunicazioni/nuova"><button type="button">Nuova comunicazione</button></a>
+  </div>
+
+  <p class="hint">
+    Avvisi e annunci che i clienti leggono nella sezione <strong>Avvisi</strong> dell'app. Alla
+    partenza arriva anche una notifica sul telefono, e nell'app resta un pallino rosso finché
+    l'avviso non viene aperto. Una comunicazione inviata si può correggere — la correzione
+    raggiunge subito chi l'ha ricevuta — ma i destinatari no: per un altro pubblico se ne scrive
+    una nuova.
+  </p>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else if (!list().length) {
+    <p class="hint">
+      Nessuna comunicazione. La prima la scrivi da «Nuova comunicazione»: resta in bozza finché
+      non la mandi.
+    </p>
+  } @else {
+    <div class="filtri">
+      <button
+        type="button"
+        class="chip"
+        [class.active]="filtro() === 'tutte'"
+        (click)="setFiltro('tutte')"
+      >
+        Tutte ({{ list().length }})
+      </button>
+      <button
+        type="button"
+        class="chip"
+        [class.active]="filtro() === 'bozze'"
+        (click)="setFiltro('bozze')"
+      >
+        Bozze ({{ bozze() }})
+      </button>
+      <button
+        type="button"
+        class="chip"
+        [class.active]="filtro() === 'inviate'"
+        (click)="setFiltro('inviate')"
+      >
+        Inviate ({{ list().length - bozze() }})
+      </button>
+    </div>
+
+    @if (!visible().length) {
+      <p class="hint">Nessuna comunicazione in questo filtro.</p>
+    } @else {
+      <section class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Comunicazione</th>
+              <th>Destinatari</th>
+              <th>Letture</th>
+              <th>Quando</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (announcement of visible(); track announcement.id) {
+              <tr>
+                <td>
+                  <a class="titolo" [routerLink]="['/comunicazioni', announcement.id]">
+                    {{ announcement.titolo || 'Senza titolo' }}
+                  </a>
+                  <span [class]="'badge ' + announcement.stato">
+                    {{ statoLabel[announcement.stato] }}
+                  </span>
+                  <span class="note">{{ announcement.estratto }}</span>
+                </td>
+                <td>
+                  @if (announcement.stato === 'inviato') {
+                    {{ announcement.destinatariCount }}
+                    <span class="note">{{ destinatariLabel(announcement.destinatari) }}</span>
+                  } @else {
+                    <span class="muted">{{ destinatariLabel(announcement.destinatari) }}</span>
+                  }
+                </td>
+                <td>
+                  @if (announcement.stato === 'inviato') {
+                    {{ lettureLabel(announcement) }}
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+                <td class="muted">
+                  @if (announcement.inviatoAt) {
+                    {{ formatDateTime(announcement.inviatoAt) }}
+                    <span class="note">{{ announcement.inviatoBy }}</span>
+                  } @else {
+                    <span class="note">Creata il {{ formatDateTime(announcement.createdAt) }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+  }
+</main>

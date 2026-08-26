@@ -1,11 +1,11 @@
-<app-shell />
-
 <main class="page">
   <a class="back" routerLink="/clienti">← Torna ai clienti</a>
 
   <nav class="subnav">
     <a class="active" [routerLink]="['/clienti', uid]">Profilo</a>
     <a [routerLink]="['/clienti', uid, 'documenti']">Documenti</a>
+    <a [routerLink]="['/clienti', uid, 'conversazioni']">Conversazioni</a>
+    <a routerLink="/richieste" [queryParams]="{ cliente: uid }">Richieste</a>
   </nav>
 
   <h1>Profilo struttura</h1>

@@ -1,0 +1,416 @@
+/* Stili condivisi dalle tre pagine della sezione Assistente. */
+
+.page {
+  width: min(900px, 100%);
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.back {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.fields {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.grow {
+  flex: 1;
+  min-width: 240px;
+}
+
+.optional {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+textarea,
+select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 400;
+  background: var(--bg);
+  color: var(--text);
+}
+
+textarea {
+  resize: vertical;
+  line-height: 1.55;
+}
+
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.saved {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row input {
+  flex: 1;
+}
+
+.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.inline input {
+  width: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  font-size: 14px;
+}
+
+td strong {
+  display: block;
+  word-break: break-word;
+}
+
+tr.spenta td {
+  opacity: 0.45;
+}
+
+.note {
+  display: block;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.note.danger {
+  color: var(--danger);
+}
+
+.muted {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+td.buttons {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.danger {
+  color: var(--danger);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tag.on {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #ffffff;
+}
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Il campo file di serie non si può vestire: si nasconde e si veste l'etichetta. */
+.picker input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.picker {
+  position: relative;
+  margin: 0;
+}
+
+.finto-bottone {
+  display: inline-block;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.picker:hover .finto-bottone {
+  background: var(--surface);
+}
+
+.picker:has(input:disabled) .finto-bottone {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.picker:focus-within .finto-bottone {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.2s ease;
+}
+
+.range {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.range input[type='range'] {
+  flex: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--brand);
+}
+
+/* --- Pagina di prova --- */
+
+.actions.end {
+  align-self: flex-end;
+}
+
+.chat {
+  gap: 16px;
+}
+
+.turn {
+  max-width: 90%;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.turn.mine {
+  align-self: flex-end;
+  padding: 10px 14px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+}
+
+.turn.theirs {
+  align-self: stretch;
+  max-width: 100%;
+}
+
+.chi {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.risposta :first-child {
+  margin-top: 0;
+}
+
+.risposta :last-child {
+  margin-bottom: 0;
+}
+
+.risposta p {
+  margin: 0 0 10px;
+}
+
+.risposta p.titolo {
+  font-weight: 700;
+  margin-top: 14px;
+}
+
+.risposta ul,
+.risposta ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+
+.risposta li {
+  margin-bottom: 4px;
+}
+
+.risposta code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+}
+
+.fonti {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.etichetta {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.fonte {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.fonte .n {
+  min-width: 14px;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.fonte .note {
+  display: block;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.composer textarea {
+  flex: 1;
+}
+
+.prompt {
+  margin: 0;
+  padding: 16px;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}

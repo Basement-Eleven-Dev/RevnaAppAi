@@ -1,8 +1,32 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { db } from './admin';
+import type { Source } from './agent';
 
-export type StoredTurn = { role: 'user' | 'model'; text: string };
+/**
+ * Un turno di conversazione. Le fonti stanno sul turno e non a parte perché sono
+ * parte della risposta: riaprendo la conversazione dalla sidebar il cliente deve
+ * ritrovare sotto ogni risposta il materiale Revna su cui poggiava.
+ */
+export type StoredTurn = {
+  role: 'user' | 'model';
+  text: string;
+  sources?: Source[];
+  /**
+   * La richiesta di contatto proposta dall'assistente in questo turno, se l'ha
+   * proposta. Sta sul turno per lo stesso motivo delle fonti: riaprendo la
+   * conversazione il cliente deve ritrovare l'offerta di essere ricontattato dov'era,
+   * non solo finché la risposta è a schermo.
+   */
+  proposal?: string;
+  /**
+   * Quando il turno è stato scritto, in ISO.
+   *
+   * Facoltativo perché i turni salvati prima che il campo esistesse non lo hanno:
+   * chi lo mostra ripiega sulla data della conversazione.
+   */
+  at?: string;
+};
 
 export type Conversation = {
   title: string;

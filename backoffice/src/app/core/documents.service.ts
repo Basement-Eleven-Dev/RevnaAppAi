@@ -8,10 +8,11 @@ import {
   query,
   setDoc,
 } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
+import { deleteObject, ref, uploadBytesResumable } from 'firebase/storage';
 
 import { AuthService } from './auth.service';
-import { getFirebaseDb, getFirebaseStorage } from './firebase';
+import { getFirebaseDb, getFirebaseFunctions, getFirebaseStorage } from './firebase';
 import { safeFileName, type ClientDocument } from './documents.model';
 
 export type UploadRequest = {
@@ -75,8 +76,20 @@ export class DocumentsService {
     });
   }
 
-  downloadUrl(storagePath: string): Promise<string> {
-    return getDownloadURL(ref(getFirebaseStorage(), storagePath));
+  /**
+   * URL di download, valido pochi minuti.
+   *
+   * Le regole di Storage negano la lettura diretta anche ai referenti Revna: il
+   * link lo rilascia la function, che verifica chi sta chiedendo. Niente URL
+   * permanenti in giro.
+   */
+  async downloadUrl(uid: string, documentId: string): Promise<string> {
+    const call = httpsCallable<{ uid: string; documentId: string }, { url: string }>(
+      getFirebaseFunctions(),
+      'getDocumentUrl'
+    );
+    const { data } = await call({ uid, documentId });
+    return data.url;
   }
 
   /** Prima il file, poi la scheda: se il file resta, la scheda punterebbe al vuoto. */

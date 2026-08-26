@@ -24,6 +24,43 @@ service firebase.storage {
         && (request.resource == null || request.resource.size < 50 * 1024 * 1024);
     }
 
+    // I documenti caricati nella base di conoscenza Revna. Non sono di un cliente
+    // ma sono comunque materiale riservato — è il patrimonio di Revna — quindi
+    // valgono le stesse regole: nessuna lettura diretta, il file lo apre
+    // `getKnowledgeFileUrl` e il testo lo estrae `ingestKnowledgeFile`, entrambi
+    // con l'Admin SDK, che queste regole non le attraversa.
+    match /knowledge/{fileName} {
+      allow read: if false;
+
+      allow write: if isRevnaAdmin()
+        && (request.resource == null || request.resource.size < 50 * 1024 * 1024);
+    }
+
+    // Immagini incorporate nelle comunicazioni ai clienti.
+    //
+    // Sono l'eccezione alla regola «nessuna lettura diretta», e vale la pena dire
+    // perché. Un'immagine dentro un testo la deve poter caricare il renderer dell'app
+    // da sé, per ogni cliente che apre l'avviso: con URL firmati a 5 minuti come i
+    // documenti servirebbe una chiamata al server per ogni immagine di ogni avviso, e
+    // l'avviso salvato oggi mostrerebbe fra un'ora dei riquadri vuoti.
+    //
+    // Perciò l'indirizzo che finisce nel testo è il download URL di Firebase, con il
+    // suo token: chiunque lo abbia può vedere l'immagine, senza essere autenticato.
+    // Questa è la differenza con i documenti, e va tenuta a mente da chi scrive: in una
+    // comunicazione ci vanno grafici, schermate, foto — non un report riservato messo
+    // dentro come immagine. Per quello ci sono i Documenti.
+    //
+    // La `read` qui sotto serve al backoffice per ottenere quel token al caricamento.
+    // Tetto a 5 MB: è un'immagine dentro un avviso, non un allegato.
+    match /announcements/{announcementId}/{fileName} {
+      allow read: if isRevnaAdmin();
+
+      allow write: if isRevnaAdmin()
+        && (request.resource == null
+            || (request.resource.size < 5 * 1024 * 1024
+                && request.resource.contentType.matches('image/.*')));
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

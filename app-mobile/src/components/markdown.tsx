@@ -1,8 +1,9 @@
-import { Fragment } from 'react';
+import { Image } from 'expo-image';
+import { Fragment, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Fonts, Spacing } from '@/constants/theme';
+import { Fonts, sansStyle, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -15,6 +16,12 @@ import { useTheme } from '@/hooks/use-theme';
  *
  * Copre quello che il modello produce davvero: titoli, liste, grassetto, corsivo,
  * codice inline e a blocco, citazioni, link, righe orizzontali.
+ *
+ * Le immagini invece l'assistente non le produce: servono agli **avvisi**, scritti dal
+ * backoffice con un editor che può metterne (vedi `app/(app)/avvisi`). Stanno qui e non
+ * in un renderer a parte perché il resto di un avviso sono esattamente questi blocchi:
+ * due renderer per lo stesso markdown vorrebbero dire due modi in cui un titolo può
+ * apparire nell'app.
  */
 export function Markdown({ text }: { text: string }) {
   return <>{parseBlocks(text).map((block, index) => renderBlock(block, index))}</>;
@@ -27,7 +34,11 @@ type Block =
   | { kind: 'ordered'; items: string[] }
   | { kind: 'quote'; text: string }
   | { kind: 'code'; text: string }
+  | { kind: 'image'; url: string; alt: string }
   | { kind: 'rule' };
+
+/** Un'immagine da sola su una riga: è così che l'editor del backoffice la scrive. */
+const IMAGE_LINE = /^!\[([^\]]*)]\(([^)]+)\)$/;
 
 function parseBlocks(source: string): Block[] {
   const lines = source.replace(/\r\n/g, '\n').split('\n');
@@ -67,6 +78,13 @@ function parseBlocks(source: string): Block[] {
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
       flushParagraph();
       blocks.push({ kind: 'rule' });
+      continue;
+    }
+
+    const image = IMAGE_LINE.exec(trimmed);
+    if (image) {
+      flushParagraph();
+      blocks.push({ kind: 'image', alt: image[1], url: image[2] });
       continue;
     }
 
@@ -132,6 +150,8 @@ function renderBlock(block: Block, key: number) {
       return <Quote key={key} text={block.text} />;
     case 'code':
       return <CodeBlock key={key} text={block.text} />;
+    case 'image':
+      return <MarkdownImage key={key} url={block.url} alt={block.alt} />;
     case 'rule':
       return <Rule key={key} />;
   }
@@ -183,6 +203,36 @@ function CodeBlock({ text }: { text: string }) {
         {text}
       </ThemedText>
     </View>
+  );
+}
+
+/**
+ * Un'immagine dentro il testo, a piena larghezza.
+ *
+ * Le proporzioni si prendono dall'immagine appena è caricata, invece di imporne uno:
+ * in un avviso ci finisce di tutto — la schermata di un cruscotto, un grafico, una foto
+ * verticale — e ritagliare in un rapporto scelto da noi taglierebbe via il numero di cui
+ * si sta parlando. Fino a quel momento tiene il posto un rettangolo 3:2, così il testo
+ * sotto non salta quando l'immagine arriva.
+ */
+function MarkdownImage({ url, alt }: { url: string; alt: string }) {
+  const theme = useTheme();
+  const [ratio, setRatio] = useState(3 / 2);
+
+  return (
+    <Image
+      source={url}
+      accessibilityLabel={alt}
+      style={[
+        styles.image,
+        { aspectRatio: ratio, backgroundColor: theme.backgroundSelected },
+      ]}
+      contentFit="cover"
+      transition={180}
+      onLoad={({ source }) => {
+        if (source.width > 0 && source.height > 0) setRatio(source.width / source.height);
+      }}
+    />
   );
 }
 
@@ -256,7 +306,7 @@ const styles = StyleSheet.create({
   heading: { marginTop: Spacing.two, marginBottom: Spacing.one },
   list: { marginBottom: Spacing.two, gap: Spacing.one },
   listItem: { flexDirection: 'row', gap: Spacing.two },
-  bullet: { fontWeight: '700', minWidth: 16 },
+  bullet: { ...sansStyle(700), minWidth: 16 },
   listText: { flex: 1 },
   quote: {
     borderLeftWidth: 3,
@@ -270,9 +320,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.two,
   },
   rule: { height: 1, marginVertical: Spacing.three },
+  image: { width: '100%', borderRadius: Spacing.three, marginBottom: Spacing.three },
   mono: { fontFamily: Fonts.mono, fontSize: 13 },
   inlineCode: { fontSize: 13 },
-  bold: { fontWeight: '700' },
-  italic: { fontStyle: 'italic' },
+  // Il peso e il corsivo stanno nel nome della famiglia, non in fontWeight:
+  // vedi `sansStyle` in constants/theme.
+  bold: sansStyle(700),
+  italic: sansStyle(400, true),
   link: { textDecorationLine: 'underline' },
 });

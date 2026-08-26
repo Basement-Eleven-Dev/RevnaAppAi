@@ -1,0 +1,167 @@
+<main class="page" [formGroup]="form">
+  <a class="back" routerLink="/comunicazioni">← Torna alle comunicazioni</a>
+
+  <div class="testata">
+    <h1>{{ nuova() ? 'Nuova comunicazione' : inviata() ? 'Comunicazione inviata' : 'Bozza' }}</h1>
+  </div>
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else {
+    @if (comunicazione(); as c) {
+      @if (inviata()) {
+        <section class="card esito">
+          <div class="numeri">
+            <div class="numero">
+              <strong>{{ c.destinatariCount }}</strong>
+              <span class="etichetta">Destinatari</span>
+            </div>
+            <div class="numero">
+              <strong>{{ c.lettiCount }}</strong>
+              <span class="etichetta">L'hanno aperta</span>
+            </div>
+          </div>
+          <p class="hint">
+            Inviata il {{ formatDateTime(c.inviatoAt ?? '') }} da {{ c.inviatoBy }}.
+            {{ lettureLabel(c) }}. Correggere titolo o testo aggiorna subito l'avviso nell'app di
+            chi l'ha ricevuta, senza mandare una seconda notifica; i destinatari non si cambiano
+            più.
+          </p>
+        </section>
+      }
+    }
+
+    <section class="card">
+      <h2>Titolo</h2>
+      <p class="hint">
+        È quello che il cliente legge nell'elenco degli avvisi e nella notifica sul telefono.
+        Meglio dire la cosa che invitare ad aprire: «Chiusura uffici dal 12 al 16 agosto» funziona,
+        «Una comunicazione importante» no.
+      </p>
+      <label>
+        <input
+          type="text"
+          formControlName="titolo"
+          [maxlength]="maxTitolo"
+          placeholder="Chiusura uffici dal 12 al 16 agosto"
+        />
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Testo</h2>
+      <p class="hint">
+        Si scrive come si vede. Titoli, grassetto, elenchi, link e immagini si mettono dalla barra;
+        quello che si incolla arriva senza formattazione, di proposito — nell'app il testo viene
+        reso con i caratteri e i colori Revna, non con quelli del posto da cui è stato copiato.
+      </p>
+      <app-rich-text
+        formControlName="corpo"
+        [upload]="uploadImage"
+        placeholder="Scrivi la comunicazione…"
+      />
+      <p class="hint">{{ caratteri() }} caratteri su {{ maxCorpo }}.</p>
+    </section>
+
+    <section class="card">
+      <h2>Destinatari</h2>
+
+      @if (inviata()) {
+        <p class="hint">
+          Questa comunicazione è già partita: i destinatari sono quelli della consegna e non si
+          cambiano. Per un altro pubblico, scrivine una nuova.
+        </p>
+      } @else {
+        <p class="hint">
+          «Tutti i clienti» si risolve al momento dell'invio: chi diventa cliente domani non
+          riceverà gli avvisi di ieri. I clienti disattivati non ricevono in nessun caso.
+        </p>
+
+        <div class="filtri">
+          <label class="inline">
+            <input type="radio" formControlName="modo" value="tutti" />
+            Tutti i clienti ({{ attivi().length }})
+          </label>
+          <label class="inline">
+            <input type="radio" formControlName="modo" value="selezione" />
+            Scelgo io
+          </label>
+        </div>
+
+        @if (form.getRawValue().modo === 'selezione') {
+          <div class="fields">
+            <label class="grow">
+              Cerca
+              <input
+                type="text"
+                [value]="cerca()"
+                (input)="cerca.set($any($event.target).value)"
+                placeholder="nome della struttura o email"
+              />
+            </label>
+            <div class="actions">
+              <button type="button" class="ghost" (click)="tutti()">Seleziona i visibili</button>
+              <button type="button" class="ghost" (click)="nessuno()">Deseleziona tutti</button>
+            </div>
+          </div>
+
+          @if (!visibili().length) {
+            <p class="hint">Nessun cliente attivo corrisponde alla ricerca.</p>
+          } @else {
+            <div class="clienti">
+              @for (client of visibili(); track client.uid) {
+                <label class="cliente">
+                  <input
+                    type="checkbox"
+                    [checked]="selezione().includes(client.uid)"
+                    (change)="toggle(client.uid)"
+                  />
+                  <span class="chi">{{ nomeCliente(client) }}</span>
+                  <span class="note">{{ client.email }}</span>
+                </label>
+              }
+            </div>
+          }
+        }
+      }
+    </section>
+
+    <div class="actions">
+      <button type="button" (click)="save()" [disabled]="saving() || sending()">
+        {{ saving() ? 'Salvataggio…' : inviata() ? 'Salva la correzione' : 'Salva la bozza' }}
+      </button>
+
+      @if (!inviata()) {
+        <button
+          type="button"
+          class="invia"
+          [disabled]="saving() || sending() || quanti() === 0"
+          (click)="invia()"
+        >
+          {{
+            sending()
+              ? 'Invio…'
+              : quanti() === 1
+                ? 'Invia a 1 cliente'
+                : 'Invia a ' + quanti() + ' clienti'
+          }}
+        </button>
+      }
+
+      <div class="spacer"></div>
+
+      @if (!nuova()) {
+        <button type="button" class="ghost danger" (click)="remove()">
+          {{ inviata() ? 'Ritira' : 'Elimina la bozza' }}
+        </button>
+      }
+    </div>
+
+    @if (saved()) {
+      <p class="saved">{{ saved() }}</p>
+    }
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+  }
+</main>

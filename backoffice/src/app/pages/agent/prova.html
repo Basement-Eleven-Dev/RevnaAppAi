@@ -1,0 +1,172 @@
+<main class="page">
+  <h1>Prova l'assistente</h1>
+  <p class="hint">
+    Scegli una struttura e fai le domande che farebbe il suo albergatore. L'assistente risponde
+    esattamente come risponderebbe nell'app: stessa personalità, stessa base di conoscenza, stesso
+    profilo struttura. <strong>Niente viene salvato</strong> — questa conversazione non comparirà
+    nello storico del cliente, e sparisce ricaricando la pagina.
+  </p>
+
+  <section class="card">
+    <div class="fields">
+      <label class="grow">
+        Struttura
+        <select [value]="uid()" (change)="onCliente($any($event.target).value)">
+          <option value="">Scegli un cliente…</option>
+          @for (cliente of clienti(); track cliente.uid) {
+            <option [value]="cliente.uid">
+              {{ cliente.displayName || cliente.email }}
+            </option>
+          }
+        </select>
+      </label>
+      @if (turns().length) {
+        <div class="actions end">
+          <button type="button" class="ghost" (click)="reset()">Ricomincia</button>
+        </div>
+      }
+    </div>
+    @if (loading()) {
+      <p class="hint">Caricamento dei clienti…</p>
+    } @else if (loadError()) {
+      <p class="error">{{ loadError() }}</p>
+      <div class="actions">
+        <button type="button" class="ghost" (click)="ricarica()">Riprova</button>
+      </div>
+    } @else if (!clienti().length) {
+      <p class="hint">
+        Nessun cliente attivo da impersonare. Creane uno da «Clienti → Nuova utenza»: la prova parte
+        dal profilo di una struttura vera, non da dati inventati.
+      </p>
+    }
+  </section>
+
+  @if (uid()) {
+    <section class="card chat">
+      @if (!turns().length) {
+        <p class="hint">
+          Stai scrivendo come {{ cliente()?.displayName || cliente()?.email }}. Parti da uno spunto,
+          o scrivi la tua domanda.
+        </p>
+        <div class="tags">
+          @for (spunto of spunti(); track spunto) {
+            <button type="button" class="tag" (click)="send(spunto)">{{ spunto }}</button>
+          }
+        </div>
+      }
+
+      @for (turn of turns(); track $index) {
+        @if (turn.role === 'user') {
+          <div class="turn mine">{{ turn.text }}</div>
+        } @else {
+          <div class="turn theirs">
+            <span class="chi">Revna AI</span>
+            <div class="risposta" [innerHTML]="renderMarkdown(turn.text)"></div>
+            @if (turn.sources?.length) {
+              <div class="fonti">
+                <span class="etichetta">Materiale Revna</span>
+                @for (source of turn.sources; track source.n) {
+                  <div class="fonte">
+                    <span class="n">{{ source.n }}</span>
+                    <strong>{{ source.titolo }}</strong>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      }
+
+      @if (busy() && turns().at(-1)?.role === 'user') {
+        <p class="hint">Sta rispondendo…</p>
+      }
+
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
+
+      <div class="composer">
+        <textarea
+          rows="2"
+          placeholder="Scrivi come farebbe l'albergatore…"
+          [value]="draft()"
+          [disabled]="busy()"
+          (input)="draft.set($any($event.target).value)"
+        ></textarea>
+        <button type="button" (click)="send(draft())" [disabled]="busy() || draft().trim() === ''">
+          Invia
+        </button>
+      </div>
+      <p class="hint">
+        I marcatori delle fonti — <code>[1]</code> — restano visibili di proposito: nell'app
+        diventano i numeri accanto al materiale citato qui sotto.
+      </p>
+    </section>
+
+    @if (diagnostics(); as d) {
+      <section class="card">
+        <h2>Cosa ha avuto sotto gli occhi</h2>
+        <p class="hint">
+          È la parte che conta più della risposta: qui si vede se la voce giusta è entrata in
+          contesto, e se l'assistente l'ha usata o l'ha ignorata.
+        </p>
+
+        @if (!d.conoscenza.length) {
+          <p class="hint">
+            Nessuna voce in contesto.
+            @if (d.disponibili === 0) {
+              La base di conoscenza è vuota o tutte le voci sono sospese.
+            } @else {
+              Delle {{ d.disponibili }} voci attive, la selezione non ne ha ritenuta pertinente
+              nessuna: in questo caso l'assistente risponde con la propria competenza e non cita
+              nulla.
+            }
+          </p>
+        } @else {
+          <p class="hint">
+            {{ d.conoscenza.length }} in contesto su {{ d.disponibili }} voci attive.
+            @if (d.conoscenza.length < d.disponibili) {
+              La selezione ha scelto: se una voce che ti aspettavi non c'è, il problema è nel suo
+              titolo o nelle sue aree tematiche.
+            }
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Voce in contesto</th>
+                <th>Citata</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (voce of d.conoscenza; track voce.titolo) {
+                <tr [class.spenta]="!voce.citata">
+                  <td>
+                    <strong>{{ voce.titolo }}</strong>
+                  </td>
+                  <td class="muted">{{ voce.citata ? 'sì' : 'no' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+
+      <section class="card">
+        <div class="actions">
+          <h2>Il prompt inviato</h2>
+          <div class="spacer"></div>
+          <button type="button" class="ghost" (click)="mostraPrompt.set(!mostraPrompt())">
+            {{ mostraPrompt() ? 'Nascondi' : 'Mostra' }}
+          </button>
+        </div>
+        <p class="hint">
+          Personalità, regole di citazione, profilo della struttura e materiale, esattamente come li
+          ha ricevuti il modello. È qui che si capisce perché ha risposto così.
+        </p>
+        @if (mostraPrompt()) {
+          <pre class="prompt">{{ d.systemInstruction }}</pre>
+        }
+      </section>
+    }
+  }
+</main>

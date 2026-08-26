@@ -3,13 +3,16 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MenuButton } from '@/components/menu-button';
 import { DocumentsIcon } from '@/components/tab-icon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { documentUrl, useDocuments } from '@/hooks/use-documents';
+import { useT } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
-import { categoriaLabel, formatSize, type ClientDocument } from '@/lib/documents';
+import { formatSize, type ClientDocument } from '@/lib/documents';
+import { labelOf, type Dictionary } from '@/lib/i18n';
 
 /**
  * Documenti che Revna ha condiviso con questa struttura.
@@ -17,6 +20,7 @@ import { categoriaLabel, formatSize, type ClientDocument } from '@/lib/documents
  */
 export default function DocumentsScreen() {
   const theme = useTheme();
+  const t = useT();
   const { documents, loading, error } = useDocuments();
   const [opening, setOpening] = useState('');
   const [openError, setOpenError] = useState('');
@@ -25,11 +29,11 @@ export default function DocumentsScreen() {
     setOpening(document.id);
     setOpenError('');
     try {
-      // L'URL si chiede solo ora e non in elenco: sarebbe una richiesta di rete
-      // per ogni documento, per un link che nella maggior parte dei casi non serve.
-      await WebBrowser.openBrowserAsync(await documentUrl(document.storagePath));
-    } catch {
-      setOpenError('Non è stato possibile aprire il documento. Riprova.');
+      // L'URL si chiede solo ora e non in elenco: dura pochi minuti, e uno per
+      // documento sarebbe una richiesta di rete per un link quasi sempre inutile.
+      await WebBrowser.openBrowserAsync(await documentUrl(document.id));
+    } catch (cause) {
+      setOpenError(cause instanceof Error ? cause.message : t.documenti.nonApribile);
     } finally {
       setOpening('');
     }
@@ -37,12 +41,16 @@ export default function DocumentsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+        <View style={styles.topbar}>
+          <MenuButton />
+        </View>
+
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.header}>
-            <ThemedText type="subtitle">Documenti</ThemedText>
+            <ThemedText type="subtitle">{t.documenti.titolo}</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Report, presentazioni e materiali che Revna ha condiviso con te.
+              {t.documenti.sottotitolo}
             </ThemedText>
           </View>
 
@@ -52,8 +60,7 @@ export default function DocumentsScreen() {
             <ThemedView type="backgroundElement" style={styles.empty}>
               <DocumentsIcon color={theme.textSecondary} size={32} />
               <ThemedText type="small" themeColor="textSecondary" style={styles.emptyText}>
-                Non c'è ancora nulla. I documenti che il tuo referente Revna condivide
-                compaiono qui.
+                {t.documenti.vuoto}
               </ThemedText>
             </ThemedView>
           )}
@@ -73,11 +80,11 @@ export default function DocumentsScreen() {
                   <View style={styles.cardHead}>
                     <View style={[styles.badge, { borderColor: theme.border }]}>
                       <ThemedText type="small" themeColor="primary" style={styles.badgeLabel}>
-                        {categoriaLabel(document.categoria)}
+                        {labelOf(t.documenti.categorie, document.categoria)}
                       </ThemedText>
                     </View>
                     <ThemedText type="small" themeColor="textSecondary" style={styles.meta}>
-                      {formatSize(document.size)} · {shortDate(document.uploadedAt)}
+                      {formatSize(document.size)} · {shortDate(document.uploadedAt, t)}
                     </ThemedText>
                   </View>
 
@@ -90,7 +97,7 @@ export default function DocumentsScreen() {
                   )}
 
                   <ThemedText type="small" themeColor="primary" style={styles.action}>
-                    {opening === document.id ? 'Apertura…' : 'Apri documento'}
+                    {opening === document.id ? t.documenti.apertura : t.documenti.apri}
                   </ThemedText>
                 </ThemedView>
               )}
@@ -102,15 +109,20 @@ export default function DocumentsScreen() {
   );
 }
 
-function shortDate(iso: string): string {
+function shortDate(iso: string, t: Dictionary): string {
   return iso
-    ? new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
+    ? new Date(iso).toLocaleDateString(t.dateLocale, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
     : '';
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
   safeArea: { flex: 1, maxWidth: MaxContentWidth, width: '100%' },
+  topbar: { flexDirection: 'row', paddingHorizontal: Spacing.four },
   scroll: { padding: Spacing.four, gap: Spacing.three },
   header: { gap: Spacing.one },
   empty: {

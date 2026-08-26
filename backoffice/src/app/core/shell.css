@@ -1,0 +1,166 @@
+.layout {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 0 0 232px;
+  padding: 24px 16px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.brand {
+  padding: 0 8px;
+}
+
+.brand img {
+  width: 104px;
+  display: block;
+}
+
+nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.voce {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.voce svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.voce:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.voce.active {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.voce.active svg {
+  color: var(--brand);
+}
+
+/* Sottosezioni: rientrate e senza icona, la gerarchia la fa il filetto. */
+.sotto {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 0 0 19px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.sotto a {
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sotto a:hover {
+  color: var(--text);
+}
+
+.sotto a.active {
+  color: var(--brand-dark);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.operatore {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.chi {
+  color: var(--text-muted);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.operatore button {
+  align-self: flex-start;
+}
+
+.contenuto {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Sotto questa soglia la colonna toglie più spazio di quanto ne organizzi:
+   la barra torna in cima, orizzontale, e le sottosezioni le mostra la pagina. */
+@media (max-width: 860px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    flex: none;
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  nav {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .sotto {
+    flex-direction: row;
+    margin: 0 0 0 4px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+  }
+
+  .operatore {
+    flex-direction: row;
+    align-items: center;
+    padding: 0;
+    border-top: 0;
+  }
+}

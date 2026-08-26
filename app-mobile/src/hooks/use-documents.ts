@@ -1,9 +1,9 @@
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
-import { getDownloadURL, ref } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/hooks/use-auth';
-import { getFirebaseDb, getFirebaseStorage, isFirebaseConfigured } from '@/lib/firebase';
+import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from '@/lib/firebase';
 import type { ClientDocument } from '@/lib/documents';
 
 /**
@@ -46,7 +46,18 @@ export function useDocuments() {
   return { documents, loading, error };
 }
 
-/** URL firmato del file, chiesto solo al momento dell'apertura. */
-export function documentUrl(storagePath: string): Promise<string> {
-  return getDownloadURL(ref(getFirebaseStorage(), storagePath));
+/**
+ * URL di download del documento, valido pochi minuti.
+ *
+ * Le regole di Storage negano la lettura diretta: il link lo rilascia la function,
+ * che verifica che il documento sia davvero di chi lo sta chiedendo. Si chiede solo
+ * al momento dell'apertura, così non restano in giro link ancora validi.
+ */
+export async function documentUrl(documentId: string): Promise<string> {
+  const call = httpsCallable<{ documentId: string }, { url: string }>(
+    getFirebaseFunctions(),
+    'getDocumentUrl'
+  );
+  const { data } = await call({ documentId });
+  return data.url;
 }

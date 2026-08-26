@@ -1,0 +1,130 @@
+<main class="page" [formGroup]="form">
+  <a class="back" routerLink="/assistente/conoscenza">← Torna alla base di conoscenza</a>
+
+  <h1>
+    @if (!id()) {
+      Nuova voce
+    } @else if (documento()) {
+      Documento di conoscenza
+    } @else {
+      Voce di conoscenza
+    }
+  </h1>
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else {
+    <section class="card">
+      <h2>Cosa è</h2>
+      <p class="hint">
+        Il titolo è il nome con cui l'assistente cita questa voce: è quello che il cliente legge
+        sotto la risposta, quindi vale la pena che dica di cosa parla.
+      </p>
+      <div class="fields">
+        <label class="grow">
+          Titolo
+          <input type="text" formControlName="titolo" placeholder="Le restrizioni tariffarie" />
+        </label>
+        <label>
+          Tipo
+          <select formControlName="tipo">
+            @for (option of tipi; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Aree tematiche</h2>
+      <p class="hint">
+        Servono a ritrovare la voce quando la conoscenza diventa troppa per starci tutta in una
+        risposta. Due o tre bastano: taggare tutto equivale a non taggare niente.
+      </p>
+      <div class="tags">
+        @for (area of aree; track area) {
+          <button
+            type="button"
+            class="tag"
+            [class.on]="tags().includes(area)"
+            (click)="toggleTag(area)"
+          >
+            {{ area }}
+          </button>
+        }
+      </div>
+    </section>
+
+    @if (documento()) {
+      @if (voce(); as v) {
+        <section class="card">
+          <div class="actions">
+            <h2>Il documento</h2>
+            <div class="spacer"></div>
+            <button type="button" class="ghost" (click)="apri()">Apri il file</button>
+            <button type="button" class="ghost" [disabled]="rileggendo()" (click)="rileggi()">
+              {{ rileggendo() ? 'Lettura in corso…' : 'Rileggi' }}
+            </button>
+          </div>
+          <p class="hint">
+            {{ v.file?.name }} · {{ formatSize(v.file?.size ?? 0) }}. Il testo qui sotto è quello
+            che il server ne ha estratto ed è l'unica cosa che l'assistente legge: il file in sé non
+            gli arriva. Non si modifica a mano — la fonte è il documento, e una correzione scritta
+            qui sparirebbe alla prossima rilettura.
+          </p>
+          @if (v.stato === 'errore') {
+            <p class="error">{{ v.errore || 'Testo non estratto.' }}</p>
+          }
+        </section>
+      }
+    }
+
+    <section class="card">
+      <h2>{{ documento() ? 'Testo estratto' : 'Contenuto' }}</h2>
+      @if (!documento()) {
+        <p class="hint">
+          Riformulato, non copiato dal libro: l'assistente deve ragionarci, e un testo verbatim
+          rischia di uscire tale e quale nella risposta. Scrivi come spiegheresti la cosa a un
+          albergatore — cosa fare, quando, e perché — e metti i numeri se ci sono.
+        </p>
+      }
+      <textarea formControlName="contenuto" rows="18"></textarea>
+      <p class="hint">
+        {{ stimaToken(form.getRawValue().contenuto.length) }} — è il costo di questa voce ogni volta
+        che entra in una risposta.
+      </p>
+    </section>
+
+    <section class="card">
+      <label class="inline">
+        <input type="checkbox" formControlName="attivo" />
+        Attiva: l'assistente può usarla e citarla
+      </label>
+      <p class="hint">
+        Una voce sospesa resta qui ma esce dal contesto. Utile per il materiale in revisione, o per
+        un contenuto che invecchia — un capitolo sull'AI di due anni fa, per esempio.
+        @if (documento()) {
+          Un documento di cui il testo non è stato estratto resta sospeso finché la rilettura non
+          riesce: attivarlo vuoto lo farebbe contare fra le voci disponibili senza dire niente al
+          modello.
+        }
+      </p>
+    </section>
+
+    <div class="actions">
+      <button type="button" (click)="save()" [disabled]="saving()">
+        {{ saving() ? 'Salvataggio…' : 'Salva' }}
+      </button>
+      @if (id()) {
+        <button type="button" class="ghost danger" (click)="remove()">Elimina</button>
+      }
+      @if (saved()) {
+        <span class="saved">{{ saved() }}</span>
+      }
+      @if (error()) {
+        <span class="error">{{ error() }}</span>
+      }
+    </div>
+  }
+</main>

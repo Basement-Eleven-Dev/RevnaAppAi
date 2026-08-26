@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import Monogram from '@/assets/images/brand/revna_R.svg';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useT } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -13,16 +14,17 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export function AssistantBadge() {
   const theme = useTheme();
+  const t = useT();
 
   return (
     <View style={styles.row}>
       <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]}>
         <Monogram width={11} height={14} />
       </View>
-      <ThemedText type="smallBold">Revna AI</ThemedText>
+      <ThemedText type="smallBold">{t.assistente.nome}</ThemedText>
       <View style={[styles.tag, { borderColor: theme.border }]}>
         <ThemedText type="small" themeColor="textSecondary" style={styles.tagLabel}>
-          Risposta generata da AI
+          {t.assistente.generatoDaAi}
         </ThemedText>
       </View>
     </View>

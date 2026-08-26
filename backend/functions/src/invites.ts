@@ -72,8 +72,13 @@ export const createInvite = onCall<Request, Promise<Response>>(
  * Genera il codice di attivazione e lo incapsula in un URL nostro.
  * Firebase produce un link verso la propria pagina di reset: a noi interessa
  * solo il parametro `oobCode`, che l'app userà con `confirmPasswordReset`.
+ *
+ * `reset` distingue i due momenti che usano lo stesso identico codice: la prima
+ * attivazione e il recupero della password. Firebase non li separa, quindi glielo
+ * diciamo noi con un parametro in coda all'URL — l'app lo legge e cambia le
+ * parole, non il meccanismo.
  */
-export async function buildActivationUrl(email: string): Promise<string> {
+export async function buildActivationUrl(email: string, reset = false): Promise<string> {
   const firebaseLink = await auth.generatePasswordResetLink(email);
   const code = new URL(firebaseLink).searchParams.get('oobCode');
 
@@ -81,5 +86,6 @@ export async function buildActivationUrl(email: string): Promise<string> {
     throw new HttpsError('internal', 'Codice di attivazione non ricavabile dal link Firebase.');
   }
 
-  return `${appBaseUrl.value()}/attiva?code=${encodeURIComponent(code)}`;
+  const suffix = reset ? '&reset=1' : '';
+  return `${appBaseUrl.value()}/attiva?code=${encodeURIComponent(code)}${suffix}`;
 }

@@ -4,11 +4,10 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { CATEGORIE_DOCUMENTO, categoriaLabel, formatSize, type ClientDocument } from '../../core/documents.model';
 import { DocumentsService } from '../../core/documents.service';
-import { Shell } from '../../core/shell';
 
 @Component({
   selector: 'app-client-documents',
-  imports: [ReactiveFormsModule, RouterLink, Shell],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './client-documents.html',
   styleUrl: './client-documents.css',
 })
@@ -81,7 +80,7 @@ export class ClientDocuments {
 
   protected async open(document: ClientDocument): Promise<void> {
     try {
-      window.open(await this.documents.downloadUrl(document.storagePath), '_blank');
+      window.open(await this.documents.downloadUrl(this.uid, document.id), '_blank');
     } catch (cause) {
       this.error.set(message(cause));
     }

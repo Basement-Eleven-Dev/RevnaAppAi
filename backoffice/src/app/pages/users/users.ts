@@ -1,16 +1,16 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 
 import { ProfileFields } from '../../components/profile-fields/profile-fields';
 import { ClientsService, type Invite } from '../../core/clients.service';
 import { buildProfileForm, readProfileForm } from '../../core/profile-form';
-import { Shell } from '../../core/shell';
 
 type Created = Invite & { email: string };
 
 @Component({
   selector: 'app-users',
-  imports: [ReactiveFormsModule, Shell, ProfileFields],
+  imports: [ReactiveFormsModule, RouterLink, ProfileFields],
   templateUrl: './users.html',
   styleUrl: './users.css',
 })

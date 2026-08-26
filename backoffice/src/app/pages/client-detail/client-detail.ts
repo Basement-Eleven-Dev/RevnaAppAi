@@ -5,11 +5,10 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProfileFields } from '../../components/profile-fields/profile-fields';
 import { ClientsService } from '../../core/clients.service';
 import { buildProfileForm, readProfileForm, type ProfileForm } from '../../core/profile-form';
-import { Shell } from '../../core/shell';
 
 @Component({
   selector: 'app-client-detail',
-  imports: [ReactiveFormsModule, RouterLink, Shell, ProfileFields],
+  imports: [ReactiveFormsModule, RouterLink, ProfileFields],
   templateUrl: './client-detail.html',
   styleUrl: './client-detail.css',
 })

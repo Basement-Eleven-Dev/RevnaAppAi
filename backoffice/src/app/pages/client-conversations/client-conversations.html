@@ -1,0 +1,93 @@
+<main class="page">
+  <a class="back" routerLink="/clienti">← Torna ai clienti</a>
+
+  <nav class="subnav">
+    <a [routerLink]="['/clienti', uid]">Profilo</a>
+    <a [routerLink]="['/clienti', uid, 'documenti']">Documenti</a>
+    <a class="active" [routerLink]="['/clienti', uid, 'conversazioni']">Conversazioni</a>
+    <a routerLink="/richieste" [queryParams]="{ cliente: uid }">Richieste</a>
+  </nav>
+
+  <header>
+    <h1>Conversazioni con l'assistente</h1>
+    <p class="hint">
+      @if (struttura()) {
+        Tutto quello che <strong>{{ struttura() }}</strong> ha chiesto all'assistente Revna, dalla
+        conversazione più recente.
+      } @else {
+        Tutto quello che il cliente ha chiesto all'assistente Revna, dalla conversazione più
+        recente.
+      }
+      Si leggono soltanto: la chat è del cliente, cancellarla può farlo solo lui.
+    </p>
+  </header>
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else if (error()) {
+    <p class="error">{{ error() }}</p>
+  } @else if (!list().length) {
+    <p class="hint">Questo cliente non ha ancora scritto all'assistente.</p>
+  } @else {
+    <div class="split">
+      <aside class="elenco" aria-label="Elenco conversazioni">
+        @for (gruppo of giorni(); track gruppo.day) {
+          <p class="day">{{ gruppo.day }}</p>
+          @for (conversation of gruppo.items; track conversation.id) {
+            <button
+              type="button"
+              class="voce"
+              [class.active]="conversation.id === selectedId()"
+              (click)="select(conversation.id)"
+            >
+              <span class="titolo">{{ titolo(conversation) }}</span>
+              <span class="meta">
+                {{ formatTime(conversation.updatedAt) }} ·
+                {{ domande(conversation) }}
+                {{ domande(conversation) === 1 ? 'domanda' : 'domande' }}
+              </span>
+            </button>
+          }
+        }
+      </aside>
+
+      @if (selected(); as conversation) {
+        <section class="dettaglio">
+          <div class="testa">
+            <h2>{{ titolo(conversation) }}</h2>
+            <p class="hint">
+              Iniziata il {{ formatDateTime(conversation.createdAt) }} · ultimo messaggio il
+              {{ formatDateTime(conversation.updatedAt) }} ·
+              {{ conversation.messages.length }} messaggi
+            </p>
+          </div>
+
+          @if (!conversation.messages.length) {
+            <p class="hint">Nessun messaggio in questa conversazione.</p>
+          }
+
+          @for (turn of conversation.messages; track $index) {
+            <article class="turno" [class.assistente]="turn.role === 'model'">
+              <div class="chi">
+                <span class="ruolo">{{ turn.role === 'user' ? 'Cliente' : 'Assistente' }}</span>
+                @if (oraTurno(turn.at)) {
+                  <span class="ora">{{ oraTurno(turn.at) }}</span>
+                }
+              </div>
+
+              <p class="testo">{{ turn.text }}</p>
+
+              @if (turn.sources?.length) {
+                <ul class="fonti">
+                  @for (source of turn.sources; track source.n) {
+                    <li>[{{ source.n }}] {{ source.titolo }}</li>
+                  }
+                </ul>
+              }
+            </article>
+          }
+        </section>
+      }
+    </div>
+  }
+</main>

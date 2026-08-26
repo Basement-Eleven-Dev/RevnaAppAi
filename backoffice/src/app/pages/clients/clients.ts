@@ -3,11 +3,10 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
 import { ClientsService, type Client } from '../../core/clients.service';
-import { Shell } from '../../core/shell';
 
 @Component({
   selector: 'app-clients',
-  imports: [FormsModule, RouterLink, Shell],
+  imports: [FormsModule, RouterLink],
   templateUrl: './clients.html',
   styleUrl: './clients.css',
 })

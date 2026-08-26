@@ -5,23 +5,37 @@ import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandLogo } from '@/components/brand-logo';
+import { LegalLinks } from '@/components/legal-links';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useT } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
+import { authErrorMessage, MIN_PASSWORD } from '@/lib/auth';
 import { getFirebaseAuth } from '@/lib/firebase';
 
-const MIN_PASSWORD = 8;
-
 /**
- * Attivazione dell'account: il cliente sceglie qui la sua password, dentro l'app.
+ * Il cliente sceglie qui la sua password, dentro l'app.
  *
  * Ci si arriva dal link nell'email (deep link `revnaai://attiva?code=...`) oppure
  * incollando a mano il codice, utile quando il deep link non scatta.
+ *
+ * Serve due momenti con lo stesso codice: la prima attivazione e il recupero
+ * della password. Firebase non li distingue — è lo stesso `oobCode` in entrambi i
+ * casi — quindi a dirlo è il parametro `reset` che l'email di recupero porta con
+ * sé. Cambia solo cosa legge il cliente: il meccanismo è identico, e sdoppiare lo
+ * schermo vorrebbe dire mantenere due volte la stessa gestione del codice.
  */
 export default function ActivationScreen() {
   const theme = useTheme();
-  const params = useLocalSearchParams<{ code?: string }>();
+  const t = useT();
+  const params = useLocalSearchParams<{ code?: string; reset?: string }>();
+
+  // I parametri di un deep link sono sempre stringhe: `reset=1` è la forma che
+  // scrive l'email, ma qualunque valore non vuoto vale come «sì».
+  const isReset = (params.reset ?? '') !== '';
+  const testi = isReset ? t.attivazione.reset : t.attivazione;
+  const conferma = isReset ? t.attivazione.reset.conferma : t.attivazione.attiva;
 
   const [code, setCode] = useState(params.code ?? '');
   const [email, setEmail] = useState('');
@@ -40,9 +54,9 @@ export default function ActivationScreen() {
     setVerifying(true);
     verifyPasswordResetCode(getFirebaseAuth(), incoming)
       .then(setEmail)
-      .catch((cause) => setError(describeError(cause)))
+      .catch((cause) => setError(authErrorMessage(t, cause, testi.fallita)))
       .finally(() => setVerifying(false));
-  }, [params.code]);
+  }, [params.code, t, testi]);
 
   async function verifyManualCode() {
     if (code.trim() === '') return;
@@ -51,7 +65,7 @@ export default function ActivationScreen() {
     try {
       setEmail(await verifyPasswordResetCode(getFirebaseAuth(), code.trim()));
     } catch (cause) {
-      setError(describeError(cause));
+      setError(authErrorMessage(t, cause, testi.fallita));
     } finally {
       setVerifying(false);
     }
@@ -69,7 +83,7 @@ export default function ActivationScreen() {
       // Password impostata: entriamo subito, senza far ridigitare le credenziali.
       await signInWithEmailAndPassword(auth, email, password);
     } catch (cause) {
-      setError(describeError(cause));
+      setError(authErrorMessage(t, cause, testi.fallita));
     } finally {
       setBusy(false);
     }
@@ -81,7 +95,7 @@ export default function ActivationScreen() {
         <ThemedView style={styles.hero}>
           <BrandLogo width={200} />
           <ThemedText type="small" themeColor="textSecondary" style={styles.centeredText}>
-            {email ? `Attiva l'accesso di ${email}` : 'Attiva il tuo accesso'}
+            {email ? testi.titoloPer(email) : testi.titolo}
           </ThemedText>
         </ThemedView>
 
@@ -91,11 +105,11 @@ export default function ActivationScreen() {
           {!email && !verifying && (
             <>
               <ThemedText type="small" themeColor="textSecondary">
-                Incolla il codice che trovi nell'email di attivazione.
+                {testi.incollaCodice}
               </ThemedText>
               <TextInput
                 style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-                placeholder="Codice di attivazione"
+                placeholder={testi.codice}
                 placeholderTextColor={theme.textSecondary}
                 autoCapitalize="none"
                 value={code}
@@ -106,7 +120,7 @@ export default function ActivationScreen() {
                 disabled={code.trim() === ''}
                 onPress={verifyManualCode}>
                 <ThemedText type="smallBold" style={styles.buttonLabel}>
-                  Continua
+                  {t.comune.continua}
                 </ThemedText>
               </TouchableOpacity>
             </>
@@ -116,7 +130,7 @@ export default function ActivationScreen() {
             <>
               <TextInput
                 style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-                placeholder={`Nuova password (min ${MIN_PASSWORD} caratteri)`}
+                placeholder={t.attivazione.nuovaPassword(MIN_PASSWORD)}
                 placeholderTextColor={theme.textSecondary}
                 autoCapitalize="none"
                 secureTextEntry
@@ -125,7 +139,7 @@ export default function ActivationScreen() {
               />
               <TextInput
                 style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-                placeholder="Ripeti la password"
+                placeholder={t.attivazione.ripetiPassword}
                 placeholderTextColor={theme.textSecondary}
                 autoCapitalize="none"
                 secureTextEntry
@@ -138,7 +152,7 @@ export default function ActivationScreen() {
                 disabled={!passwordsMatch || busy}
                 onPress={activate}>
                 <ThemedText type="smallBold" style={styles.buttonLabel}>
-                  {busy ? 'Attivazione in corso…' : 'Attiva ed entra'}
+                  {busy ? testi.inCorso : conferma}
                 </ThemedText>
               </TouchableOpacity>
             </>
@@ -149,25 +163,12 @@ export default function ActivationScreen() {
               {error}
             </ThemedText>
           )}
+
+          <LegalLinks nota={!isReset} />
         </ThemedView>
       </SafeAreaView>
     </ThemedView>
   );
-}
-
-function describeError(cause: unknown): string {
-  switch ((cause as { code?: string }).code) {
-    case 'auth/expired-action-code':
-      return 'Il link di attivazione è scaduto. Chiedi al tuo referente Revna di rimandartelo.';
-    case 'auth/invalid-action-code':
-      return 'Codice di attivazione non valido o già usato.';
-    case 'auth/user-disabled':
-      return 'Questa utenza è stata disattivata.';
-    case 'auth/weak-password':
-      return 'Password troppo debole: usane una più lunga.';
-    default:
-      return cause instanceof Error ? cause.message : 'Attivazione non riuscita.';
-  }
 }
 
 const styles = StyleSheet.create({
@@ -187,6 +188,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 16,
+    // I campi non passano da ThemedText: il font del brand va detto qui.
+    fontFamily: Fonts.sans,
   },
   button: { borderRadius: Spacing.three, paddingVertical: Spacing.three, alignItems: 'center' },
   buttonLabel: { color: '#FFFFFF' },

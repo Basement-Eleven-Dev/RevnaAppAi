@@ -1,46 +1,27 @@
 import { Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from './auth.service';
 
-/** Barra superiore condivisa dalle pagine del backoffice. */
+/**
+ * Telaio del backoffice: barra laterale fissa a sinistra, pagina a destra.
+ *
+ * È un layout di rotta, non un componente da includere in ogni pagina: le rotte
+ * riservate ai referenti Revna sono figlie di questa, e la pagina compare qui
+ * dentro nel `<router-outlet>`. Così la navigazione non si smonta e non si
+ * rimonta a ogni cambio di sezione, e le pagine non devono più ricordarsi di
+ * mettere la barra in cima.
+ *
+ * Le sottosezioni dell'assistente stanno nell'albero della barra invece che in
+ * una fila di linguette dentro la pagina: sono tre pagine dello stesso lavoro, e
+ * averle sempre sott'occhio evita il rimbalzo «entra nella sezione per scoprire
+ * cosa contiene».
+ */
 @Component({
   selector: 'app-shell',
-  imports: [RouterLink, RouterLinkActive],
-  template: `
-    <header class="topbar">
-      <img class="logo" src="brand/logo_dark.svg" alt="Revna" />
-      <nav>
-        <a routerLink="/utenti" routerLinkActive="active">Nuova utenza</a>
-        <a routerLink="/clienti" routerLinkActive="active">Clienti</a>
-      </nav>
-      <div class="spacer"></div>
-      <span class="who">{{ operatore()?.email }}</span>
-      <button type="button" class="ghost" (click)="logout()">Esci</button>
-    </header>
-  `,
-  styles: `
-    .topbar {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--border);
-    }
-    .logo { width: 110px; }
-    nav { display: flex; gap: 16px; }
-    nav a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 600;
-      padding-bottom: 2px;
-      border-bottom: 2px solid transparent;
-    }
-    nav a.active { color: var(--text); border-bottom-color: var(--brand); }
-    .spacer { flex: 1; }
-    .who { color: var(--text-muted); font-size: 14px; }
-  `,
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  templateUrl: './shell.html',
+  styleUrl: './shell.css',
 })
 export class Shell {
   private readonly auth = inject(AuthService);

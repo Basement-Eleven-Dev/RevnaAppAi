@@ -31,7 +31,7 @@ export class Login {
     const { email, password } = this.form.getRawValue();
     try {
       await this.auth.signIn(email, password);
-      await this.router.navigate(['/utenti']);
+      await this.router.navigate(['/clienti']);
     } catch (cause) {
       this.error.set(describeAuthError(cause));
     } finally {

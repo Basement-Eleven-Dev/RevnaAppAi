@@ -1,6 +1,14 @@
-/* Stile di base del backoffice Revna. Palette allineata a app-mobile. */
+/* Stile di base del backoffice Revna. Palette e font allineati a app-mobile. */
+
+/*
+ * Rethink Sans, il font del brand: pesi 400-800 dal file variabile.
+ * Servito dal nostro bundle e non dalla CDN di Google, così l'apertura del
+ * backoffice non manda l'IP di chi lavora qui a un terzo.
+ */
+@import '@fontsource-variable/rethink-sans';
 
 :root {
+  --font-sans: 'Rethink Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --brand: #dd5237;
   --brand-dark: #b33f29;
   --bg: #ffffff;
@@ -19,7 +27,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   font-size: 16px;
 }
 

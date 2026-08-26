@@ -1,0 +1,233 @@
+.page {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.back {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.back:hover {
+  color: var(--text);
+}
+
+.subnav {
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.subnav a {
+  padding-bottom: 8px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+}
+
+.subnav a.active {
+  color: var(--text);
+  border-bottom-color: var(--brand);
+}
+
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Elenco a sinistra, conversazione a destra. La colonna dell'elenco è fissa:
+   scorrere lo storico non deve far ballare la larghezza del testo. */
+.split {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.elenco {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Le due colonne scorrono per conto proprio: una chat lunga non deve
+     allontanare l'elenco dallo schermo. */
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.day {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.day:first-child {
+  margin-top: 0;
+}
+
+.voce {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.voce:hover {
+  background: var(--surface);
+}
+
+.voce.active {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.voce.active .titolo {
+  color: var(--brand);
+}
+
+.titolo {
+  font-size: 14px;
+  font-weight: 600;
+  /* Il titolo è generato dalla prima domanda: può essere lungo. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.dettaglio {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.testa {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Il turno dell'assistente rientra e cambia sfondo: la chat si legge a colpo
+   d'occhio come una chat, senza bolle che sprechino larghezza al testo lungo. */
+.turno {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border-left: 3px solid var(--border);
+  background: var(--bg);
+}
+
+.turno.assistente {
+  margin-left: 32px;
+  border-left-color: var(--brand);
+}
+
+.chi {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ruolo {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.turno.assistente .ruolo {
+  color: var(--brand);
+}
+
+.ora {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.testo {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  /* Il testo arriva con i suoi ritorni a capo: vanno rispettati. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.fonti {
+  margin: 0;
+  padding: 8px 0 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 14px;
+}
+
+@media (max-width: 880px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .elenco,
+  .dettaglio {
+    max-height: none;
+    overflow: visible;
+  }
+}

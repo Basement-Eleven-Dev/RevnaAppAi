@@ -3,7 +3,7 @@
     <img class="logo" src="brand/logo_dark.svg" alt="Revna" />
 
     @if (hasCode) {
-      <h1>Attiva il tuo accesso</h1>
+      <h1>{{ isReset ? 'Scegli una nuova password' : 'Attiva il tuo accesso' }}</h1>
       <p>
         Stiamo aprendo l'app Revna AI, dove sceglierai la tua password.
         Se non si apre da sola, usa il pulsante.
@@ -14,7 +14,8 @@
       <p class="hint">
         Non hai ancora installato l'app? Installala, poi torna qui dal telefono e
         riapri questo link. In alternativa puoi copiare il codice e incollarlo
-        nell'app, nella schermata di attivazione.
+        nell'app, nella schermata di
+        {{ isReset ? 'recupero' : 'attivazione' }}.
       </p>
 
       <button type="button" class="ghost" (click)="copyCode()">
@@ -23,8 +24,13 @@
     } @else {
       <h1>Link non valido</h1>
       <p>
-        Questo link non contiene un codice di attivazione. Chiedi al tuo referente
-        Revna di rimandartelo.
+        @if (isReset) {
+          Questo link non contiene un codice di recupero. Richiedine uno nuovo
+          dall'app, dalla schermata di accesso.
+        } @else {
+          Questo link non contiene un codice di attivazione. Chiedi al tuo referente
+          Revna di rimandartelo.
+        }
       </p>
     }
   </div>

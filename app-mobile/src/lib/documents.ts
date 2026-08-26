@@ -4,6 +4,9 @@
  * Il file sta su Cloud Storage in `clients/{uid}/documents/{id}-{nome}`; qui c'è
  * la sua scheda, in `users/{uid}/documents/{id}`. Tipi duplicati fra backoffice e
  * app: sono poche righe e non giustificano un pacchetto condiviso.
+ *
+ * Le etichette delle categorie stanno in `lib/i18n` insieme al resto dell'interfaccia
+ * (`t.documenti.categorie`): qui resta solo quello che non si traduce.
  */
 
 export type ClientDocument = {
@@ -19,20 +22,6 @@ export type ClientDocument = {
   uploadedAt: string;
   uploadedBy: string;
 };
-
-export const CATEGORIE_DOCUMENTO = [
-  { value: 'report', label: 'Report' },
-  { value: 'presentazione', label: 'Presentazione' },
-  { value: 'playbook', label: 'Playbook' },
-  { value: 'pickup', label: 'Pick-up' },
-  { value: 'analisi', label: 'Analisi' },
-  { value: 'contratto', label: 'Contratto' },
-  { value: 'altro', label: 'Altro' },
-];
-
-export function categoriaLabel(value: string): string {
-  return CATEGORIE_DOCUMENTO.find((option) => option.value === value)?.label ?? value;
-}
 
 /** Dimensione leggibile, senza decimali inutili sui file piccoli. */
 export function formatSize(bytes: number): string {

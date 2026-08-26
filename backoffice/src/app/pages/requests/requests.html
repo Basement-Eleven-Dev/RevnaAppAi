@@ -1,0 +1,138 @@
+<main class="page">
+  @if (cliente()) {
+    <a class="back" [routerLink]="['/clienti', cliente()]">← Torna al cliente</a>
+  }
+
+  <div class="testata">
+    <h1>Richieste di contatto</h1>
+    <div class="spacer"></div>
+    @if (cliente()) {
+      <a class="ghost link" routerLink="/richieste">Vedi tutte</a>
+    }
+  </div>
+
+  <p class="hint">
+    Le richieste che i clienti aprono quando l'assistente non basta, dalla più recente.
+    Aprirne una la segna come «visualizzata»: da quel momento il cliente vede nell'app che
+    qualcuno la sta seguendo, quindi apri quelle che hai davvero intenzione di lavorare.
+  </p>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else if (!list().length) {
+    <p class="hint">
+      @if (cliente()) {
+        Questo cliente non ha ancora aperto nessuna richiesta.
+      } @else {
+        Nessuna richiesta. Compaiono qui appena un cliente ne apre una dall'app.
+      }
+    </p>
+  } @else {
+    <div class="filtri">
+      <button
+        type="button"
+        class="chip"
+        [class.active]="filtro() === 'aperte'"
+        (click)="setFiltro('aperte')"
+      >
+        Da lavorare ({{ daLavorare() }})
+      </button>
+      <button
+        type="button"
+        class="chip"
+        [class.active]="filtro() === 'tutte'"
+        (click)="setFiltro('tutte')"
+      >
+        Tutte ({{ list().length }})
+      </button>
+    </div>
+
+    @if (!visible().length) {
+      <p class="hint">Nessuna richiesta aperta: sono tutte chiuse.</p>
+    } @else {
+      <div class="split">
+        <aside class="elenco" aria-label="Elenco richieste">
+          @for (request of visible(); track request.id) {
+            <button
+              type="button"
+              class="voce"
+              [class.active]="request.id === selectedId()"
+              (click)="select(request)"
+            >
+              <span class="riga">
+                <span [class]="'badge ' + request.stato">{{ statoLabel[request.stato] }}</span>
+                <span class="attesa">{{ attesa(request.createdAt) }}</span>
+              </span>
+              <span class="chi">{{ request.contatto.struttura || request.contatto.email }}</span>
+              <span class="anteprima">{{ request.messaggio }}</span>
+            </button>
+          }
+        </aside>
+
+        @if (selected(); as request) {
+          <section class="dettaglio">
+            <div class="testa">
+              <span [class]="'badge ' + request.stato">{{ statoLabel[request.stato] }}</span>
+              <p class="hint">
+                {{ statoHint[request.stato] }}
+                @if (request.statoBy) {
+                  · {{ request.statoBy }}, {{ formatDateTime(request.statoAt ?? '') }}
+                }
+              </p>
+            </div>
+
+            <div class="contatto">
+              <h2>{{ request.contatto.struttura || 'Struttura senza nome' }}</h2>
+              <p class="chi">{{ referente(request) }}</p>
+              <p class="recapiti">
+                @if (request.contatto.telefono) {
+                  <a [href]="'tel:' + request.contatto.telefono">{{ request.contatto.telefono }}</a>
+                } @else {
+                  <span class="muted">Nessun telefono nel profilo</span>
+                }
+                @if (request.contatto.email) {
+                  <a [href]="'mailto:' + request.contatto.email">{{ request.contatto.email }}</a>
+                }
+              </p>
+              <p class="hint">
+                Recapiti come erano al momento della richiesta. Il profilo aggiornato è nella
+                <a [routerLink]="['/clienti', request.uid]">scheda del cliente</a>.
+              </p>
+            </div>
+
+            <blockquote class="messaggio">{{ request.messaggio }}</blockquote>
+
+            <p class="hint">
+              {{ origineLabel[request.origine] }} · aperta il {{ formatDateTime(request.createdAt) }}
+              @if (request.conversationId) {
+                ·
+                <a [routerLink]="['/clienti', request.uid, 'conversazioni']">
+                  Leggi la conversazione
+                </a>
+              }
+            </p>
+
+            <div class="stati">
+              <span class="etichetta">Stato</span>
+              @for (stato of stati; track stato) {
+                <button
+                  type="button"
+                  class="chip"
+                  [class.active]="request.stato === stato"
+                  [disabled]="request.stato === stato || pending() === request.id"
+                  (click)="setStato(request, stato)"
+                >
+                  {{ statoLabel[stato] }}
+                </button>
+              }
+            </div>
+          </section>
+        }
+      </div>
+    }
+  }
+</main>

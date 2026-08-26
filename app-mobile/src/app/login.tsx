@@ -5,15 +5,19 @@ import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BrandLogo } from '@/components/brand-logo';
+import { LegalLinks } from '@/components/legal-links';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
+import { useT } from '@/hooks/use-language';
 import { useTheme } from '@/hooks/use-theme';
+import { authErrorMessage } from '@/lib/auth';
 import { getFirebaseAuth, isFirebaseConfigured, missingFirebaseEnvKeys } from '@/lib/firebase';
 
 export default function LoginScreen() {
   const theme = useTheme();
+  const t = useT();
   const { user, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +45,7 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
     } catch (cause) {
-      setError(describeAuthError(cause));
+      setError(authErrorMessage(t, cause, t.login.fallito));
     } finally {
       setBusy(false);
     }
@@ -53,14 +57,14 @@ export default function LoginScreen() {
         <ThemedView style={styles.hero}>
           <BrandLogo width={200} />
           <ThemedText type="small" themeColor="textSecondary" style={styles.centeredText}>
-            Accesso riservato ai clienti Revna
+            {t.login.sottotitolo}
           </ThemedText>
         </ThemedView>
 
         <ThemedView style={styles.form}>
           <TextInput
             style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-            placeholder="Email"
+            placeholder={t.comune.email}
             placeholderTextColor={theme.textSecondary}
             autoCapitalize="none"
             autoComplete="email"
@@ -70,7 +74,7 @@ export default function LoginScreen() {
           />
           <TextInput
             style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-            placeholder="Password"
+            placeholder={t.comune.password}
             placeholderTextColor={theme.textSecondary}
             autoCapitalize="none"
             autoComplete="current-password"
@@ -88,7 +92,7 @@ export default function LoginScreen() {
 
           {!isFirebaseConfigured && (
             <ThemedText type="code" themeColor="textSecondary">
-              Firebase da configurare: mancano {missingFirebaseEnvKeys().join(', ')}
+              {t.login.firebaseDaConfigurare(missingFirebaseEnvKeys().join(', '))}
             </ThemedText>
           )}
 
@@ -97,39 +101,31 @@ export default function LoginScreen() {
             disabled={!canSubmit}
             onPress={submit}>
             <ThemedText type="smallBold" style={styles.buttonLabel}>
-              {busy ? 'Accesso in corso…' : 'Accedi'}
+              {busy ? t.login.inCorso : t.login.accedi}
             </ThemedText>
           </TouchableOpacity>
 
+          <Link href="/recupera" style={styles.centeredText}>
+            <ThemedText type="small" themeColor="primary">
+              {t.login.passwordDimenticata}
+            </ThemedText>
+          </Link>
+
           <Link href="/attiva" style={styles.centeredText}>
             <ThemedText type="small" themeColor="primary">
-              Ho un codice di attivazione
+              {t.login.hoUnCodice}
             </ThemedText>
           </Link>
 
           <ThemedText type="small" themeColor="textSecondary" style={styles.centeredText}>
-            Non hai un accesso? Te lo attiva il tuo referente Revna.
+            {t.login.nessunAccesso}
           </ThemedText>
+
+          <LegalLinks nota />
         </ThemedView>
       </SafeAreaView>
     </ThemedView>
   );
-}
-
-function describeAuthError(cause: unknown): string {
-  const code = (cause as { code?: string }).code;
-  switch (code) {
-    case 'auth/invalid-credential':
-    case 'auth/wrong-password':
-    case 'auth/user-not-found':
-      return 'Email o password non corretti.';
-    case 'auth/too-many-requests':
-      return 'Troppi tentativi. Riprova tra qualche minuto.';
-    case undefined:
-      return cause instanceof Error ? cause.message : 'Accesso non riuscito.';
-    default:
-      return `Accesso non riuscito (${code}).`;
-  }
 }
 
 const styles = StyleSheet.create({
@@ -150,6 +146,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.three,
     fontSize: 16,
+    // I campi non passano da ThemedText: il font del brand va detto qui.
+    fontFamily: Fonts.sans,
   },
   button: {
     borderRadius: Spacing.three,

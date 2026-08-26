@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "backoffice", "start"],
       "port": 4200
+    },
+    {
+      "name": "app-mobile-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "app-mobile", "run", "web"],
+      "port": 8081
     }
   ]
 }

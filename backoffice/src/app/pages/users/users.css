@@ -7,6 +7,13 @@
   gap: 24px;
 }
 
+.back {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 h1 {
   margin: 0;
   font-size: 28px;

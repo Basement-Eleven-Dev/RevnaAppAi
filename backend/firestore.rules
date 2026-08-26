@@ -45,13 +45,101 @@ service cloud.firestore {
         allow create, update, delete: if isRevnaAdmin();
       }
 
-      // Conversazioni con l'assistente: le legge e le cancella solo il cliente.
+      // Comunicazioni di Revna consegnate a questo cliente: la sua copia dell'avviso,
+      // con il proprio `lettoAt`. L'originale sta in `announcements`, che il cliente
+      // non vede: lì ci sono anche i destinatari, cioè chi altro è cliente Revna.
+      //
+      // Nessuno scrive da qui. La consegna la fanno `sendAnnouncement` e
+      // `saveAnnouncement` con l'Admin SDK; `lettoAt` lo scrive
+      // `markAnnouncementRead`, che conta la lettura anche sull'originale — un
+      // documento che il cliente non potrebbe toccare.
+      match /announcements/{announcementId} {
+        allow read: if isSelf(userId) || isRevnaAdmin();
+        allow create, update, delete: if false;
+      }
+
+      // Token per le notifiche push, uno per dispositivo.
+      //
+      // È l'unica sottocollezione che il cliente scrive da sé, e non c'era altro modo:
+      // il token lo rilascia il servizio push al dispositivo, e nessun altro lo conosce.
+      // Non è un dato riservato in senso stretto — serve solo a recapitare una notifica
+      // a quel telefono — ma resta chiuso a tutti gli altri, referenti Revna compresi:
+      // l'elenco dei dispositivi di un cliente non serve a nessuno dal backoffice.
+      // Chi manda le notifiche li legge con l'Admin SDK (vedi `push.ts`).
+      match /pushTokens/{tokenId} {
+        allow read, write: if isSelf(userId);
+      }
+
+      // Conversazioni con l'assistente.
+      //
+      // Le rilegge anche il backoffice, nella rotta «Conversazioni» del cliente:
+      // un consulente che sta per parlare con la struttura deve poter vedere cosa
+      // ha già chiesto all'assistente. Cancellarle resta del solo cliente — la
+      // chat è sua, e Revna non deve poterne far sparire dei pezzi.
+      //
       // Le scrive esclusivamente `askAssistant`, che è anche l'unico posto in cui
       // lo storico viene composto — così il client non può riscrivere il passato.
       match /conversations/{conversationId} {
-        allow read, delete: if isSelf(userId);
+        allow read: if isSelf(userId) || isRevnaAdmin();
+        allow delete: if isSelf(userId);
         allow create, update: if false;
       }
+    }
+
+    // Richieste di contatto: quando l'assistente non basta, il cliente chiede una persona.
+    //
+    // Collezione di primo livello e non sottocollezione dell'utente perché il
+    // backoffice le guarda tutte insieme, come una coda (vedi `requests.ts`). Il
+    // cliente vede le sue: la condizione su `uid` obbliga la sua query a filtrare
+    // per il proprio, altrimenti Firestore la rifiuta in blocco.
+    //
+    // Nessuno le scrive da qui. Aprirle e cambiarne lo stato passa da
+    // `createContactRequest` e `updateContactRequest`: il recapito del cliente e lo
+    // stato sono le due cose che nessuna delle due parti deve poter riscrivere da sé —
+    // il cliente non si dà per «chiusa» una richiesta, e non si dichiara un numero
+    // di telefono diverso da quello del suo profilo.
+    match /contactRequests/{requestId} {
+      allow read: if isRevnaAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // Comunicazioni di Revna ai clienti: gli originali, con destinatari e letture.
+    //
+    // Chiusa ai clienti anche in lettura: contiene l'elenco di chi riceve, cioè chi
+    // altro è cliente Revna e quanti sono. Il cliente vede la sua copia, in
+    // `users/{uid}/announcements` (vedi `backend/functions/src/announcements.ts`).
+    //
+    // Il backoffice legge; per scrivere passa dalle functions. Non è una cautela
+    // contro i referenti Revna: `stato` e `destinatariCount` sono il resoconto di una
+    // consegna, e se li potesse scrivere il client «inviato a 42 clienti» sarebbe
+    // un'affermazione senza garanzie.
+    match /announcements/{announcementId} {
+      allow read: if isRevnaAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // Personalità dell'assistente, redatta dal backoffice.
+    //
+    // Il documento è diviso in due per un motivo di riservatezza: `config` contiene
+    // il system prompt, cioè come Revna ha istruito l'agente, e non deve uscire dal
+    // backoffice; `public` contiene solo quello che l'app deve poter mostrare da sé,
+    // oggi gli spunti della nuova conversazione. Li scrive lo stesso form.
+    match /agent/config {
+      allow read, write: if isRevnaAdmin();
+    }
+
+    match /agent/public {
+      allow read: if isSignedIn();
+      allow write: if isRevnaAdmin();
+    }
+
+    // Base di conoscenza Revna: metodo, playbook, checklist, KPI.
+    //
+    // Chiusa ai clienti anche in lettura: è il patrimonio di Revna, e il cliente ne
+    // deve vedere solo quello che l'assistente cita in risposta a una domanda.
+    // `askAssistant` la legge con l'Admin SDK, che non passa da queste regole.
+    match /knowledge/{entryId} {
+      allow read, write: if isRevnaAdmin();
     }
 
     // Tutto il resto è negato finché non viene aperto esplicitamente.

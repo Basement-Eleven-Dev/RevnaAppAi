@@ -1,0 +1,152 @@
+<main class="page">
+  <h1>Base di conoscenza</h1>
+  <p class="hint">
+    È il materiale su cui l'assistente ragiona e che <strong>cita</strong> nelle risposte. Può
+    entrare in due modi: una <strong>voce</strong> scritta qui, riformulata per l'assistente, o un
+    <strong>file</strong> caricato così com'è, di cui il testo lo estrae il server. Le due
+    convivono, e per l'assistente non c'è differenza. Usa soltanto le voci attive.
+  </p>
+
+  <section class="card">
+    <div class="meter">
+      <div class="actions">
+        <h2>{{ conteggio() }}</h2>
+        <div class="spacer"></div>
+        <label class="picker">
+          <input
+            type="file"
+            multiple
+            [accept]="accettati"
+            [disabled]="caricando() !== ''"
+            (change)="onFiles($event)"
+          />
+          <span class="finto-bottone">Carica file</span>
+        </label>
+        <a routerLink="/assistente/conoscenza/nuova"><button type="button">Nuova voce</button></a>
+      </div>
+      <div class="bar"><div class="fill" [style.width.%]="percentuale()"></div></div>
+      <p class="hint">
+        {{ stimaToken(peso()) }} di conoscenza attiva.
+        @if (peso() <= soglia) {
+          Sta tutta nel contesto di ogni domanda: l'assistente vede sempre l'intero materiale.
+        } @else {
+          Oltre la soglia: da qui l'assistente seleziona le voci pertinenti a ogni domanda, quindi
+          titoli e aree tematiche precisi diventano decisivi.
+        }
+      </p>
+    </div>
+
+    @if (caricando()) {
+      <div class="progress">
+        <span class="hint">
+          {{ caricando() }} ·
+          {{ leggendo() ? 'lettura del documento in corso…' : progress() + '%' }}
+        </span>
+        <div class="bar"><div class="fill" [style.width.%]="progress()"></div></div>
+      </div>
+    }
+
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+  </section>
+
+  <section class="card" [formGroup]="filtri">
+    <div class="fields">
+      <label class="grow">
+        Cerca
+        <input type="text" formControlName="testo" placeholder="titolo, nome del file, area" />
+      </label>
+      <label>
+        Origine
+        <select formControlName="formato">
+          <option value="">Tutte</option>
+          <option value="voce">Voci scritte</option>
+          <option value="file">File caricati</option>
+        </select>
+      </label>
+      <label>
+        Tipo
+        <select formControlName="tipo">
+          <option value="">Tutti</option>
+          @for (option of tipi; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Area tematica
+        <select formControlName="tag">
+          <option value="">Tutte</option>
+          @for (area of aree; track area) {
+            <option [value]="area">{{ area }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  </section>
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else if (!voci().length) {
+    <p class="hint">
+      Nessuna voce ancora. Puoi partire da un capitolo scritto a mano — un titolo e il contenuto
+      riformulato — oppure caricare direttamente un PDF e lasciare che sia il server a leggerlo.
+    </p>
+  } @else if (!visibili().length) {
+    <p class="hint">Nessuna voce con questi filtri.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Voce</th>
+          <th>Origine</th>
+          <th>Tipo</th>
+          <th>Peso</th>
+          <th>Aggiornata</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (voce of visibili(); track voce.id) {
+          <tr [class.spenta]="!voce.attivo">
+            <td>
+              <strong>{{ voce.titolo || 'Senza titolo' }}</strong>
+              @if (voce.file) {
+                <span class="note">{{ voce.file.name }} · {{ formatSize(voce.file.size) }}</span>
+              }
+              @if (voce.stato === 'errore') {
+                <span class="note danger">{{ voce.errore || 'Testo non estratto.' }}</span>
+              }
+              @if (voce.tags.length) {
+                <div class="tags">
+                  @for (tag of voce.tags; track tag) {
+                    <span class="tag">{{ tag }}</span>
+                  }
+                </div>
+              }
+            </td>
+            <td class="muted">{{ voce.formato === 'file' ? 'File' : 'Voce' }}</td>
+            <td class="muted">{{ tipoLabel(voce.tipo) }}</td>
+            <td class="muted">{{ stimaToken(voce.contenuto.length) }}</td>
+            <td class="muted">{{ date(voce.updatedAt) }}</td>
+            <td class="buttons">
+              <a [routerLink]="['/assistente/conoscenza', voce.id]">
+                <button type="button" class="ghost">Apri</button>
+              </a>
+              <button
+                type="button"
+                class="ghost"
+                [disabled]="!voce.attivo && voce.contenuto === ''"
+                (click)="toggle(voce)"
+              >
+                {{ voce.attivo ? 'Sospendi' : 'Attiva' }}
+              </button>
+              <button type="button" class="ghost danger" (click)="remove(voce)">Elimina</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</main>

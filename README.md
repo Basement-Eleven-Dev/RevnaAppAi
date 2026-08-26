@@ -49,8 +49,12 @@ app-mobile (Expo)     ─┘     Auth · Firestore · Storage      createInvite 
 | App | login, attivazione in-app, tab Assistente e Profilo |
 | Profilo struttura | modellato, redatto da Revna, visibile nell'app |
 | Email di attivazione (Resend) | chiave impostata, manca il dominio verificato |
-| Chat con l'assistente | funzionante su Gemini, ragiona sul profilo struttura; manca la chiave |
-| Knowledge base Revna e tracciabilità delle fonti | da fare |
+| Chat con l'assistente | funzionante su Gemini, ragiona sul profilo struttura e sulla knowledge base |
+| Personalità dell'assistente | redatta dal backoffice, non più costante nel codice |
+| Prova dell'assistente dal backoffice | pagina `/assistente/prova`, impersona un cliente senza salvare nulla |
+| Knowledge base Revna e tracciabilità delle fonti | impianto pronto: si redige dal backoffice, l'app cita le fonti |
 | Storico conversazioni | persistito, con sidebar e titoli automatici |
 | Documenti condivisi | caricamento da backoffice, consultazione dall'app |
-| Esportazione PDF, push, bilingue | da fare |
+| Comunicazioni ai clienti | pannello con editor WYSIWYG, destinatari scelti, sezione Avvisi nell'app con i non letti |
+| Notifiche push | impianto pronto: servono una development build e un `projectId` EAS |
+| Esportazione PDF | da fare |

@@ -1,14 +1,52 @@
 import { httpsCallable } from 'firebase/functions';
-import { useCallback, useState } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 
-import type { ConversationSummary, StoredTurn } from '@/hooks/use-conversations';
+import type { ConversationSummary, Source, StoredTurn } from '@/hooks/use-conversations';
+import { useT } from '@/hooks/use-language';
+import { stripHandoff } from '@/lib/contact-requests';
 import { getFirebaseFunctions, supportsStreaming } from '@/lib/firebase';
 
 export type Turn = StoredTurn;
 
 type Request = { message: string; conversationId?: string };
-type Response = { text: string; conversationId: string; title: string };
+type Response = {
+  text: string;
+  conversationId: string;
+  title: string;
+  sources: Source[];
+  /** Il testo della richiesta di contatto proposta, quando l'assistente passa la mano. */
+  proposal?: string;
+};
 type Chunk = { text: string };
+
+type AssistantState = ReturnType<typeof useAssistantState>;
+
+const AssistantContext = createContext<AssistantState | null>(null);
+
+/**
+ * La conversazione in corso, condivisa da tutta l'area riservata.
+ *
+ * Sta sopra le schermate e non dentro la chat perché la sidebar è ormai la
+ * navigazione dell'app: da qualsiasi schermata si può aprire una conversazione
+ * dall'elenco, e chi la apre deve poter scrivere nello stesso stato che la chat
+ * legge. Come effetto secondario la conversazione sopravvive al giro in
+ * Documenti o Profilo, che con lo stato dentro la schermata non era garantito.
+ */
+export function AssistantProvider({ children }: { children: React.ReactNode }) {
+  const state = useAssistantState();
+
+  return <AssistantContext.Provider value={state}>{children}</AssistantContext.Provider>;
+}
+
+export function useAssistant(): AssistantState {
+  const state = useContext(AssistantContext);
+
+  if (!state) {
+    throw new Error("useAssistant richiede <AssistantProvider> (vedi src/app/(app)/_layout.tsx).");
+  }
+
+  return state;
+}
 
 /**
  * Conversazione con l'assistente.
@@ -21,7 +59,8 @@ type Chunk = { text: string };
  * La risposta arriva a pezzi mentre il modello la scrive: l'ultimo turno viene
  * riscritto a ogni chunk.
  */
-export function useAssistant() {
+function useAssistantState() {
+  const t = useT();
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
@@ -45,8 +84,21 @@ export function useAssistant() {
         'askAssistant'
       );
       const payload: Request = { message: text, conversationId };
-      const show = (answer: string) =>
-        setTurns([...history, { role: 'user', text }, { role: 'model', text: answer }]);
+      // Durante lo streaming le fonti non ci sono ancora: arrivano con la risposta
+      // finale, insieme al testo con i marcatori rinumerati. La proposta di contatto
+      // nemmeno: mentre il modello scrive il suo marcatore viene tagliato via
+      // (`stripHandoff`), e la proposta compare come bottone solo alla fine.
+      const show = (answer: string, sources?: Source[], proposal?: string) =>
+        setTurns([
+          ...history,
+          { role: 'user', text },
+          {
+            role: 'model',
+            text: answer,
+            ...(sources?.length ? { sources } : {}),
+            ...(proposal ? { proposal } : {}),
+          },
+        ]);
 
       try {
         let streamed = 0;
@@ -61,13 +113,13 @@ export function useAssistant() {
               answer += chunk.text;
               streamed++;
               setWaiting(false);
-              show(answer);
+              show(stripHandoff(answer));
             }
 
             // `data` porta il testo completo e l'id: è la fonte autorevole se lo
             // stream si è interrotto o non ha prodotto nulla.
             const final = await data;
-            show(final.text);
+            show(final.text, final.sources, final.proposal);
             setConversationId(final.conversationId);
             return;
           } catch (cause) {
@@ -79,10 +131,10 @@ export function useAssistant() {
         }
 
         const { data } = await ask(payload);
-        show(data.text);
+        show(data.text, data.sources, data.proposal);
         setConversationId(data.conversationId);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Risposta non riuscita.');
+        setError(cause instanceof Error ? cause.message : t.chat.fallita);
         // La domanda resta a schermo: l'utente può ritentare senza riscriverla.
         setTurns([...history, { role: 'user', text }]);
       } finally {
@@ -90,7 +142,7 @@ export function useAssistant() {
         setWaiting(false);
       }
     },
-    [busy, conversationId, turns]
+    [busy, conversationId, t, turns]
   );
 
   /** Apre una conversazione dall'elenco laterale. */

@@ -1,0 +1,110 @@
+<main class="page" [formGroup]="form">
+  <h1>Personalità dell'assistente</h1>
+  <p class="hint">
+    Quello che scrivi qui è come l'assistente si comporta con <strong>tutti</strong> i clienti: chi
+    è, come ragiona, come scrive e di cosa si occupa. Non è la sua conoscenza — quella sta nella
+    base di conoscenza — ma il modo in cui la usa.
+  </p>
+
+  @if (loading()) {
+    <p class="hint">Caricamento…</p>
+  } @else {
+    <section class="card">
+      <div class="actions">
+        <h2>Identità</h2>
+        <div class="spacer"></div>
+        <button type="button" class="ghost" (click)="reset('identita')">Testo di partenza</button>
+      </div>
+      <p class="hint">Chi è e per conto di chi parla. È la prima cosa che il modello legge.</p>
+      <textarea formControlName="identita" rows="3" class="mono"></textarea>
+    </section>
+
+    <section class="card">
+      <div class="actions">
+        <h2>Come ragiona</h2>
+        <div class="spacer"></div>
+        <button type="button" class="ghost" (click)="reset('ragionamento')">
+          Testo di partenza
+        </button>
+      </div>
+      <p class="hint">
+        Da dove parte, quali dati chiede quando gli mancano, su quali leve lavora. È la sezione che
+        distingue un consulente da un motore di risposte.
+      </p>
+      <textarea formControlName="ragionamento" rows="9" class="mono"></textarea>
+    </section>
+
+    <section class="card">
+      <div class="actions">
+        <h2>Come scrive</h2>
+        <div class="spacer"></div>
+        <button type="button" class="ghost" (click)="reset('tono')">Testo di partenza</button>
+      </div>
+      <p class="hint">Tono di voce, lunghezza, struttura della risposta, lingua.</p>
+      <textarea formControlName="tono" rows="7" class="mono"></textarea>
+    </section>
+
+    <section class="card">
+      <div class="actions">
+        <h2>Perimetro</h2>
+        <div class="spacer"></div>
+        <button type="button" class="ghost" (click)="reset('perimetro')">Testo di partenza</button>
+      </div>
+      <p class="hint">
+        Di cosa si occupa, e cosa invece rimanda a un consulente in carne e ossa. Su temi legali,
+        fiscali o giuslavoristici vincolanti è meglio che non improvvisi.
+      </p>
+      <textarea formControlName="perimetro" rows="7" class="mono"></textarea>
+    </section>
+
+    <section class="card">
+      <h2>Spunti nella nuova conversazione</h2>
+      <p class="hint">
+        Le schede che il cliente trova nell'app davanti a una chat vuota. Tienile poche e concrete:
+        sono la prima idea che si fa di cosa può chiedere.
+      </p>
+
+      @for (spunto of spunti.controls; track $index) {
+        <div class="row">
+          <input type="text" [formControl]="spunto" placeholder="Come miglioro il mio ADR" />
+          <button type="button" class="ghost danger" (click)="removeSpunto($index)">Togli</button>
+        </div>
+      }
+
+      <div class="actions">
+        <button type="button" class="ghost" (click)="addSpunto()">Aggiungi spunto</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Variazione delle risposte</h2>
+      <p class="hint">
+        Più a sinistra, più le risposte alla stessa domanda si somigliano: utile per una consulenza,
+        dove la coerenza conta più della fantasia.
+      </p>
+      <div class="range">
+        <span class="muted">Ripetibile</span>
+        <input type="range" min="0" max="1" step="0.1" formControlName="temperature" />
+        <span class="muted">Creativa</span>
+        <strong class="mono">{{ form.controls.temperature.value }}</strong>
+      </div>
+    </section>
+
+    <p class="hint">
+      Il prompt pesa circa {{ stimaToken(peso()) }}: viaggia con ogni domanda, insieme al profilo
+      della struttura e al materiale citato.
+    </p>
+
+    <div class="actions">
+      <button type="button" (click)="save()" [disabled]="saving()">
+        {{ saving() ? 'Salvataggio…' : 'Salva personalità' }}
+      </button>
+      @if (saved()) {
+        <span class="saved">{{ saved() }}</span>
+      }
+      @if (error()) {
+        <span class="error">{{ error() }}</span>
+      }
+    </div>
+  }
+</main>

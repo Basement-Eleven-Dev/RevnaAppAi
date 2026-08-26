@@ -1,10 +1,13 @@
-<app-shell />
-
 <main class="page">
-  <h1>Clienti</h1>
+  <div class="testata">
+    <h1>Clienti</h1>
+    <div class="spacer"></div>
+    <a routerLink="/clienti/nuovo"><button type="button">Nuova utenza</button></a>
+  </div>
   <p class="hint">
-    Disattivare un'utenza revoca anche le sessioni attive: il cliente viene buttato fuori
-    dall'app entro pochi minuti, senza aspettare la scadenza del token.
+    Gli account nascono solo da qui: l'app non ha registrazione libera. Disattivare un'utenza revoca
+    anche le sessioni attive — il cliente viene buttato fuori dall'app entro pochi minuti, senza
+    aspettare la scadenza del token.
   </p>
 
   @if (error()) {
@@ -14,7 +17,7 @@
   @if (loading()) {
     <p class="hint">Caricamento…</p>
   } @else if (!list().length) {
-    <p class="hint">Nessun cliente ancora. Creane uno da «Nuova utenza».</p>
+    <p class="hint">Nessun cliente ancora. Creane uno con «Nuova utenza», qui sopra.</p>
   } @else {
     <table>
       <thead>
@@ -51,13 +54,22 @@
             <td class="actions">
               @if (editing() !== client.uid) {
                 <a class="ghost link" [routerLink]="['/clienti', client.uid]">Profilo</a>
-                <a class="ghost link" [routerLink]="['/clienti', client.uid, 'documenti']">Documenti</a>
+                <a class="ghost link" [routerLink]="['/clienti', client.uid, 'documenti']"
+                  >Documenti</a
+                >
+                <a class="ghost link" [routerLink]="['/clienti', client.uid, 'conversazioni']"
+                  >Conversazioni</a
+                >
+                <a class="ghost link" routerLink="/richieste" [queryParams]="{ cliente: client.uid }"
+                  >Richieste</a
+                >
                 <button type="button" class="ghost" (click)="startEdit(client)">Rinomina</button>
                 <button
                   type="button"
                   class="ghost"
                   [disabled]="pending() === client.uid"
-                  (click)="toggle(client)">
+                  (click)="toggle(client)"
+                >
                   {{ client.disabled ? 'Riattiva' : 'Disattiva' }}
                 </button>
               }
