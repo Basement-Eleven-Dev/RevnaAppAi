@@ -35,7 +35,7 @@ export class Users {
     this.busy.set(true);
     this.error.set('');
 
-    const { email } = this.account.getRawValue();
+    const email = this.account.controls.email.value.trim().toLowerCase();
     try {
       const invite = await this.clients.createInvite(email, readProfileForm(this.profile));
       this.created.update((list) => [{ ...invite, email }, ...list]);

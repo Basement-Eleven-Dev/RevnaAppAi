@@ -8,7 +8,12 @@
     questionario. Solo l'email è obbligatoria: il resto si può completare più avanti da «Clienti».
   </p>
 
-  <form (ngSubmit)="submit()">
+  <!--
+    Il form esterno non ha un proprio `formGroup`: account e profilo sono due
+    gruppi reattivi distinti. `ngSubmit` quindi non viene emesso da alcuna
+    direttiva Angular. Ascoltiamo il submit nativo e blocchiamo la navigazione.
+  -->
+  <form (submit)="submit(); $event.preventDefault()">
     <fieldset class="account" [formGroup]="account">
       <legend>Accesso</legend>
       <label>
