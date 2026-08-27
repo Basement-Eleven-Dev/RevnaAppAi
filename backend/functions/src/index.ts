@@ -9,6 +9,7 @@ export { listClients, updateClient, saveClientProfile } from './clients';
 export { askAssistant } from './assistant';
 export { previewAssistant } from './preview';
 export { deleteConversation } from './conversations';
+export { clearMemory } from './memory';
 export { createContactRequest, updateContactRequest } from './requests';
 export { getDocumentUrl } from './documents';
 export {

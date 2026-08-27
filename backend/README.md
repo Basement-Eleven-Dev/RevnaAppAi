@@ -44,6 +44,7 @@ Le function callable, tutte in `europe-west1`:
 | `updateClient` | Rinomina, disattiva/riattiva e revoca le sessioni | deployata |
 | `saveClientProfile` | Salva il profilo struttura redatto da Revna | deployata |
 | `deleteConversation` | Elimina una conversazione del cliente | deployata |
+| `clearMemory` | Cancella tutta la memoria dell'assistente su chi chiama | da deployare |
 | `createContactRequest` | Apre una richiesta di contatto del cliente | da deployare |
 | `updateContactRequest` | Cambia lo stato di una richiesta (solo referenti Revna) | da deployare |
 | `getDocumentUrl` | Rilascia un URL firmato a 5 minuti per un documento | deployata |
@@ -90,6 +91,14 @@ users/{uid}/conversations/{id}
 ├── title       riassunto in ≤5 parole, generato alla prima risposta
 ├── createdAt · updatedAt
 └── messages[]  { role: 'user' | 'model', text, sources?: [{ n, titolo, fonte, riferimento }] }
+
+users/{uid}/memory/{id}            un documento per preferenza: la memoria dell'assistente
+├── testo           la preferenza in una frase (≤280 caratteri); l'unico campo che il cliente corregge
+├── at              quando l'assistente l'ha imparata — non cambia più
+├── updatedAt       l'ultima riscrittura, dell'assistente o del cliente
+├── conversationId  la conversazione in cui è emerso
+├── conversazione   il titolo di quella conversazione, copiato: sopravvive alla sua cancellazione
+└── origine         'assistente' | 'cliente' — chi l'ha scritto per ultimo
 ```
 
 ### La personalità e la conoscenza dell'assistente
@@ -313,6 +322,83 @@ rompere per sbaglio.
 Quando non c'è materiale pertinente il prompt cambia: al modello viene detto di
 rispondere con la propria competenza di settore e di **non citare nulla**. Meglio una
 risposta dichiaratamente senza fonti che una fonte inventata.
+
+### La memoria dell'assistente
+
+La promessa è che l'assistente **non riparta da zero a ogni conversazione**. Quello che
+ricorda sono **le preferenze di chi gli scrive**: come vuole le risposte, cosa non deve
+fare, come lavora, che paletti si è dato. Chi dice una volta «quando mi rispondi non usare
+mai gli elenchi puntati» non deve ridirlo mai più.
+
+**I dati della struttura restano fuori di proposito** — occupazione, ADR, tariffe, eventi,
+andamento di una stagione. Non perché non contino, ma perché *cambiano*: una memoria che
+li tiene finisce per contraddirsi da sé, due righe con numeri diversi sulla stessa cosa e
+nessuno che sappia quale valga. Quei dati hanno già due posti giusti — il profilo, che
+Revna aggiorna, e la conversazione, dove hanno accanto la data in cui sono stati detti.
+Detto in un'altra forma: qui non si annota *cosa sa* l'assistente sul cliente, si annota
+*come deve trattarlo*. È anche il motivo per cui questa memoria si può tenere per anni:
+una preferenza non invecchia come un numero, vale finché il cliente non dice il contrario.
+
+Sta in `users/{uid}/memory`, **un documento per preferenza**. Non un blocco di prosa e non
+un array in un documento solo: solo così una riga si può aggiornare quando il cliente
+cambia idea, o togliere quando non vale più, senza riscrivere il resto — e solo così si può
+dare al cliente il diritto di cancellarne una senza dargli quello di riscriverle tutte.
+
+**Come ci finiscono.** Dopo ogni turno, `memory.ts` fa una **seconda chiamata al modello**,
+separata dalla risposta, con tre strumenti dichiarati (function calling):
+
+| Strumento | Cosa fa |
+| --- | --- |
+| `ricorda(testo)` | annota una preferenza nuova |
+| `aggiorna(numero, testo)` | riscrive una preferenza quando il cliente ha cambiato idea |
+| `dimentica(numero)` | cancella una preferenza revocata o annotata per errore |
+
+Tre e non solo `ricorda`, perché è `aggiorna` a rendere la memoria *aggiornabile nel
+tempo*, che è la parte difficile della promessa: senza, «vuole risposte brevi» finirebbe
+accanto a «vuole più dettaglio» e non si capirebbe quale valga. I `numero` sono le
+posizioni `M1`, `M2`… con cui le righe sono numerate nel prompt: gli id dei documenti al
+modello non servono, e li copierebbe sbagliati.
+
+Il prompt del passaggio dice al modello sia cosa annotare sia — ed è la metà che conta —
+cosa **non** annotare: i numeri della struttura, gli obiettivi di una stagione, il racconto
+della conversazione, e le istruzioni che valgono per una risposta sola («questa volta fammi
+un elenco»). Nel dubbio non annota: una memoria breve e giusta vale più di una lunga.
+
+**Come la usa rispondendo.** Nel system prompt le righe non sono appunti, sono istruzioni:
+valgono per ogni risposta anche quando il cliente non le ripete, e vengono prima delle
+abitudini di scrittura del modello. Non vengono prima del perimetro Revna, delle regole
+sulle citazioni e di quelle sulle richieste di contatto: chi scrive «non usare elenchi» sta
+cambiando come gli si risponde e deve ottenerlo, chi scrivesse «non citare le fonti»
+starebbe cambiando cosa l'assistente è, e non deve. Senza quella gerarchia scritta, la
+memoria sarebbe un modo per riscrivere il system prompt un turno alla volta.
+
+**Perché una chiamata a parte e non gli strumenti agganciati alla risposta.** La risposta
+al cliente arriva in streaming ed è la cosa che deve andare per prima: se gli attrezzi per
+prendere appunti stessero in quella chiamata, un turno in cui il modello annota qualcosa
+diventerebbe un turno in cui il cliente aspetta di più, e un errore sugli strumenti
+diventerebbe un errore sulla risposta. Così, nel caso peggiore, non si impara niente e
+nessuno se ne accorge: `askAssistant` logga `memoriaAggiornata` e va avanti.
+
+La chiamata viene **attesa** prima di rispondere, non lasciata in sottofondo: il lavoro
+dopo la fine di una richiesta su Cloud Functions non è garantito. A quel punto il testo il
+cliente l'ha già davanti — è arrivato in streaming — e i turni di pura cortesia («ok»,
+«grazie») saltano il passaggio senza chiamare il modello. Quella lista è corta e chiusa di
+proposito, e non un conteggio di parole: «no elenchi» sono due parole che valgono un giro.
+
+Gli argini, tutti in `memory.ts`: **25 righe** per cliente (quando è piena escono quelle
+aggiornate da più tempo), **280 caratteri** per riga, **3 operazioni** per turno, e nessun
+doppione esatto.
+
+**Il cliente la vede tutta**, nelle impostazioni dell'app, e questa è la parte che rende la
+cosa accettabile: può correggere il testo di una riga, dimenticarne una, o cancellare tutto
+(`clearMemory`). Non può aggiungerne a mano — e non è una dimenticanza: se potesse scrivere
+lì, quello non sarebbe più ciò che l'assistente ha capito, che è l'unica cosa che vale la
+pena verificare. Le regole Firestore ammettono dal client esattamente `testo`, `updatedAt`
+e `origine`, e la cancellazione.
+
+Cancellare una conversazione **non** cancella le preferenze espresse lì: valgono anche
+quando la chat non c'è più. Per questo ogni riga porta una copia del titolo della
+conversazione e non un rimando: il riferimento invecchia, ma non sparisce.
 
 ### Richieste di contatto
 

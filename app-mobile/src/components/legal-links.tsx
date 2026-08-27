@@ -1,62 +1,46 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Text } from '@/components/ui';
 import { LegalUrls } from '@/constants/legal';
 import { useT } from '@/hooks/use-language';
+import { Family, Ink, Spacing } from '@/theme';
 
 /**
- * Piè di pagina delle schermate di accesso: privacy policy e trattamento dei dati.
+ * Il piè di pagina delle schermate d'accesso: chi apre l'accesso, e le due
+ * informative.
  *
- * Le pagine si aprono nel browser dentro l'app (`ExternalLink`) e non in Safari o
- * Chrome: chi sta scegliendo una password non deve uscire dall'app per leggere
- * un'informativa e poi ritrovare la strada per tornare indietro.
+ * Una riga sola e in fondo, al 28% di White Smoke: è testo che va letto una volta
+ * e che non deve competere con il campo su cui sta il pollice. Le pagine si aprono
+ * nel browser dentro l'app — chi sta scegliendo una password non deve uscire per
+ * leggere un'informativa e poi ritrovare la strada per tornare.
  *
- * `nota` è la riga di contesto sopra i due link. Si mostra dove c'è un consenso da
- * dare — accesso e attivazione — e si tace dove non c'è: nel recupero password non
- * si sta accettando niente, si sta solo chiedendo un link.
+ * `nota` è la riga di consenso: si mostra dove c'è un consenso da dare — accesso e
+ * attivazione — e si tace dove non c'è, cioè nel recupero password.
  */
-export function LegalLinks({ nota = false }: { nota?: boolean }) {
+export function LegalLinks({ nota = false, intro }: { nota?: boolean; intro?: string }) {
   const t = useT();
 
   return (
     <View style={styles.container}>
-      {nota && (
-        <ThemedText type="small" themeColor="textSecondary" style={styles.nota}>
-          {t.legale.nota}
-        </ThemedText>
-      )}
-
-      <View style={styles.links}>
-        <ExternalLink href={LegalUrls.privacy}>
-          <ThemedText type="small" themeColor="primary">
-            {t.legale.privacy}
-          </ThemedText>
+      <Text variant="tab" color={Ink.ghost} style={styles.line}>
+        {intro ? `${intro} ` : ''}
+        {nota ? `${t.legale.nota} ` : ''}
+        <ExternalLink href={LegalUrls.privacy} style={styles.link}>
+          {t.legale.privacy}
         </ExternalLink>
-
-        <ThemedText type="small" themeColor="textSecondary" accessibilityElementsHidden>
-          ·
-        </ThemedText>
-
-        <ExternalLink href={LegalUrls.trattamentoDati}>
-          <ThemedText type="small" themeColor="primary">
-            {t.legale.trattamentoDati}
-          </ThemedText>
+        {' · '}
+        <ExternalLink href={LegalUrls.trattamentoDati} style={styles.link}>
+          {t.legale.trattamentoDati}
         </ExternalLink>
-      </View>
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { gap: Spacing.two, marginTop: Spacing.two },
-  nota: { textAlign: 'center' },
-  links: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-  },
+  container: { marginTop: Spacing.md },
+  // Peso regolare e non semibold: è una nota a piè di pagina, non un'etichetta.
+  line: { fontFamily: Family.sans, fontSize: 11, lineHeight: 17.6 },
+  link: { color: Ink.faint },
 });

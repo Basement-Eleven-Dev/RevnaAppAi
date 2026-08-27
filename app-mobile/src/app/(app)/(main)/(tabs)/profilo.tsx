@@ -1,53 +1,74 @@
 import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
-import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
-import { SettingsIcon } from '@/components/tab-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  Appear,
+  BlockLabel,
+  Button,
+  Card,
+  DataRow,
+  ErrorNote,
+  Field,
+  IconButton,
+  PageHeading,
+  Screen,
+  ScreenBar,
+  SettingsIcon,
+  stagger,
+  Tap,
+  Text,
+} from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useClientProfile } from '@/hooks/use-client-profile';
 import { useT } from '@/hooks/use-language';
-import { useTheme } from '@/hooks/use-theme';
 import { getFirebaseAuth } from '@/lib/firebase';
-import { unregisterPushToken } from '@/lib/push';
 import { labelOf, labelsOf, type Dictionary } from '@/lib/i18n';
 import { type ClientProfile } from '@/lib/profile';
+import { unregisterPushToken } from '@/lib/push';
+import { Brand, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
+/**
+ * La scheda della struttura.
+ *
+ * I dati stanno come **numeri grandi**, non come modulo grigio da compilare: chi
+ * apre questa schermata vuole vedere che l'assistente conosce la sua struttura, e
+ * tre numeri lo dicono meglio di dodici righe di etichette. Le note del cliente
+ * restano in fondo, sempre modificabili.
+ *
+ * La scheda entra in scena a blocchi, nell'ordine in cui si legge: prima il nome
+ * della struttura, poi i numeri, poi le schede. È la sola schermata in cui la
+ * rotella copre tutto — quindi è quella in cui l'arrivo dei dati va accompagnato,
+ * non fatto sbattere.
+ */
 export default function ProfileScreen() {
-  const theme = useTheme();
   const t = useT();
   const router = useRouter();
   const { user } = useAuth();
   const { profile, loading, error, saveNote } = useClientProfile();
 
-  const [note, setNote] = useState('');
+  /**
+   * La nota in corso di scrittura, o `null` se non la si sta scrivendo.
+   *
+   * Stato derivato invece di una copia tenuta allineata da un effetto: la verità
+   * è quella del server, e mentre l'utente scrive è la sua bozza a vincere. A
+   * salvataggio riuscito la bozza si azzera e si torna a leggere il server, che è
+   * anche il modo in cui una nota cambiata da un altro dispositivo ricompare.
+   */
+  const [drafted, setDrafted] = useState<string | null>(null);
+  const [editingNote, setEditingNote] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [noteError, setNoteError] = useState('');
 
-  // La nota arriva dal server: la copiamo nello stato locale solo quando cambia
-  // là, altrimenti sovrascriveremmo quello che l'utente sta scrivendo.
-  useEffect(() => {
-    if (profile) setNote(profile.noteCliente);
-  }, [profile?.noteCliente]);
+  const note = drafted ?? profile?.noteCliente ?? '';
 
   if (loading) {
     return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator color={theme.primary} />
-      </ThemedView>
+      <View style={styles.centered}>
+        <ActivityIndicator color={Brand.accent} />
+      </View>
     );
   }
 
@@ -69,6 +90,8 @@ export default function ProfileScreen() {
     setNoteError('');
     try {
       await saveNote(note);
+      setDrafted(null);
+      setEditingNote(false);
     } catch (cause) {
       setNoteError(cause instanceof Error ? cause.message : t.profilo.note.fallito);
     } finally {
@@ -77,89 +100,98 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={styles.topbar}>
-          <MenuButton />
-        </View>
+    <Screen>
+      <ScreenBar
+        left={<MenuButton />}
+        right={
+          <IconButton
+            onPress={() => router.navigate('/impostazioni')}
+            accessibilityLabel={t.profilo.apriImpostazioni}>
+            <SettingsIcon color={Ink.secondary} size={15} />
+          </IconButton>
+        }
+      />
 
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <View style={styles.header}>
-            <View style={styles.headerTitles}>
-              <ThemedText type="subtitle">{t.profilo.titolo}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {user?.email}
-              </ThemedText>
-            </View>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Appear>
+          <PageHeading
+            title={profile?.struttura.nome || t.profilo.titolo}
+            subtitle={profile ? identity(profile, t) : (user?.email ?? '')}
+          />
+        </Appear>
 
-            <Pressable
-              onPress={() => router.push('/profilo/impostazioni')}
+        {error !== '' && <ErrorNote>{error}</ErrorNote>}
+
+        {!profile && error === '' && (
+          <Card>
+            <Text variant="service" color={Ink.secondary}>
+              {t.profilo.nonCompilato}
+            </Text>
+          </Card>
+        )}
+
+        {profile && <ProfileBody profile={profile} t={t} />}
+
+        <Card>
+          <View style={styles.noteHead}>
+            <BlockLabel>{t.profilo.note.titolo}</BlockLabel>
+            <Tap
+              onPress={() => setEditingNote((was) => !was)}
               hitSlop={8}
-              accessibilityRole="link"
-              accessibilityLabel={t.profilo.apriImpostazioni}
-              style={[styles.iconButton, { borderColor: theme.border }]}>
-              <SettingsIcon color={theme.textSecondary} size={18} />
-            </Pressable>
+              accessibilityRole="button">
+              <Text variant="service" color={Brand.accent} style={styles.noteAction}>
+                {editingNote ? t.comune.chiudi : t.profilo.note.modifica}
+              </Text>
+            </Tap>
           </View>
 
-          {error !== '' && (
-            <ThemedText type="small" style={{ color: '#B3261E' }}>
-              {error}
-            </ThemedText>
+          {editingNote ? (
+            <View style={styles.noteForm}>
+              <Text variant="service" color={Ink.secondary}>
+                {t.profilo.note.aiuto}
+              </Text>
+              <Field
+                multiline
+                value={note}
+                onChangeText={setDrafted}
+                placeholder={t.profilo.note.placeholder}
+              />
+              {noteError !== '' && <ErrorNote>{noteError}</ErrorNote>}
+              <Button
+                label={t.profilo.note.salva}
+                loading={savingNote}
+                loadingLabel={t.profilo.note.inCorso}
+                onPress={onSaveNote}
+              />
+            </View>
+          ) : (
+            <Text variant="service" color={note ? Ink.body : Ink.faint} style={styles.noteText}>
+              {note || t.profilo.note.aiuto}
+            </Text>
           )}
+        </Card>
 
-          {!profile && error === '' && (
-            <ThemedView type="backgroundElement" style={styles.card}>
-              <ThemedText type="small" themeColor="textSecondary">
-                {t.profilo.nonCompilato}
-              </ThemedText>
-            </ThemedView>
-          )}
-
-          {profile && <ProfileSections profile={profile} t={t} />}
-
-          <ThemedView type="backgroundElement" style={styles.card}>
-            <ThemedText type="smallBold">{t.profilo.note.titolo}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {t.profilo.note.aiuto}
-            </ThemedText>
-            <TextInput
-              style={[styles.textarea, { color: theme.text, borderColor: theme.border }]}
-              multiline
-              value={note}
-              onChangeText={setNote}
-              placeholder={t.profilo.note.placeholder}
-              placeholderTextColor={theme.textSecondary}
-            />
-            {noteError !== '' && (
-              <ThemedText type="small" style={{ color: '#B3261E' }}>
-                {noteError}
-              </ThemedText>
-            )}
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: theme.primary, opacity: savingNote ? 0.5 : 1 }]}
-              disabled={savingNote}
-              onPress={onSaveNote}>
-              <ThemedText type="smallBold" style={styles.buttonLabel}>
-                {savingNote ? t.profilo.note.inCorso : t.profilo.note.salva}
-              </ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
-
-          <TouchableOpacity
-            style={[styles.logout, { borderColor: theme.border }]}
-            onPress={() => void esci()}>
-            <ThemedText type="smallBold">{t.profilo.esci}</ThemedText>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+        <Button label={t.profilo.esci} variant="secondary" onPress={() => void esci()} />
+      </ScrollView>
+    </Screen>
   );
 }
 
-function ProfileSections({ profile, t }: { profile: ClientProfile; t: Dictionary }) {
+/** Tipologia, categoria e luogo su una riga: come la struttura si presenta. */
+function identity(profile: ClientProfile, t: Dictionary): string {
+  return [
+    labelOf(t.profilo.liste.tipologiaStruttura, profile.struttura.tipologia),
+    labelOf(t.profilo.liste.categoria, profile.struttura.categoria),
+    profile.indirizzo.citta,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function ProfileBody({ profile, t }: { profile: ClientProfile; t: Dictionary }) {
   const { referente, struttura, indirizzo, alloggi } = profile;
-  const { campi, liste, sezioni } = t.profilo;
+  const { campi, liste, sezioni, statistiche } = t.profilo;
+
   const totaleUnita = alloggi.reduce((sum, row) => sum + row.quantita, 0);
   const luogo = [indirizzo.via, indirizzo.citta, indirizzo.provincia, indirizzo.regione]
     .filter(Boolean)
@@ -167,118 +199,105 @@ function ProfileSections({ profile, t }: { profile: ClientProfile; t: Dictionary
 
   return (
     <>
-      <Section title={sezioni.struttura}>
-        <Row label={campi.nome} value={struttura.nome} />
-        <Row label={campi.tipologia} value={labelOf(liste.tipologiaStruttura, struttura.tipologia)} />
-        <Row label={campi.categoria} value={labelOf(liste.categoria, struttura.categoria)} />
-        <Row label={campi.apertaDal} value={struttura.annoApertura?.toString() ?? ''} />
-        <Row label={campi.sito} value={struttura.sitoWeb} />
-        <Row label={campi.dove} value={luogo} />
-      </Section>
+      <Appear delay={stagger(1)} style={styles.stats}>
+        <Stat value={totaleUnita} label={statistiche.unita(alloggi.length)} accent />
+        <Stat value={struttura.annoApertura ?? 0} label={statistiche.apertaDal} />
+        <Stat value={profile.canali.length} label={statistiche.canali(profile.canali.length)} />
+      </Appear>
 
-      <Section title={sezioni.referente}>
-        <Row label={campi.nome} value={`${referente.nome} ${referente.cognome}`.trim()} />
-        <Row label={campi.ruolo} value={referente.ruolo} />
-        <Row label={campi.telefono} value={referente.telefono} />
-      </Section>
+      {/* Le schede entrano come un blocco solo e non una per una: sono la scheda
+          della struttura, si leggono insieme, e sei entrate in fila sarebbero sei
+          cose che si muovono al posto di una schermata che arriva. */}
+      <Appear delay={stagger(2)} style={styles.cards}>
+        <Card>
+          <BlockLabel>{sezioni.comeLavora}</BlockLabel>
+          <DataRow first label={campi.stagionalita} value={labelOf(liste.stagionalita, profile.stagionalita)} />
+          <DataRow label={campi.canali} value={labelsOf(liste.canali, profile.canali).join(' · ')} />
+          <DataRow label={campi.target} value={labelsOf(liste.target, profile.target).join(' · ')} />
+          <DataRow label={campi.servizi} value={labelsOf(liste.servizi, profile.servizi).join(' · ')} />
+        </Card>
 
-      {alloggi.length > 0 && (
-        <Section title={sezioni.alloggi(totaleUnita)}>
-          {alloggi.map((row, index) => (
-            <Row
-              key={`${row.tipologia}-${index}`}
-              label={labelOf(liste.tipologiaAlloggio, row.tipologia)}
-              value={String(row.quantita)}
-            />
-          ))}
-        </Section>
-      )}
+        {alloggi.length > 0 && (
+          <Card>
+            <BlockLabel>{sezioni.alloggi(totaleUnita)}</BlockLabel>
+            {alloggi.map((row, index) => (
+              <DataRow
+                key={`${row.tipologia}-${index}`}
+                first={index === 0}
+                label={labelOf(liste.tipologiaAlloggio, row.tipologia)}
+                value={String(row.quantita)}
+              />
+            ))}
+          </Card>
+        )}
 
-      <Section title={sezioni.comeLavora}>
-        <Row label={campi.stagionalita} value={labelOf(liste.stagionalita, profile.stagionalita)} />
-        <Row label={campi.servizi} value={labelsOf(liste.servizi, profile.servizi).join(' · ')} />
-        <Row label={campi.canali} value={labelsOf(liste.canali, profile.canali).join(' · ')} />
-        <Row label={campi.target} value={labelsOf(liste.target, profile.target).join(' · ')} />
-      </Section>
+        <Card>
+          <BlockLabel>{sezioni.struttura}</BlockLabel>
+          <DataRow first label={campi.dove} value={luogo} />
+          <DataRow label={campi.sito} value={struttura.sitoWeb} />
+        </Card>
 
-      {profile.obiettivi !== '' && (
-        <Section title={sezioni.obiettivi}>
-          <ThemedText type="small">{profile.obiettivi}</ThemedText>
-        </Section>
-      )}
+        <Card>
+          <BlockLabel>{sezioni.referente}</BlockLabel>
+          <DataRow first label={campi.nome} value={`${referente.nome} ${referente.cognome}`.trim()} />
+          <DataRow label={campi.ruolo} value={referente.ruolo} />
+          <DataRow label={campi.telefono} value={referente.telefono} />
+        </Card>
 
-      {profile.noteRevna !== '' && (
-        <Section title={sezioni.noteConsulente}>
-          <ThemedText type="small">{profile.noteRevna}</ThemedText>
-        </Section>
-      )}
+        {profile.obiettivi !== '' && (
+          <Card>
+            <BlockLabel>{sezioni.obiettivi}</BlockLabel>
+            <Text variant="service" color={Ink.body}>
+              {profile.obiettivi}
+            </Text>
+          </Card>
+        )}
+
+        {profile.noteRevna !== '' && (
+          <Card>
+            <BlockLabel>{sezioni.noteConsulente}</BlockLabel>
+            <Text variant="service" color={Ink.body}>
+              {profile.noteRevna}
+            </Text>
+          </Card>
+        )}
+      </Appear>
     </>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">{title}</ThemedText>
-      {children}
-    </ThemedView>
-  );
-}
-
-/** Le righe vuote non si mostrano: un profilo parziale non deve sembrare rotto. */
-function Row({ label, value }: { label: string; value: string }) {
+/** Un numero grande e la sua didascalia: il primo dei tre è in accento. */
+function Stat({ value, label, accent = false }: { value: number; label: string; accent?: boolean }) {
   if (!value) return null;
 
   return (
-    <ThemedView style={styles.row}>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.rowLabel}>
-        {label}
-      </ThemedText>
-      <ThemedText type="small" style={styles.rowValue}>
+    <Card style={styles.stat}>
+      <Text variant="stat" color={accent ? Brand.accent : Ink.primary}>
         {value}
-      </ThemedText>
-    </ThemedView>
+      </Text>
+      <Text variant="tab" color={Ink.muted} style={styles.statLabel}>
+        {label}
+      </Text>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  safeArea: { flex: 1, maxWidth: MaxContentWidth, width: '100%' },
-  topbar: { flexDirection: 'row', paddingHorizontal: Spacing.four },
-  scroll: { padding: Spacing.four, gap: Spacing.three },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.three },
-  headerTitles: { flex: 1, gap: Spacing.one },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
+  centered: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing.two,
+    backgroundColor: Surface.base,
   },
-  card: { gap: Spacing.two, padding: Spacing.four, borderRadius: Spacing.four },
-  row: { flexDirection: 'row', gap: Spacing.three, backgroundColor: 'transparent' },
-  rowLabel: { width: 110 },
-  rowValue: { flex: 1 },
-  textarea: {
-    borderWidth: 1,
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
-    minHeight: 96,
-    textAlignVertical: 'top',
-    fontSize: 16,
-    // I campi non passano da ThemedText: il font del brand va detto qui.
-    fontFamily: Fonts.sans,
-  },
-  button: { borderRadius: Spacing.three, paddingVertical: Spacing.three, alignItems: 'center' },
-  buttonLabel: { color: '#FFFFFF' },
-  logout: {
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: Spacing.three,
-    paddingVertical: Spacing.three,
-    marginTop: Spacing.two,
-  },
+  scroll: { paddingHorizontal: Gutter, paddingBottom: Spacing.xxl, gap: Spacing.sm + 2 },
+  stats: { flexDirection: 'row', gap: Spacing.sm + 2, marginTop: Spacing.md },
+  // Le schede stanno in un contenitore loro (l'entrata), quindi lo spazio fra una
+  // e l'altra si ripete qui: quello dello `ScrollView` non le raggiunge più.
+  cards: { gap: Spacing.sm + 2 },
+  stat: { flex: 1, padding: Spacing.lg - 1 },
+  statLabel: { marginTop: Spacing.sm - 1, lineHeight: 14 },
+  noteHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  noteAction: { fontFamily: Family.sansSemibold, fontSize: 11.5 },
+  noteForm: { gap: Spacing.md },
+  noteText: { lineHeight: 21 },
 });

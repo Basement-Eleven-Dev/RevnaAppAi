@@ -1,9 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 
-import { ThemedView } from '@/components/themed-view';
-import { useTheme } from '@/hooks/use-theme';
+import { Brand, Surface } from '@/theme';
 import {
   DICTIONARIES,
   deviceLanguage,
@@ -36,7 +35,6 @@ const LanguageContext = createContext<LanguageState | null>(null);
  * lampo nella lingua sbagliata a ogni avvio.
  */
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const theme = useTheme();
   const [language, setLanguageState] = useState<Language>(deviceLanguage);
   const [ready, setReady] = useState(false);
 
@@ -60,9 +58,15 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <ThemedView style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={theme.primary} />
-      </ThemedView>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: Surface.base,
+        }}>
+        <ActivityIndicator color={Brand.accent} />
+      </View>
     );
   }
 

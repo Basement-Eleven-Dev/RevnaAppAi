@@ -54,8 +54,14 @@ type DeleteRequest = { conversationId: string };
  * Cancella una conversazione.
  *
  * Le regole Firestore permetterebbero al cliente di farlo da solo, ma passare
- * di qui tiene un unico punto in cui la cancellazione è tracciabile e in cui
- * potremo agganciare la rimozione della memoria dell'assistente.
+ * di qui tiene un unico punto in cui la cancellazione è tracciabile.
+ *
+ * Non tocca la memoria dell'assistente (vedi `memory.ts`), ed è voluto: un fatto
+ * imparato in questa conversazione resta vero anche quando la chat non c'è più, e
+ * dimenticare cinque mesi di dati perché si è cancellata una chat sarebbe una
+ * sorpresa. Per lo stesso motivo i fatti si portano dietro una **copia** del titolo
+ * della conversazione, non un rimando: il riferimento sopravvive alla cancellazione.
+ * La memoria si cancella da dov'è, cioè dalle impostazioni dell'app.
  */
 export const deleteConversation = onCall<DeleteRequest, Promise<{ ok: true }>>(
   { region: 'europe-west1' },

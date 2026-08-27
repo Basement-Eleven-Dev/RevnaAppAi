@@ -1,6 +1,7 @@
 import { logger } from 'firebase-functions';
 
 import { db } from './admin';
+import { describeMemory, MEMORY_RULES, type MemoryEntry } from './memory';
 
 /**
  * Personalità dell'agente e base di conoscenza Revna.
@@ -338,11 +339,19 @@ export function extractContactProposal(answer: string): { text: string; proposal
   return { text, ...(proposal ? { proposal } : {}) };
 }
 
-/** Il system prompt completo: personalità dal backoffice, regole dal codice. */
+/**
+ * Il system prompt completo: personalità dal backoffice, regole dal codice.
+ *
+ * L'ordine non è casuale: prima chi sei, poi come lavori, poi cosa hai davanti. Il
+ * profilo e la memoria stanno in fondo e in quest'ordine — com'è fatta la struttura,
+ * e poi come vuole essere trattato chi la gestisce — perché sono l'ultima cosa che il
+ * modello legge prima della domanda, ed è quella che deve avere più fresca.
+ */
 export function buildSystemInstruction(
   config: AgentConfig,
   profileDescription: string,
   selected: KnowledgeEntry[],
+  memory: MemoryEntry[],
 ): string {
   const parts = [
     config.identita,
@@ -359,10 +368,23 @@ export function buildSystemInstruction(
     selected.length ? CITATION_RULES : NO_KNOWLEDGE_RULES,
     '',
     HANDOFF_RULES,
+    // Le regole della memoria solo se c'è memoria: alla prima conversazione
+    // spiegherebbero come usare un blocco che non esiste.
+    ...(memory.length ? ['', MEMORY_RULES] : []),
     '',
     '--- Profilo della struttura di chi ti scrive ---',
     profileDescription,
   ];
+
+  // La memoria vuota non si dichiara: dire al modello che il cliente non ha ancora
+  // espresso preferenze lo porta a chiederle, e non è una cosa che si chiede.
+  if (memory.length) {
+    parts.push(
+      '',
+      '--- Come vuole essere assistito chi ti scrive (la tua memoria) ---',
+      describeMemory(memory),
+    );
+  }
 
   if (selected.length) {
     parts.push('', '--- Materiale Revna ---');

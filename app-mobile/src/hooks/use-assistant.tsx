@@ -26,11 +26,11 @@ const AssistantContext = createContext<AssistantState | null>(null);
 /**
  * La conversazione in corso, condivisa da tutta l'area riservata.
  *
- * Sta sopra le schermate e non dentro la chat perché la sidebar è ormai la
- * navigazione dell'app: da qualsiasi schermata si può aprire una conversazione
- * dall'elenco, e chi la apre deve poter scrivere nello stesso stato che la chat
- * legge. Come effetto secondario la conversazione sopravvive al giro in
- * Documenti o Profilo, che con lo stato dentro la schermata non era garantito.
+ * Sta sopra le schermate e non dentro la chat perché una conversazione si apre
+ * dal pannello laterale, cioè da qualsiasi schermata: chi la apre deve poter
+ * scrivere nello stesso stato che la chat legge. Come effetto secondario la
+ * conversazione sopravvive al giro in Documenti o Profilo, che con lo stato
+ * dentro la schermata non era garantito.
  */
 export function AssistantProvider({ children }: { children: React.ReactNode }) {
   const state = useAssistantState();
@@ -62,11 +62,19 @@ export function useAssistant(): AssistantState {
 function useAssistantState() {
   const t = useT();
   const [conversationId, setConversationId] = useState<string | undefined>();
+  /**
+   * Il titolo che il modello ha dato alla conversazione. Serve alla barra della
+   * chat: aperta una conversazione dallo storico, in cima si legge di cosa si sta
+   * parlando — «Assistente Revna» lo direbbe di qualunque schermata.
+   */
+  const [title, setTitle] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
   /** true tra l'invio e il primo pezzo di risposta. */
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState('');
+  /** Una domanda pronta da scrivere nel composer, in arrivo da un'altra schermata. */
+  const [pending, setPending] = useState('');
 
   const send = useCallback(
     async (message: string) => {
@@ -121,6 +129,7 @@ function useAssistantState() {
             const final = await data;
             show(final.text, final.sources, final.proposal);
             setConversationId(final.conversationId);
+            if (final.title) setTitle(final.title);
             return;
           } catch (cause) {
             // Se qualcosa era già arrivato l'errore è reale e va mostrato.
@@ -133,6 +142,7 @@ function useAssistantState() {
         const { data } = await ask(payload);
         show(data.text, data.sources, data.proposal);
         setConversationId(data.conversationId);
+        if (data.title) setTitle(data.title);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : t.chat.fallita);
         // La domanda resta a schermo: l'utente può ritentare senza riscriverla.
@@ -148,6 +158,7 @@ function useAssistantState() {
   /** Apre una conversazione dall'elenco laterale. */
   const open = useCallback((conversation: ConversationSummary) => {
     setConversationId(conversation.id);
+    setTitle(conversation.title);
     setTurns(conversation.messages);
     setError('');
   }, []);
@@ -155,9 +166,44 @@ function useAssistantState() {
   /** Foglio bianco: la conversazione nasce sul server al primo messaggio. */
   const startNew = useCallback(() => {
     setConversationId(undefined);
+    setTitle('');
     setTurns([]);
     setError('');
   }, []);
 
-  return { conversationId, turns, busy, waiting, error, send, open, startNew };
+  /**
+   * Apre una conversazione nuova con una domanda già scritta nel composer, senza
+   * inviarla.
+   *
+   * Serve a chi arriva da fuori la chat — in fondo a un avviso c'è «Chiedi cosa
+   * cambia per me», e da lì la domanda deve poter essere corretta prima di
+   * partire: è il cliente a chiedere, non l'app a chiedere per lui.
+   */
+  const prefill = useCallback((text: string) => {
+    setConversationId(undefined);
+    setTitle('');
+    setTurns([]);
+    setError('');
+    setPending(text);
+  }, []);
+
+  /** Il composer si prende la domanda pronta una volta sola (vedi la chat). */
+  const takePending = useCallback(() => {
+    setPending('');
+  }, []);
+
+  return {
+    conversationId,
+    title,
+    turns,
+    busy,
+    waiting,
+    error,
+    pending,
+    send,
+    open,
+    startNew,
+    prefill,
+    takePending,
+  };
 }

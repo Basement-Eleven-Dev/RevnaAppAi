@@ -13,10 +13,22 @@ import { Resend } from 'resend';
  */
 export const resendApiKey = defineSecret('RESEND_API_KEY');
 
-/** Mittente verificato su Resend, es. "Revna AI <noreply@revna.it>". */
+/**
+ * Mittente. Il dominio dev'essere verificato su Resend, altrimenti l'invio
+ * viene rifiutato: `revna.it` lo è.
+ */
 export const mailFrom = defineString('MAIL_FROM', {
-  default: 'Revna AI <onboarding@resend.dev>',
+  default: 'Revna AI <noreply@revna.it>',
 });
+
+/**
+ * Casella dove finiscono le risposte.
+ *
+ * `noreply@` dice al cliente di non rispondere, ma qualcuno risponde lo stesso:
+ * senza questo, quelle risposte cadrebbero nel vuoto senza che nessuno in Revna
+ * lo sappia. Vuoto per disattivarlo.
+ */
+export const mailReplyTo = defineString('MAIL_REPLY_TO', { default: '' });
 
 const PLACEHOLDER = 'PLACEHOLDER';
 
@@ -39,12 +51,15 @@ export async function sendEmail(email: Email): Promise<boolean> {
     return false;
   }
 
+  const replyTo = mailReplyTo.value().trim();
+
   const { error } = await new Resend(resendApiKey.value()).emails.send({
     from: mailFrom.value(),
     to: email.to,
     subject: email.subject,
     html: email.html,
     text: email.text,
+    ...(replyTo ? { replyTo } : {}),
   });
 
   if (error) {

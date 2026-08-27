@@ -7,30 +7,39 @@ import {
   type User,
 } from 'firebase/auth';
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
-import { BackIcon, CheckIcon } from '@/components/tab-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  BackIcon,
+  Bevel,
+  BlockLabel,
+  Button,
+  Card,
+  CheckIcon,
+  DataRow,
+  Field,
+  IconButton,
+  PasswordField,
+  Screen,
+  ScreenBar,
+  Tap,
+  Text,
+} from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
-import { useTheme } from '@/hooks/use-theme';
+import { useMemory } from '@/hooks/use-memory';
 import { authErrorMessage, MIN_PASSWORD } from '@/lib/auth';
 import { LANGUAGES, LANGUAGE_NAMES } from '@/lib/i18n';
+import { Brand, Corner, Danger, Gutter, Ink, Line, Spacing, Surface } from '@/theme';
 
 /**
- * Impostazioni del cliente: lingua dell'interfaccia e credenziali di accesso.
+ * Impostazioni del cliente: la memoria dell'assistente, la lingua dell'interfaccia
+ * e le credenziali di accesso.
+ *
+ * La memoria sta in cima perché è la sola di cui valga la pena accorgersi: sono le
+ * preferenze che il cliente ha dato all'assistente — come vuole le risposte, cosa non
+ * deve fare — e nasconderle dietro una rotta loro le avrebbe rese una funzione da
+ * cercare invece di una cosa che si controlla passando.
  *
  * Password ed email si cambiano da qui e non dal backoffice: sono le credenziali di
  * chi entra, e il consulente Revna non deve poterle né vedere né scegliere.
@@ -39,82 +48,121 @@ import { LANGUAGES, LANGUAGE_NAMES } from '@/lib/i18n';
  * telefono sbloccato di qualcun altro non basta a prendersi l'accesso.
  */
 export default function SettingsScreen() {
-  const theme = useTheme();
   const router = useRouter();
   const { t } = useLanguage();
   const { user } = useAuth();
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={[styles.topbar, { borderBottomColor: theme.border }]}>
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={8}
-            accessibilityLabel={t.comune.indietro}
-            style={[styles.iconButton, { borderColor: theme.border }]}>
-            <BackIcon color={theme.textSecondary} size={18} />
-          </Pressable>
-          <ThemedText type="smallBold" numberOfLines={1}>
-            {t.impostazioni.titolo}
-          </ThemedText>
-        </View>
+    <Screen>
+      <ScreenBar
+        left={
+          <IconButton onPress={() => router.back()} accessibilityLabel={t.comune.indietro}>
+            <BackIcon color={Ink.secondary} />
+          </IconButton>
+        }>
+        <Text variant="service" color={Ink.muted}>
+          {t.impostazioni.titolo}
+        </Text>
+      </ScreenBar>
 
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-            <LanguageCard />
-            {user && <PasswordCard user={user} />}
-            {user && <EmailCard user={user} />}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </ThemedView>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <MemoryCard />
+          <LanguageCard />
+          {user && <PasswordCard user={user} />}
+          {user && <EmailCard user={user} />}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
+  );
+}
+
+/**
+ * Le preferenze che l'assistente ha imparato dal cliente, riga per riga.
+ *
+ * Preferenze e non dati della struttura: i numeri cambiano, e una lista di numeri che
+ * si contraddicono è esattamente quello che il cliente non deve trovare qui (il perché
+ * sta in `backend/functions/src/memory.ts`).
+ *
+ * Tre libertà e nient'altro: **correggere** una riga, **dimenticarne** una,
+ * **cancellare tutto**. Aggiungerne una a mano no, ed è una scelta: se il cliente
+ * potesse scrivere qui, questa smetterebbe di essere la memoria dell'assistente —
+ * cioè quello che ha capito parlando, che è la cosa che vale la pena verificare — e
+ * diventerebbe un secondo campo note, che nel profilo c'è già.
+ *
+ * L'elenco è in ascolto live: con una conversazione in corso su un altro dispositivo,
+ * la riga nuova compare qui da sé.
+ */
+function MemoryCard() {
+  const router = useRouter();
+  const { t } = useLanguage();
+  const { entries, loading, error } = useMemory();
+
+  return (
+    <Card>
+      <BlockLabel>{t.impostazioni.memoria.titolo}</BlockLabel>
+      <Text variant="service" color={Ink.secondary}>
+        {loading ? t.comune.caricamento : t.impostazioni.memoria.conteggio(entries.length)}
+      </Text>
+      {error !== '' && (
+        <Text variant="service" color={Danger.text} style={styles.memoryNote}>
+          {error}
+        </Text>
+      )}
+      <Button
+        label={t.impostazioni.memoria.visualizza}
+        variant="secondary"
+        disabled={loading}
+        onPress={() => router.push('/memoria')}
+      />
+    </Card>
   );
 }
 
 function LanguageCard() {
-  const theme = useTheme();
   const { language, setLanguage, t } = useLanguage();
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">{t.impostazioni.lingua.titolo}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
+    <Card>
+      <BlockLabel>{t.impostazioni.lingua.titolo}</BlockLabel>
+      <Text variant="service" color={Ink.secondary}>
         {t.impostazioni.lingua.aiuto}
-      </ThemedText>
+      </Text>
 
       <View style={styles.options}>
         {LANGUAGES.map((option) => {
           const active = option === language;
+
           return (
-            <Pressable
+            <Tap
               key={option}
               onPress={() => setLanguage(option)}
               accessibilityRole="radio"
-              accessibilityState={{ selected: active }}
-              style={[
-                styles.option,
-                {
-                  borderColor: active ? theme.primary : theme.border,
-                  backgroundColor: active ? theme.backgroundSelected : 'transparent',
-                },
-              ]}>
-              <ThemedText type="small" style={styles.optionLabel}>
-                {LANGUAGE_NAMES[option]}
-              </ThemedText>
-              {active && <CheckIcon color={theme.primary} size={18} />}
-            </Pressable>
+              accessibilityState={{ selected: active }}>
+              <Bevel
+                radius={Corner.control}
+                fill={active ? Surface.accentTint : Surface.control}
+                stroke={active ? Line.accentStrong : undefined}
+                style={styles.option}>
+                <Text
+                  variant="service"
+                  color={active ? Brand.accent : Ink.primary}
+                  style={styles.grow}>
+                  {LANGUAGE_NAMES[option]}
+                </Text>
+                {active && <CheckIcon color={Brand.accent} />}
+              </Bevel>
+            </Tap>
           );
         })}
       </View>
-    </ThemedView>
+    </Card>
   );
 }
 
 function PasswordCard({ user }: { user: User }) {
-  const theme = useTheme();
   const { t } = useLanguage();
 
   const [current, setCurrent] = useState('');
@@ -155,46 +203,50 @@ function PasswordCard({ user }: { user: User }) {
   }
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">{t.impostazioni.password.titolo}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
+    <Card>
+      <BlockLabel>{t.impostazioni.password.titolo}</BlockLabel>
+      <Text variant="service" color={Ink.secondary}>
         {t.impostazioni.password.aiuto}
-      </ThemedText>
+      </Text>
 
-      <Field
-        placeholder={t.impostazioni.password.attuale}
-        value={current}
-        onChangeText={setCurrent}
-        secureTextEntry
-        autoComplete="current-password"
-      />
-      <Field
-        placeholder={t.impostazioni.password.nuova(MIN_PASSWORD)}
-        value={next}
-        onChangeText={setNext}
-        secureTextEntry
-        autoComplete="new-password"
-      />
-      <Field
-        placeholder={t.impostazioni.password.ripeti}
-        value={repeat}
-        onChangeText={setRepeat}
-        secureTextEntry
-        autoComplete="new-password"
-        onSubmitEditing={submit}
-      />
+      <View style={styles.form}>
+        <PasswordField
+          placeholder={t.impostazioni.password.attuale}
+          autoComplete="current-password"
+          showLabel={t.comune.mostra}
+          hideLabel={t.comune.nascondi}
+          value={current}
+          onChangeText={setCurrent}
+        />
+        <PasswordField
+          placeholder={t.impostazioni.password.nuova(MIN_PASSWORD)}
+          autoComplete="new-password"
+          showLabel={t.comune.mostra}
+          hideLabel={t.comune.nascondi}
+          value={next}
+          onChangeText={setNext}
+        />
+        <PasswordField
+          placeholder={t.impostazioni.password.ripeti}
+          autoComplete="new-password"
+          showLabel={t.comune.mostra}
+          hideLabel={t.comune.nascondi}
+          value={repeat}
+          onChangeText={setRepeat}
+          onSubmitEditing={submit}
+        />
 
-      <Feedback error={error} done={done} />
+        <Feedback error={error} done={done} />
 
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: theme.primary, opacity: filled && !busy ? 1 : 0.5 }]}
-        disabled={!filled || busy}
-        onPress={submit}>
-        <ThemedText type="smallBold" style={styles.buttonLabel}>
-          {busy ? t.impostazioni.password.inCorso : t.impostazioni.password.salva}
-        </ThemedText>
-      </TouchableOpacity>
-    </ThemedView>
+        <Button
+          label={t.impostazioni.password.salva}
+          loading={busy}
+          loadingLabel={t.impostazioni.password.inCorso}
+          disabled={!filled}
+          onPress={submit}
+        />
+      </View>
+    </Card>
   );
 }
 
@@ -207,7 +259,6 @@ function PasswordCard({ user }: { user: User }) {
  * con l'email di prima.
  */
 function EmailCard({ user }: { user: User }) {
-  const theme = useTheme();
   const { t } = useLanguage();
 
   const [email, setEmail] = useState('');
@@ -245,49 +296,44 @@ function EmailCard({ user }: { user: User }) {
   }
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">{t.impostazioni.emailAccesso.titolo}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
+    <Card>
+      <BlockLabel>{t.impostazioni.emailAccesso.titolo}</BlockLabel>
+      <Text variant="service" color={Ink.secondary}>
         {t.impostazioni.emailAccesso.aiuto}
-      </ThemedText>
+      </Text>
 
-      <View style={styles.row}>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.rowLabel}>
-          {t.impostazioni.emailAccesso.attuale}
-        </ThemedText>
-        <ThemedText type="small" style={styles.rowValue}>
-          {user.email}
-        </ThemedText>
+      <View style={styles.form}>
+        <DataRow first label={t.impostazioni.emailAccesso.attuale} value={user.email ?? ''} />
+
+        <Field
+          placeholder={t.impostazioni.emailAccesso.nuova}
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <PasswordField
+          placeholder={t.impostazioni.emailAccesso.conferma}
+          autoComplete="current-password"
+          showLabel={t.comune.mostra}
+          hideLabel={t.comune.nascondi}
+          value={password}
+          onChangeText={setPassword}
+          onSubmitEditing={submit}
+        />
+
+        <Feedback error={error} done={done} />
+
+        <Button
+          label={t.impostazioni.emailAccesso.salva}
+          loading={busy}
+          loadingLabel={t.impostazioni.emailAccesso.inCorso}
+          disabled={!filled}
+          onPress={submit}
+        />
       </View>
-
-      <Field
-        placeholder={t.impostazioni.emailAccesso.nuova}
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-      />
-      <Field
-        placeholder={t.impostazioni.emailAccesso.conferma}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        autoComplete="current-password"
-        onSubmitEditing={submit}
-      />
-
-      <Feedback error={error} done={done} />
-
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: theme.primary, opacity: filled && !busy ? 1 : 0.5 }]}
-        disabled={!filled || busy}
-        onPress={submit}>
-        <ThemedText type="smallBold" style={styles.buttonLabel}>
-          {busy ? t.impostazioni.emailAccesso.inCorso : t.impostazioni.emailAccesso.salva}
-        </ThemedText>
-      </TouchableOpacity>
-    </ThemedView>
+    </Card>
   );
 }
 
@@ -301,36 +347,21 @@ async function reauthenticate(user: User, password: string): Promise<void> {
   await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
 }
 
-type FieldProps = React.ComponentProps<typeof TextInput>;
-
-function Field({ style, ...rest }: FieldProps) {
-  const theme = useTheme();
-
-  return (
-    <TextInput
-      style={[styles.input, { color: theme.text, borderColor: theme.border }, style]}
-      placeholderTextColor={theme.textSecondary}
-      autoCapitalize="none"
-      {...rest}
-    />
-  );
-}
-
 /** Esito dell'ultima operazione: l'errore in rosso, la conferma nel colore del brand. */
 function Feedback({ error, done }: { error: string; done: string }) {
   if (error !== '') {
     return (
-      <ThemedText type="small" style={{ color: '#B3261E' }}>
+      <Text variant="service" color={Danger.text}>
         {error}
-      </ThemedText>
+      </Text>
     );
   }
 
   if (done !== '') {
     return (
-      <ThemedText type="small" themeColor="primary">
+      <Text variant="service" color={Brand.accent}>
         {done}
-      </ThemedText>
+      </Text>
     );
   }
 
@@ -338,55 +369,17 @@ function Feedback({ error, done }: { error: string; done: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
   flex: { flex: 1 },
-  safeArea: { flex: 1, maxWidth: MaxContentWidth, width: '100%' },
-  topbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.three,
-    borderBottomWidth: 1,
-  },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scroll: { padding: Spacing.four, gap: Spacing.three },
-  card: { gap: Spacing.two, padding: Spacing.four, borderRadius: Spacing.four },
-  options: { gap: Spacing.two, marginTop: Spacing.one },
+  grow: { flex: 1 },
+  scroll: { paddingHorizontal: Gutter, paddingBottom: Spacing.xxl, gap: Spacing.sm + 2 },
+  options: { gap: Spacing.sm, marginTop: Spacing.md },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    borderWidth: 1,
-    borderRadius: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md + 2,
   },
-  optionLabel: { flex: 1 },
-  row: { flexDirection: 'row', gap: Spacing.three, marginTop: Spacing.one },
-  rowLabel: { width: 110 },
-  rowValue: { flex: 1 },
-  input: {
-    borderWidth: 1,
-    borderRadius: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-    // I campi non passano da ThemedText: il font del brand va detto qui.
-    fontFamily: Fonts.sans,
-  },
-  button: {
-    borderRadius: Spacing.three,
-    paddingVertical: Spacing.three,
-    alignItems: 'center',
-    marginTop: Spacing.one,
-  },
-  buttonLabel: { color: '#FFFFFF' },
+  form: { gap: Spacing.md, marginTop: Spacing.md },
+  memoryNote: { marginTop: Spacing.md },
 });

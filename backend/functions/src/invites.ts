@@ -1,17 +1,12 @@
 import { logger } from 'firebase-functions';
-import { defineString } from 'firebase-functions/params';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { auth, db } from './admin';
+import { appBaseUrl } from './config';
 import { requireAdmin } from './guards';
 import { resendApiKey, sendEmail } from './mailer';
 import { profileDisplayName, sanitizeProfile } from './profile';
 import { activationEmail } from './templates';
-
-/** Base delle pagine di atterraggio (hosting del backoffice). */
-export const appBaseUrl = defineString('APP_BASE_URL', {
-  default: 'https://revnaappai.web.app',
-});
 
 type Request = { email: string; profile: unknown };
 type Response = { uid: string; activationUrl: string; emailSent: boolean };

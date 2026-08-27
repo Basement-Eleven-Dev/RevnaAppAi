@@ -20,6 +20,8 @@ export const en: Dictionary = {
     ieri: 'Yesterday',
     indietro: 'Back',
     password: 'Password',
+    mostra: 'Show',
+    nascondi: 'Hide',
   },
 
   nav: {
@@ -33,12 +35,12 @@ export const en: Dictionary = {
   },
 
   login: {
-    sottotitolo: 'For Revna clients only',
+    sottotitolo: 'Your property’s assistant, with the Revna method inside.',
     accedi: 'Sign in',
     inCorso: 'Signing in…',
     passwordDimenticata: 'Forgotten your password?',
     hoUnCodice: 'I have an activation code',
-    nessunAccesso: "No account yet? Your Revna contact will set one up for you.",
+    nessunAccesso: 'Revna opens your account for you.',
     firebaseDaConfigurare: (chiavi: string) => `Firebase not configured: missing ${chiavi}`,
     fallito: 'Sign-in failed.',
   },
@@ -81,9 +83,12 @@ export const en: Dictionary = {
   chat: {
     titolo: 'Revna Assistant',
     strutturaSconosciuta: 'Your property',
+    messaggi: (quanti: number): string =>
+      quanti === 1 ? '1 message' : `${quanti} messages`,
     nuovaConversazione: 'New conversation',
-    incipit: 'Where shall we start?',
-    incipitAiuto: "Answers take your property's data into account.",
+    incipit: 'Where shall we\nstart today?',
+    incipitAiuto: (struttura: string) =>
+      `I know ${struttura}'s profile, Revna's material and your past conversations.`,
     scrivi: 'Type your question…',
     invia: 'Send',
     disclaimer: 'Revna AI can make mistakes. Check important information.',
@@ -113,6 +118,10 @@ export const en: Dictionary = {
       'No requests yet. Open one whenever you need a person: your Revna contact will pick it up.',
     nuova: 'New request',
     apri: 'Ask to be contacted',
+    tiFaccioRichiamare: 'I’ll have someone call you',
+    rivediEInvia: 'Review and send',
+    noGrazie: 'No thanks',
+    testoModificabile: 'You can edit the text: what you read is what goes out.',
     inviata: 'Request sent',
     trovaInSezione: "You'll find it under Requests, with its status.",
     aperta: (quando: string) => `Opened ${quando}`,
@@ -178,6 +187,9 @@ export const en: Dictionary = {
       'No notices yet. Whenever Revna has something to tell you it will appear here, and a notification will let you know.',
     leggi: 'Read',
     da: 'Revna',
+    giaLetti: 'Already read',
+    chiediAllAssistente: 'Ask what changes for me',
+    domandaSuAvviso: (titolo: string) => `What changes for me with “${titolo}”?`,
     ritirato: 'This notice is no longer available: Revna has withdrawn it.',
     tuttiGliAvvisi: 'See all notices',
     notificheNegate:
@@ -191,6 +203,8 @@ export const en: Dictionary = {
     apri: 'Open document',
     apertura: 'Opening…',
     nonApribile: 'The document could not be opened.',
+    nuovo: 'New',
+    nota: 'Files open through a link that lasts five minutes, requested the moment you open them.',
     categorie: {
       report: 'Report',
       presentazione: 'Presentation',
@@ -205,6 +219,12 @@ export const en: Dictionary = {
   profilo: {
     titolo: 'Profile',
     apriImpostazioni: 'Settings',
+    statistiche: {
+      unita: (tipologie: number) =>
+        tipologie === 1 ? 'units · 1 type' : `units · ${tipologie} types`,
+      apertaDal: 'open since',
+      canali: (quanti: number) => (quanti === 1 ? 'active channel' : 'active channels'),
+    },
     nonCompilato:
       'Your profile has not been filled in yet. Your Revna contact writes it: it will show up here as soon as it is ready.',
     esci: 'Sign out',
@@ -239,6 +259,7 @@ export const en: Dictionary = {
         "Add whatever you find useful. They stay yours: they don't overwrite the profile Revna wrote.",
       placeholder: 'Personal notes…',
       salva: 'Save my notes',
+      modifica: 'Edit',
       inCorso: 'Saving…',
       fallito: 'Could not save.',
     },
@@ -332,6 +353,32 @@ export const en: Dictionary = {
 
   impostazioni: {
     titolo: 'Settings',
+
+    memoria: {
+      titolo: 'What the assistant remembers',
+      aiuto:
+        'The preferences you’ve given the assistant as you talk: how you want it to answer, what it should never do. It follows them in every answer, without you repeating them. It writes these notes: you can correct a line, delete it, or erase everything.',
+      vuoto:
+        'Nothing noted yet. When you tell it how you’d rather be helped — “never use bullet points”, “keep it shorter” — it shows up here.',
+      conteggio: (quanti: number) =>
+        quanti === 1 ? '1 preference remembered' : `${quanti} preferences remembered`,
+      visualizza: 'View memories',
+      imparato: (data: string) => (data ? `Learned on ${data}` : 'Learned'),
+      corretto: 'corrected by you',
+      da: (titolo: string) => `from “${titolo}”`,
+      modifica: 'Correct',
+      salva: 'Save the correction',
+      inCorso: 'Saving…',
+      dimentica: 'Forget',
+      confermaTitolo: 'Forget this?',
+      confermaTesto: (testo: string) => `The assistant will no longer take this into account: “${testo}”`,
+      cancellaTutto: 'Erase all memory',
+      cancellaTuttoTitolo: 'Erase all memory?',
+      cancellaTuttoTesto:
+        'The assistant will forget everything it has learned about you and start over. Your conversations and your property profile stay. This cannot be undone.',
+      cancellazione: 'Erasing…',
+      fallito: 'Could not update the memory.',
+    },
 
     lingua: {
       titolo: 'Language',

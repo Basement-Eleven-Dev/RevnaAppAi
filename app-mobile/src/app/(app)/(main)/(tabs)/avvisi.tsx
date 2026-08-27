@@ -1,123 +1,113 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
-import { AnnouncementsIcon } from '@/components/tab-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  AccentRow,
+  AnnouncementsIcon,
+  Appear,
+  BlockLabel,
+  EmptyState,
+  ErrorNote,
+  PageHeading,
+  QuietRow,
+  Screen,
+  ScreenBar,
+  stagger,
+  Text,
+} from '@/components/ui';
 import { useAnnouncements } from '@/hooks/use-announcements';
 import { useT } from '@/hooks/use-language';
-import { useTheme } from '@/hooks/use-theme';
 import { isUnread } from '@/lib/announcements';
+import { Brand, Gutter, Ink, Spacing } from '@/theme';
 import type { Dictionary } from '@/lib/i18n';
 
 /**
  * Gli avvisi di Revna a questa struttura.
  *
- * È l'unica sezione in cui il contenuto arriva senza che il cliente l'abbia chiesto:
- * per questo l'elenco distingue **letto da non letto** prima di ogni altra cosa. Il
- * pallino non è una decorazione — è la risposta alla domanda con cui si entra qui, che
- * è «c'è qualcosa che devo ancora leggere».
+ * È l'unica sezione in cui il contenuto arriva senza che il cliente l'abbia
+ * chiesto: per questo l'elenco distingue **letto da non letto** prima di ogni
+ * altra cosa, e lo fa con due componenti diversi — card in accento con la barra
+ * laterale contro riga di testo su linea sottile. Non è lo stesso elemento con un
+ * pallino in più: da lontano si deve vedere se c'è qualcosa da leggere.
  *
  * Il testo intero si apre in una schermata a sé e in elenco c'è l'estratto: una
- * comunicazione può essere lunga, avere titoli e immagini, e sette avvisi aperti tutti
- * insieme sarebbero un muro in cui non si trova quello di ieri.
+ * comunicazione può essere lunga, e sette avvisi aperti tutti insieme sarebbero un
+ * muro in cui non si trova quello di ieri.
+ *
+ * La stessa distinzione vale per il modo in cui l'elenco entra in scena: i non
+ * letti si accendono **a scaletta**, uno dopo l'altro, perché sono quelli che
+ * l'occhio deve contare; i già letti entrano tutti insieme come un blocco solo,
+ * perché non devono chiamare nessuno.
  */
 export default function AnnouncementsScreen() {
-  const theme = useTheme();
   const t = useT();
   const router = useRouter();
   const { announcements, unread, loading, error, notifiche } = useAnnouncements();
 
+  const daLeggere = announcements.filter(isUnread);
+  const letti = announcements.filter((announcement) => !isUnread(announcement));
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={styles.topbar}>
-          <MenuButton />
-        </View>
+    <Screen>
+      <ScreenBar left={<MenuButton />} />
 
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <View style={styles.header}>
-            <ThemedText type="subtitle">{t.avvisi.titolo}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {unread > 0 ? t.avvisi.daLeggere(unread) : t.avvisi.sottotitolo}
-            </ThemedText>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <PageHeading
+          title={t.avvisi.titolo}
+          subtitle={unread > 0 ? t.avvisi.daLeggere(unread) : t.avvisi.sottotitolo}
+          accent={unread > 0}
+        />
+
+        {loading && <ActivityIndicator color={Brand.accent} />}
+
+        {error !== '' && <ErrorNote>{error}</ErrorNote>}
+
+        {!loading && announcements.length === 0 && (
+          <EmptyState
+            icon={<AnnouncementsIcon color={Ink.faint} size={32} />}
+            text={t.avvisi.vuoto}
+          />
+        )}
+
+        {daLeggere.length > 0 && (
+          <View style={styles.group}>
+            {daLeggere.map((announcement, index) => (
+              <Appear key={announcement.id} delay={stagger(index)}>
+                <AccentRow
+                  title={announcement.titolo}
+                  body={announcement.estratto || undefined}
+                  meta={longDate(announcement.inviatoAt, t)}
+                  onPress={() => router.push(`/avvisi/${announcement.id}`)}
+                />
+              </Appear>
+            ))}
           </View>
+        )}
 
-          {loading && <ActivityIndicator color={theme.primary} />}
+        {letti.length > 0 && (
+          <Appear delay={stagger(daLeggere.length)} style={styles.readGroup}>
+            {daLeggere.length > 0 && <BlockLabel color={Ink.ghost}>{t.avvisi.giaLetti}</BlockLabel>}
+            {letti.map((announcement) => (
+              <QuietRow
+                key={announcement.id}
+                title={announcement.titolo}
+                meta={longDate(announcement.inviatoAt, t)}
+                onPress={() => router.push(`/avvisi/${announcement.id}`)}
+              />
+            ))}
+          </Appear>
+        )}
 
-          {!loading && announcements.length === 0 && (
-            <ThemedView type="backgroundElement" style={styles.empty}>
-              <AnnouncementsIcon color={theme.textSecondary} size={32} />
-              <ThemedText type="small" themeColor="textSecondary" style={styles.emptyText}>
-                {t.avvisi.vuoto}
-              </ThemedText>
-            </ThemedView>
-          )}
-
-          {error !== '' && (
-            <ThemedText type="small" style={styles.error}>
-              {error}
-            </ThemedText>
-          )}
-
-          {announcements.map((announcement) => (
-            <Pressable
-              key={announcement.id}
-              onPress={() => router.push(`/avvisi/${announcement.id}`)}
-              accessibilityRole="button"
-              accessibilityLabel={announcement.titolo}>
-              {({ pressed }) => (
-                <ThemedView
-                  type="backgroundElement"
-                  style={[
-                    styles.card,
-                    {
-                      // Il non letto ha il bordo del brand: nell'elenco si riconosce
-                      // da lontano, anche prima di leggere il titolo.
-                      borderColor: isUnread(announcement) ? theme.primary : theme.border,
-                      opacity: pressed ? 0.6 : 1,
-                    },
-                  ]}>
-                  <View style={styles.cardHead}>
-                    {isUnread(announcement) && (
-                      <View style={[styles.dot, { backgroundColor: theme.primary }]} />
-                    )}
-                    <ThemedText type="small" themeColor="textSecondary" style={styles.meta}>
-                      {longDate(announcement.inviatoAt, t)}
-                    </ThemedText>
-                  </View>
-
-                  <ThemedText type={isUnread(announcement) ? 'smallBold' : 'small'}>
-                    {announcement.titolo}
-                  </ThemedText>
-
-                  {announcement.estratto !== '' && (
-                    <ThemedText type="small" themeColor="textSecondary" numberOfLines={3}>
-                      {announcement.estratto}
-                    </ThemedText>
-                  )}
-
-                  <ThemedText type="small" themeColor="primary" style={styles.action}>
-                    {t.avvisi.leggi}
-                  </ThemedText>
-                </ThemedView>
-              )}
-            </Pressable>
-          ))}
-
-          {/* Solo a permesso negato, e in fondo: è un'informazione utile una volta
-              sola, e non deve stare sopra le comunicazioni che è venuto a leggere. */}
-          {notifiche === 'negate' && announcements.length > 0 && (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.nota}>
-              {t.avvisi.notificheNegate}
-            </ThemedText>
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+        {/* Solo a permesso negato, e in fondo: è un'informazione utile una volta
+            sola, e non deve stare sopra le comunicazioni che è venuto a leggere. */}
+        {notifiche === 'negate' && announcements.length > 0 && (
+          <Text variant="tab" color={Ink.ghost} style={styles.nota}>
+            {t.avvisi.notificheNegate}
+          </Text>
+        )}
+      </ScrollView>
+    </Screen>
   );
 }
 
@@ -132,28 +122,8 @@ function longDate(iso: string, t: Dictionary): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  safeArea: { flex: 1, maxWidth: MaxContentWidth, width: '100%' },
-  topbar: { flexDirection: 'row', paddingHorizontal: Spacing.four },
-  scroll: { padding: Spacing.four, gap: Spacing.three },
-  header: { gap: Spacing.one },
-  error: { color: '#B3261E' },
-  empty: {
-    alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.five,
-    borderRadius: Spacing.four,
-  },
-  emptyText: { textAlign: 'center', lineHeight: 20 },
-  card: {
-    gap: Spacing.two,
-    padding: Spacing.four,
-    borderRadius: Spacing.four,
-    borderWidth: 1,
-  },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  meta: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 },
-  action: { fontWeight: '600', marginTop: Spacing.one },
-  nota: { lineHeight: 20, paddingTop: Spacing.two },
+  scroll: { paddingHorizontal: Gutter, paddingBottom: Spacing.xxl, gap: Spacing.xl },
+  group: { gap: Spacing.sm + 2 },
+  readGroup: { gap: Spacing.xs },
+  nota: { lineHeight: 17 },
 });

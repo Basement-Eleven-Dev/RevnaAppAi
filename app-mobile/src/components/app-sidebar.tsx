@@ -1,95 +1,51 @@
 import { usePathname, useRouter } from 'expo-router';
 import type { DrawerContentComponentProps } from 'expo-router/drawer';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useRef } from 'react';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BrandLogo } from '@/components/brand-logo';
-import {
-  AnnouncementsIcon,
-  BlogIcon,
-  ChatIcon,
-  DocumentsIcon,
-  NewChatIcon,
-  ProfileIcon,
-  RequestsIcon,
-  SettingsIcon,
-} from '@/components/tab-icon';
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useAnnouncements } from '@/hooks/use-announcements';
+import { Wordmark } from '@/components/brand/wordmark';
+import { Appear, Bevel, Button, RequestsIcon, SettingsIcon, stagger, Tap, Text } from '@/components/ui';
 import { useAssistant } from '@/hooks/use-assistant';
 import { useAuth } from '@/hooks/use-auth';
 import { useConversations, whenLabel, type ConversationSummary } from '@/hooks/use-conversations';
 import { useT } from '@/hooks/use-language';
-import { useTheme } from '@/hooks/use-theme';
+import { Brand, Corner, Gutter, Ink, Line, Spacing, Surface } from '@/theme';
 import type { Dictionary } from '@/lib/i18n';
 
 /** Larghezza massima del pannello; su schermi stretti si adatta (vedi il layout). */
 export const SIDEBAR_MAX_WIDTH = 320;
 
-type Icon = typeof ChatIcon;
-
 /**
- * Le sezioni dell'app, nell'ordine in cui compaiono nel menu.
+ * Il pannello laterale: le conversazioni, e le due voci che in una tab bar non
+ * stanno.
  *
- * Sono percorsi e non nomi di rotta del Drawer perché Impostazioni sta dentro lo
- * Stack di Profilo: per il Drawer è «profilo» come la scheda del cliente, mentre
- * nel menu sono due voci distinte, e a distinguerle è il percorso.
- */
-const SECTIONS: { href: SectionHref; icon: Icon; label: (t: Dictionary) => string }[] = [
-  { href: '/chat', icon: ChatIcon, label: (t) => t.nav.assistente },
-  { href: '/avvisi', icon: AnnouncementsIcon, label: (t) => t.nav.avvisi },
-  { href: '/documenti', icon: DocumentsIcon, label: (t) => t.nav.documenti },
-  { href: '/blog', icon: BlogIcon, label: (t) => t.nav.blog },
-  { href: '/richieste', icon: RequestsIcon, label: (t) => t.nav.richieste },
-  { href: '/profilo', icon: ProfileIcon, label: (t) => t.nav.profilo },
-  { href: '/profilo/impostazioni', icon: SettingsIcon, label: (t) => t.impostazioni.titolo },
-];
-
-type SectionHref =
-  | '/chat'
-  | '/avvisi'
-  | '/documenti'
-  | '/blog'
-  | '/richieste'
-  | '/profilo'
-  | '/profilo/impostazioni';
-
-/**
- * Il menu laterale dell'app: prima le sezioni, poi lo storico delle conversazioni.
- *
- * Sta dentro un Drawer e non dentro la schermata di chat perché è la navigazione
- * dell'app: le tab in fondo davano lo stesso peso a chat, documenti e profilo e
- * lasciavano lo storico — la cosa che si apre più spesso — nascosto in un
- * pannello che esisteva solo nella chat. Qui le due cose stanno insieme, come
- * nelle app di assistente conversazionale a cui i clienti sono abituati.
+ * Le cinque sezioni sono già nella tab bar, quindi qui non si ripetono: un menu
+ * che rifà la barra sotto costringe a scegliere due volte la stessa strada. Qui
+ * c'è ciò che la barra non può tenere — lo **storico delle conversazioni**, che è
+ * la cosa che si apre più spesso in un assistente e che in una tab non entra — e
+ * in fondo le richieste di contatto e le impostazioni, che si aprono di rado.
  */
 export function AppSidebar({ navigation }: DrawerContentComponentProps) {
-  const theme = useTheme();
   const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
   const { conversations, loading, remove } = useConversations();
   const { conversationId, open, startNew } = useAssistant();
-  const { unread } = useAnnouncements();
+  const longPressedConversation = useRef<string | null>(null);
 
   /**
    * Il Drawer si chiude da sé quando si naviga altrove, ma non quando la voce
    * toccata è quella già aperta: chiuderlo a mano copre entrambi i casi.
    */
-  function go(href: SectionHref) {
+  function go(href: '/chat' | '/richieste' | '/impostazioni') {
     navigation.closeDrawer();
     router.navigate(href);
   }
 
   function openConversation(conversation: ConversationSummary) {
     open(conversation);
-    go('/chat');
-  }
-
-  function newConversation() {
-    startNew();
     go('/chat');
   }
 
@@ -114,116 +70,130 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.flex}>
       <View style={styles.brand}>
-        <BrandLogo width={104} />
+        <Wordmark width={96} />
       </View>
 
-      <View style={styles.sections}>
-        {SECTIONS.map(({ href, icon: Icon, label }) => {
-          // Uguaglianza, come prima: Impostazioni sta sotto `/profilo` ma nel menu è
-          // una voce a sé, e accendere anche Profilo direbbe che sono la stessa cosa.
-          // L'eccezione è l'avviso aperto — `/avvisi/<id>` non ha una voce sua, quindi
-          // resta accesa quella dell'elenco da cui ci si è arrivati.
-          const active = pathname === href || (href === '/avvisi' && pathname.startsWith('/avvisi/'));
-          // Il pallino sta sull'icona degli avvisi, e solo lì: è l'unica sezione in cui
-          // può arrivare qualcosa che il cliente non ha chiesto.
-          const daLeggere = href === '/avvisi' && unread > 0;
-
-          return (
-            <Pressable
-              key={href}
-              onPress={() => go(href)}
-              accessibilityRole="link"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={
-                daLeggere ? `${label(t)}, ${t.avvisi.daLeggere(unread)}` : undefined
-              }
-              style={[styles.section, active && { backgroundColor: theme.backgroundSelected }]}>
-              <View>
-                <Icon color={active ? theme.primary : theme.textSecondary} size={22} />
-                {daLeggere && (
-                  <View
-                    style={[
-                      styles.badge,
-                      { backgroundColor: theme.primary, borderColor: theme.backgroundElement },
-                    ]}
-                  />
-                )}
-              </View>
-              <ThemedText type={active || daLeggere ? 'smallBold' : 'small'}>
-                {label(t)}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
+      <View style={styles.newChat}>
+        <Button
+          label={t.conversazioni.nuova}
+          onPress={() => {
+            startNew();
+            go('/chat');
+          }}
+        />
       </View>
 
-      <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-      <ThemedText type="small" themeColor="textSecondary" style={styles.listLabel}>
+      <Text variant="micro" style={styles.listLabel}>
         {t.conversazioni.titolo}
-      </ThemedText>
+      </Text>
 
       <ScrollView contentContainerStyle={styles.list}>
         {loading && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
+          <Text variant="service" color={Ink.faint} style={styles.note}>
             {t.comune.caricamento}
-          </ThemedText>
+          </Text>
         )}
 
         {!loading && conversations.length === 0 && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.empty}>
+          <Text variant="service" color={Ink.faint} style={styles.note}>
             {t.conversazioni.vuoto}
-          </ThemedText>
+          </Text>
         )}
 
-        {conversations.map((conversation) => {
+        {conversations.map((conversation, index) => {
           // Evidenziata solo se è anche la schermata aperta: altrove la chat non
           // si vede, e una riga accesa indicherebbe qualcosa che non è a schermo.
           const active = pathname === '/chat' && conversation.id === conversationId;
+
           return (
-            <Pressable
-              key={conversation.id}
-              onPress={() => openConversation(conversation)}
-              onLongPress={() => confirmRemove(conversation)}
-              accessibilityState={{ selected: active }}
-              style={[styles.item, active && { backgroundColor: theme.backgroundSelected }]}>
-              <ThemedText type="small" numberOfLines={2} style={styles.flex}>
-                {titleOf(conversation, t)}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.when}>
-                {whenLabel(conversation.updatedAt, t)}
-              </ThemedText>
-            </Pressable>
+            // Lo storico arriva da Firestore mentre il pannello è già aperto: le
+            // righe entrano a scaletta invece di riempire il vuoto di colpo.
+            <Appear key={conversation.id} delay={stagger(index)}>
+              <Tap
+                onPressIn={() => {
+                  longPressedConversation.current = null;
+                }}
+                onPress={() => {
+                  // Dopo una pressione lunga, il rilascio non deve anche aprire
+                  // la chat e chiudere il drawer sopra alla conferma.
+                  if (longPressedConversation.current === conversation.id) return;
+                  openConversation(conversation);
+                }}
+                onLongPress={() => {
+                  longPressedConversation.current = conversation.id;
+                  confirmRemove(conversation);
+                }}
+                delayLongPress={350}
+                accessibilityRole="button"
+                accessibilityActions={[{ name: 'delete', label: t.comune.elimina }]}
+                onAccessibilityAction={(event) => {
+                  if (event.nativeEvent.actionName === 'delete') confirmRemove(conversation);
+                }}
+                accessibilityState={{ selected: active }}>
+                <Bevel
+                  radius={Corner.control}
+                  fill={active ? Surface.accentTint : undefined}
+                  style={styles.item}>
+                  <Text
+                    variant="service"
+                    color={active ? Brand.accent : Ink.body}
+                    numberOfLines={2}
+                    style={styles.flex}>
+                    {titleOf(conversation, t)}
+                  </Text>
+                  <Text variant="tab" color={Ink.ghost}>
+                    {whenLabel(conversation.updatedAt, t)}
+                  </Text>
+                </Bevel>
+              </Tap>
+            </Appear>
           );
         })}
 
         {conversations.length > 0 && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
+          <Text variant="tab" color={Ink.ghost} style={styles.hint}>
             {t.conversazioni.suggerimentoElimina}
-          </ThemedText>
+          </Text>
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: theme.border }]}>
-        <Pressable
-          onPress={() => go('/profilo')}
-          accessibilityRole="link"
-          accessibilityLabel={t.nav.profilo}
-          style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]}>
-          <ThemedText type="smallBold">{initialOf(user?.email)}</ThemedText>
-        </Pressable>
-
-        <Pressable
-          onPress={newConversation}
-          accessibilityRole="button"
-          style={[styles.newChat, { backgroundColor: theme.primary }]}>
-          <NewChatIcon color="#FFFFFF" size={18} />
-          <ThemedText type="smallBold" style={styles.newChatLabel}>
-            {t.conversazioni.nuova}
-          </ThemedText>
-        </Pressable>
+      <View style={styles.footer}>
+        <FooterLink
+          label={t.nav.richieste}
+          icon={<RequestsIcon color={Ink.muted} size={18} />}
+          onPress={() => go('/richieste')}
+        />
+        <FooterLink
+          label={t.impostazioni.titolo}
+          icon={<SettingsIcon color={Ink.muted} size={18} />}
+          onPress={() => go('/impostazioni')}
+        />
+        <Text variant="tab" color={Ink.ghost} style={styles.account} numberOfLines={1}>
+          {user?.email ?? ''}
+        </Text>
       </View>
     </SafeAreaView>
+  );
+}
+
+function FooterLink({
+  label,
+  icon,
+  onPress,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+}) {
+  return (
+    <Tap onPress={onPress} accessibilityRole="link" accessibilityLabel={label}>
+      <View style={styles.footerLink}>
+        {icon}
+        <Text variant="service" color={Ink.secondary}>
+          {label}
+        </Text>
+      </View>
+    </Tap>
   );
 }
 
@@ -236,75 +206,28 @@ function titleOf(conversation: ConversationSummary, t: Dictionary): string {
   return conversation.title || t.conversazioni.senzaTitolo;
 }
 
-/** Iniziale dell'email, che è l'unica cosa che sappiamo sempre di chi è entrato. */
-function initialOf(email: string | null | undefined): string {
-  return email?.trim().charAt(0).toUpperCase() || '·';
-}
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  brand: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    paddingBottom: Spacing.four,
-  },
-  sections: { paddingHorizontal: Spacing.two, gap: Spacing.half },
-  // Il pallino dei non letti: sull'angolo dell'icona, con il bordo del colore del
-  // menu, che è quello che lo fa staccare dal disegno sotto.
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-  },
-  section: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  divider: { height: 1, marginVertical: Spacing.three, marginHorizontal: Spacing.four },
-  listLabel: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.two, fontSize: 12 },
-  list: { paddingHorizontal: Spacing.two, paddingBottom: Spacing.three, gap: Spacing.half },
+  brand: { paddingHorizontal: Gutter, paddingTop: Spacing.lg, paddingBottom: Spacing.xl },
+  newChat: { paddingHorizontal: Gutter, paddingBottom: Spacing.xl },
+  listLabel: { paddingHorizontal: Gutter, paddingBottom: Spacing.md },
+  list: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.lg, gap: Spacing.hair },
   item: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: Spacing.two,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
   },
-  when: { fontSize: 11 },
-  empty: { padding: Spacing.three, lineHeight: 20 },
-  hint: { padding: Spacing.three, fontSize: 11, lineHeight: 16 },
+  note: { padding: Spacing.md },
+  hint: { padding: Spacing.md, lineHeight: 16 },
   footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    gap: Spacing.md,
+    paddingHorizontal: Gutter,
+    paddingTop: Spacing.lg,
     borderTopWidth: 1,
+    borderTopColor: Line.hairline,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  newChat: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-    height: 40,
-    borderRadius: 20,
-  },
-  newChatLabel: { color: '#FFFFFF' },
+  footerLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  account: { paddingTop: Spacing.xs },
 });

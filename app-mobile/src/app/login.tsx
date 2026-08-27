@@ -1,22 +1,49 @@
 import { Link, Redirect } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { BrandLogo } from '@/components/brand-logo';
+import { Monogram } from '@/components/brand/monogram';
+import { Wordmark } from '@/components/brand/wordmark';
 import { LegalLinks } from '@/components/legal-links';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  AccentGlow,
+  Appear,
+  Button,
+  Field,
+  FieldNote,
+  PasswordField,
+  Screen,
+  stagger,
+  Text,
+} from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useT } from '@/hooks/use-language';
-import { useTheme } from '@/hooks/use-theme';
 import { authErrorMessage } from '@/lib/auth';
 import { getFirebaseAuth, isFirebaseConfigured, missingFirebaseEnvKeys } from '@/lib/firebase';
+import { Brand, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
+/**
+ * Il claim del brand, che nel sistema **è** la schermata d'accesso: il lettering
+ * non è un logo appoggiato in cima, è il contenuto. Non si traduce, come non si
+ * traduce il nome.
+ */
+const CLAIM = ['Rethink', 'your', 'revenue.'] as const;
+
+/**
+ * Accesso.
+ *
+ * Il form è ancorato in basso e il lettering sta sopra: il pollice arriva prima al
+ * campo che al titolo, ed è al campo che serve arrivare. Nessuna barra in fondo —
+ * si entra da qui, non si naviga.
+ *
+ * È l'unica delle tre schermate d'accesso che entra in scena, e per un motivo
+ * preciso: le altre due si raggiungono da qui, quindi arrivano già con lo
+ * scorrimento dello Stack, e sommare un'entrata a uno scorrimento è movimento
+ * sopra movimento. Questa invece prende il posto dello splash, che è un taglio
+ * secco — il claim che si accende è la prima cosa che l'app fa vedere di sé.
+ */
 export default function LoginScreen() {
-  const theme = useTheme();
   const t = useT();
   const { user, loading } = useAuth();
   const [email, setEmail] = useState('');
@@ -26,15 +53,13 @@ export default function LoginScreen() {
 
   if (loading) {
     return (
-      <ThemedView style={styles.centered}>
-        <ActivityIndicator color={theme.primary} />
-      </ThemedView>
+      <View style={styles.centered}>
+        <ActivityIndicator color={Brand.accent} />
+      </View>
     );
   }
 
-  if (user) {
-    return <Redirect href="/chat" />;
-  }
+  if (user) return <Redirect href="/chat" />;
 
   const canSubmit = email.trim().length > 0 && password.length >= 6 && !busy;
 
@@ -52,108 +77,99 @@ export default function LoginScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.hero}>
-          <BrandLogo width={200} />
-          <ThemedText type="small" themeColor="textSecondary" style={styles.centeredText}>
-            {t.login.sottotitolo}
-          </ThemedText>
-        </ThemedView>
+    <Screen>
+      <AccentGlow size={280} opacity={0.22} top={-40} right={-70} />
 
-        <ThemedView style={styles.form}>
-          <TextInput
-            style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-            placeholder={t.comune.email}
-            placeholderTextColor={theme.textSecondary}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <TextInput
-            style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-            placeholder={t.comune.password}
-            placeholderTextColor={theme.textSecondary}
-            autoCapitalize="none"
-            autoComplete="current-password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            onSubmitEditing={submit}
-          />
+      <View style={styles.monogram}>
+        <Monogram height={46} color={Brand.accent} />
+      </View>
 
-          {error !== '' && (
-            <ThemedText type="small" style={{ color: '#B3261E' }}>
-              {error}
-            </ThemedText>
-          )}
+      <Appear style={styles.hero}>
+        <Wordmark width={132} />
+        <Text variant="display" style={styles.claim}>
+          {CLAIM[0]}
+          {'\n'}
+          {CLAIM[1]}
+          {'\n'}
+          <Text variant="display" color={Brand.accent}>
+            {CLAIM[2]}
+          </Text>
+        </Text>
+        <Text variant="service" color={Ink.secondary} style={styles.tagline}>
+          {t.login.sottotitolo}
+        </Text>
+      </Appear>
 
-          {!isFirebaseConfigured && (
-            <ThemedText type="code" themeColor="textSecondary">
-              {t.login.firebaseDaConfigurare(missingFirebaseEnvKeys().join(', '))}
-            </ThemedText>
-          )}
+      <Appear delay={stagger(2)} style={styles.form}>
+        <Field
+          placeholder={t.comune.email}
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <PasswordField
+          placeholder={t.comune.password}
+          autoComplete="current-password"
+          showLabel={t.comune.mostra}
+          hideLabel={t.comune.nascondi}
+          value={password}
+          onChangeText={setPassword}
+          onSubmitEditing={submit}
+        />
 
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: theme.primary, opacity: canSubmit ? 1 : 0.5 }]}
-            disabled={!canSubmit}
-            onPress={submit}>
-            <ThemedText type="smallBold" style={styles.buttonLabel}>
-              {busy ? t.login.inCorso : t.login.accedi}
-            </ThemedText>
-          </TouchableOpacity>
+        {error !== '' && <FieldNote tone="error">{error}</FieldNote>}
 
-          <Link href="/recupera" style={styles.centeredText}>
-            <ThemedText type="small" themeColor="primary">
+        {!isFirebaseConfigured && (
+          <FieldNote>{t.login.firebaseDaConfigurare(missingFirebaseEnvKeys().join(', '))}</FieldNote>
+        )}
+
+        <Button
+          label={t.login.accedi}
+          loading={busy}
+          loadingLabel={t.login.inCorso}
+          disabled={!canSubmit}
+          onPress={submit}
+        />
+
+        <View style={styles.links}>
+          <Link href="/recupera">
+            <Text variant="service" color={Ink.secondary} style={styles.link}>
               {t.login.passwordDimenticata}
-            </ThemedText>
+            </Text>
           </Link>
-
-          <Link href="/attiva" style={styles.centeredText}>
-            <ThemedText type="small" themeColor="primary">
+          <Link href="/attiva">
+            <Text variant="service" color={Brand.accent} style={styles.linkStrong}>
               {t.login.hoUnCodice}
-            </ThemedText>
+            </Text>
           </Link>
+        </View>
 
-          <ThemedText type="small" themeColor="textSecondary" style={styles.centeredText}>
-            {t.login.nessunAccesso}
-          </ThemedText>
-
-          <LegalLinks nota />
-        </ThemedView>
-      </SafeAreaView>
-    </ThemedView>
+        <LegalLinks nota intro={t.login.nessunAccesso} />
+      </Appear>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  safeArea: {
+  centered: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.five,
-    maxWidth: MaxContentWidth,
-    width: '100%',
-  },
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
-  form: { gap: Spacing.three },
-  input: {
-    borderWidth: 1,
-    borderRadius: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-    // I campi non passano da ThemedText: il font del brand va detto qui.
-    fontFamily: Fonts.sans,
-  },
-  button: {
-    borderRadius: Spacing.three,
-    paddingVertical: Spacing.three,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Surface.base,
   },
-  buttonLabel: { color: '#FFFFFF' },
-  centeredText: { textAlign: 'center' },
+  monogram: { position: 'absolute', top: 58, right: Spacing.xl + 2 },
+  hero: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: Gutter + 2,
+    paddingBottom: Spacing.xxl + 2,
+  },
+  claim: { marginTop: Spacing.xl + 4 },
+  tagline: { marginTop: Spacing.lg + 2, maxWidth: 270 },
+  form: { paddingHorizontal: Gutter + 2, paddingBottom: Spacing.huge - 4, gap: Spacing.md - 1 },
+  links: { flexDirection: 'row', justifyContent: 'space-between', marginTop: Spacing.xs + 2 },
+  link: { fontSize: 12.5 },
+  linkStrong: { fontFamily: Family.sansSemibold, fontSize: 12.5 },
 });

@@ -1,25 +1,42 @@
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
-import { DocumentsIcon } from '@/components/tab-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  Appear,
+  Bevel,
+  DocumentsIcon,
+  EmptyState,
+  ErrorNote,
+  FormatBlock,
+  PageHeading,
+  Screen,
+  ScreenBar,
+  stagger,
+  Tag,
+  Tap,
+  Text,
+} from '@/components/ui';
 import { documentUrl, useDocuments } from '@/hooks/use-documents';
 import { useT } from '@/hooks/use-language';
-import { useTheme } from '@/hooks/use-theme';
-import { formatSize, type ClientDocument } from '@/lib/documents';
+import { formatOf, formatSize, isRecent, type ClientDocument } from '@/lib/documents';
 import { labelOf, type Dictionary } from '@/lib/i18n';
+import { Brand, Corner, Gutter, Ink, Spacing, Surface } from '@/theme';
 
 /**
- * Documenti che Revna ha condiviso con questa struttura.
- * Sono in sola lettura: il caricamento avviene dal pannello interno Revna.
+ * I materiali che Revna ha condiviso con questa struttura.
+ *
+ * Sono in sola lettura: il caricamento avviene dal pannello interno Revna. Il tipo
+ * di file è la prima informazione che serve, quindi diventa un blocco di formato a
+ * sinistra; peso, categoria e data stanno in coda; «Nuovo» è l'unico uso
+ * dell'arancio nell'elenco.
+ *
+ * L'elenco entra a scaletta: al suo posto un istante prima c'era una rotella, e
+ * una lista che si materializza tutta insieme al posto di quella non si legge come
+ * una risposta arrivata — si legge come un salto.
  */
 export default function DocumentsScreen() {
-  const theme = useTheme();
   const t = useT();
   const { documents, loading, error } = useDocuments();
   const [opening, setOpening] = useState('');
@@ -40,118 +57,92 @@ export default function DocumentsScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={styles.topbar}>
-          <MenuButton />
-        </View>
+    <Screen>
+      <ScreenBar left={<MenuButton />} />
 
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <View style={styles.header}>
-            <ThemedText type="subtitle">{t.documenti.titolo}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {t.documenti.sottotitolo}
-            </ThemedText>
-          </View>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <PageHeading title={t.documenti.titolo} subtitle={t.documenti.sottotitolo} />
 
-          {loading && <ActivityIndicator color={theme.primary} />}
+        {loading && <ActivityIndicator color={Brand.accent} />}
 
-          {!loading && documents.length === 0 && (
-            <ThemedView type="backgroundElement" style={styles.empty}>
-              <DocumentsIcon color={theme.textSecondary} size={32} />
-              <ThemedText type="small" themeColor="textSecondary" style={styles.emptyText}>
-                {t.documenti.vuoto}
-              </ThemedText>
-            </ThemedView>
-          )}
+        {(error !== '' || openError !== '') && <ErrorNote>{openError || error}</ErrorNote>}
 
-          {(error !== '' || openError !== '') && (
-            <ThemedText type="small" style={{ color: '#B3261E' }}>
-              {openError || error}
-            </ThemedText>
-          )}
+        {!loading && documents.length === 0 && (
+          <EmptyState icon={<DocumentsIcon color={Ink.faint} size={32} />} text={t.documenti.vuoto} />
+        )}
 
-          {documents.map((document) => (
-            <Pressable key={document.id} onPress={() => open(document)}>
-              {({ pressed }) => (
-                <ThemedView
-                  type="backgroundElement"
-                  style={[styles.card, { borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}>
-                  <View style={styles.cardHead}>
-                    <View style={[styles.badge, { borderColor: theme.border }]}>
-                      <ThemedText type="small" themeColor="primary" style={styles.badgeLabel}>
-                        {labelOf(t.documenti.categorie, document.categoria)}
-                      </ThemedText>
+        {documents.length > 0 && (
+          <View style={styles.list}>
+            {documents.map((document, index) => (
+              <Appear key={document.id} delay={stagger(index)}>
+                <Tap
+                  onPress={() => open(document)}
+                  accessibilityRole="button"
+                  accessibilityLabel={document.name}>
+                  <Bevel radius={Corner.card} fill={Surface.element} style={styles.row}>
+                    <FormatBlock label={formatOf(document)} highlight={isRecent(document)} />
+
+                    <View style={styles.grow}>
+                      <Text variant="rowTitle" numberOfLines={2}>
+                        {document.name}
+                      </Text>
+                      {document.description !== '' && (
+                        <Text
+                          variant="service"
+                          color={Ink.secondary}
+                          numberOfLines={2}
+                          style={styles.description}>
+                          {document.description}
+                        </Text>
+                      )}
+                      <Text variant="tab" color={Ink.faint} style={styles.meta}>
+                        {[
+                          labelOf(t.documenti.categorie, document.categoria),
+                          formatSize(document.size),
+                          shortDate(document.uploadedAt, t),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
                     </View>
-                    <ThemedText type="small" themeColor="textSecondary" style={styles.meta}>
-                      {formatSize(document.size)} · {shortDate(document.uploadedAt, t)}
-                    </ThemedText>
-                  </View>
 
-                  <ThemedText type="smallBold">{document.name}</ThemedText>
+                    {opening === document.id ? (
+                      <ActivityIndicator color={Brand.accent} size="small" />
+                    ) : isRecent(document) ? (
+                      <Tag label={t.documenti.nuovo} />
+                    ) : null}
+                  </Bevel>
+                </Tap>
+              </Appear>
+            ))}
 
-                  {document.description !== '' && (
-                    <ThemedText type="small" themeColor="textSecondary">
-                      {document.description}
-                    </ThemedText>
-                  )}
-
-                  <ThemedText type="small" themeColor="primary" style={styles.action}>
-                    {opening === document.id ? t.documenti.apertura : t.documenti.apri}
-                  </ThemedText>
-                </ThemedView>
-              )}
-            </Pressable>
-          ))}
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+            <Text variant="tab" color={Ink.ghost} style={styles.nota}>
+              {t.documenti.nota}
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </Screen>
   );
 }
 
 function shortDate(iso: string, t: Dictionary): string {
   return iso
-    ? new Date(iso).toLocaleDateString(t.dateLocale, {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
+    ? new Date(iso).toLocaleDateString(t.dateLocale, { day: 'numeric', month: 'long' })
     : '';
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  safeArea: { flex: 1, maxWidth: MaxContentWidth, width: '100%' },
-  topbar: { flexDirection: 'row', paddingHorizontal: Spacing.four },
-  scroll: { padding: Spacing.four, gap: Spacing.three },
-  header: { gap: Spacing.one },
-  empty: {
-    alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.five,
-    borderRadius: Spacing.four,
-  },
-  emptyText: { textAlign: 'center', lineHeight: 20 },
-  card: {
-    gap: Spacing.two,
-    padding: Spacing.four,
-    borderRadius: Spacing.four,
-    borderWidth: 1,
-  },
-  cardHead: {
+  scroll: { paddingHorizontal: Gutter, paddingBottom: Spacing.xxl, gap: Spacing.xl },
+  list: { gap: Spacing.sm + 2 },
+  grow: { flex: 1 },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-    backgroundColor: 'transparent',
+    gap: Spacing.md + 1,
+    padding: Spacing.lg - 1,
   },
-  badge: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 1,
-  },
-  badgeLabel: { fontSize: 11, lineHeight: 16, fontWeight: '600' },
-  meta: { fontSize: 11 },
-  action: { fontWeight: '600', marginTop: Spacing.one },
+  description: { marginTop: Spacing.xs },
+  meta: { marginTop: Spacing.xs + 2 },
+  nota: { lineHeight: 17, marginTop: Spacing.xs },
 });

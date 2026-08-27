@@ -1,32 +1,47 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ContactRequestModal } from '@/components/contact-request-modal';
-import { MenuButton } from '@/components/menu-button';
-import { NewChatIcon, RequestsIcon } from '@/components/tab-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  Appear,
+  BackIcon,
+  Button,
+  Card,
+  EmptyState,
+  ErrorNote,
+  IconButton,
+  PageHeading,
+  RequestsIcon,
+  Screen,
+  ScreenBar,
+  stagger,
+  StatusChip,
+  Text,
+  type ChipTone,
+} from '@/components/ui';
 import { createContactRequest, useContactRequests } from '@/hooks/use-contact-requests';
 import { useT } from '@/hooks/use-language';
-import { useTheme } from '@/hooks/use-theme';
 import type { ContactRequest, Stato } from '@/lib/contact-requests';
 import type { Dictionary } from '@/lib/i18n';
+import { Gutter, Ink, Line, Spacing } from '@/theme';
 
 /**
  * Le richieste di contatto del cliente, e da dove se ne apre una.
  *
- * Esiste per due motivi diversi. Il primo è che una richiesta, dopo averla mandata,
- * bisogna poterla ritrovare: nella chat scorre via con la conversazione, e senza un
- * posto dove sta scritto «inviata, visualizzata, chiusa» il cliente non sa se
- * qualcuno l'ha presa in mano. Il secondo è che non tutto nasce da una domanda
- * all'assistente — a volte si vuole parlare con una persona e basta, e quella strada
- * non deve passare per una chat.
+ * Esiste per due motivi diversi. Il primo è che una richiesta, dopo averla
+ * mandata, bisogna poterla ritrovare: nella chat scorre via con la conversazione,
+ * e senza un posto dove sta scritto «inviata, visualizzata, chiusa» il cliente non
+ * sa se qualcuno l'ha presa in mano. Il secondo è che non tutto nasce da una
+ * domanda all'assistente — a volte si vuole parlare con una persona e basta, e
+ * quella strada non deve passare per una chat.
+ *
+ * Sta nel pannello laterale e non nella tab bar: è la sezione che si apre quando
+ * si sta aspettando una risposta, non una delle cinque in cui si vive.
  */
 export default function RequestsScreen() {
-  const theme = useTheme();
   const t = useT();
+  const router = useRouter();
   const { requests, loading, error } = useContactRequests();
   const [composing, setComposing] = useState(false);
   /**
@@ -36,55 +51,34 @@ export default function RequestsScreen() {
   const [foglio, setFoglio] = useState(0);
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={styles.topbar}>
-          <MenuButton />
-        </View>
+    <Screen>
+      <ScreenBar
+        left={
+          <IconButton onPress={() => router.back()} accessibilityLabel={t.comune.indietro}>
+            <BackIcon color={Ink.secondary} />
+          </IconButton>
+        }
+      />
 
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <View style={styles.header}>
-            <ThemedText type="subtitle">{t.richieste.titolo}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {t.richieste.sottotitolo}
-            </ThemedText>
-          </View>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <PageHeading title={t.richieste.titolo} subtitle={t.richieste.sottotitolo} />
 
-          <Pressable
-            onPress={() => setComposing(true)}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.nuova,
-              { backgroundColor: theme.primary, opacity: pressed ? 0.8 : 1 },
-            ]}>
-            <NewChatIcon color="#FFFFFF" size={18} />
-            <ThemedText type="smallBold" style={styles.nuovaLabel}>
-              {t.richieste.nuova}
-            </ThemedText>
-          </Pressable>
+        <Button label={t.richieste.nuova} onPress={() => setComposing(true)} />
 
-          {loading && <ActivityIndicator color={theme.primary} />}
+        {loading && <ActivityIndicator color={Ink.faint} />}
 
-          {!loading && requests.length === 0 && (
-            <ThemedView type="backgroundElement" style={styles.empty}>
-              <RequestsIcon color={theme.textSecondary} size={32} />
-              <ThemedText type="small" themeColor="textSecondary" style={styles.emptyText}>
-                {t.richieste.vuoto}
-              </ThemedText>
-            </ThemedView>
-          )}
+        {error !== '' && <ErrorNote>{error}</ErrorNote>}
 
-          {error !== '' && (
-            <ThemedText type="small" style={styles.error}>
-              {error}
-            </ThemedText>
-          )}
+        {!loading && requests.length === 0 && (
+          <EmptyState icon={<RequestsIcon color={Ink.faint} size={32} />} text={t.richieste.vuoto} />
+        )}
 
-          {requests.map((request) => (
-            <RequestCard key={request.id} request={request} />
-          ))}
-        </ScrollView>
-      </SafeAreaView>
+        {requests.map((request, index) => (
+          <Appear key={request.id} delay={stagger(index)}>
+            <RequestCard request={request} t={t} />
+          </Appear>
+        ))}
+      </ScrollView>
 
       <ContactRequestModal
         key={foglio}
@@ -96,7 +90,7 @@ export default function RequestsScreen() {
           setFoglio((numero) => numero + 1);
         }}
       />
-    </ThemedView>
+    </Screen>
   );
 }
 
@@ -108,54 +102,45 @@ export default function RequestsScreen() {
  * saperlo. Sotto il testo c'è il recapito con cui la richiesta è partita, che è la
  * risposta alla seconda domanda di chi aspetta una chiamata: dove mi chiamano.
  */
-function RequestCard({ request }: { request: ContactRequest }) {
-  const theme = useTheme();
-  const t = useT();
+function RequestCard({ request, t }: { request: ContactRequest; t: Dictionary }) {
   const recapito = request.contatto.telefono || request.contatto.email;
 
   return (
-    <ThemedView type="backgroundElement" style={[styles.card, { borderColor: theme.border }]}>
-      <View style={styles.cardHead}>
-        <View
-          style={[
-            styles.badge,
-            { borderColor: statoColor(request.stato, theme.primary, theme.border) },
-          ]}>
-          <ThemedText
-            type="small"
-            themeColor={request.stato === 'chiusa' ? 'textSecondary' : 'primary'}
-            style={styles.badgeLabel}>
-            {t.richieste.stati[request.stato]}
-          </ThemedText>
-        </View>
-        <ThemedText type="small" themeColor="textSecondary" style={styles.meta}>
+    <Card>
+      <View style={styles.head}>
+        <StatusChip label={t.richieste.stati[request.stato]} tone={toneOf(request.stato)} />
+        <Text variant="tab" color={Ink.faint}>
           {t.richieste.aperta(shortDate(request.createdAt, t))}
-        </ThemedText>
+        </Text>
       </View>
 
-      <ThemedText type="small">{request.messaggio}</ThemedText>
+      <Text variant="service" color={Ink.primary} style={styles.message}>
+        {request.messaggio}
+      </Text>
 
-      <ThemedText type="small" themeColor="textSecondary" style={styles.stato}>
+      <Text variant="service" color={Ink.secondary}>
         {t.richieste.statiAiuto[request.stato]}
-      </ThemedText>
+      </Text>
 
-      <View style={[styles.footer, { borderTopColor: theme.border }]}>
+      <View style={styles.footer}>
         {recapito !== '' && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.meta}>
+          <Text variant="tab" color={Ink.faint}>
             {t.richieste.richiamoSu(recapito)}
-          </ThemedText>
+          </Text>
         )}
-        <ThemedText type="small" themeColor="textSecondary" style={styles.meta}>
+        <Text variant="tab" color={Ink.ghost}>
           {t.richieste.origine[request.origine]}
-        </ThemedText>
+        </Text>
       </View>
-    </ThemedView>
+    </Card>
   );
 }
 
-/** Una richiesta chiusa non deve più chiamare l'occhio: il bordo si spegne. */
-function statoColor(stato: Stato, primary: string, border: string): string {
-  return stato === 'chiusa' ? border : primary;
+/** Una richiesta chiusa non deve più chiamare l'occhio: lo stato si spegne. */
+function toneOf(stato: Stato): ChipTone {
+  if (stato === 'inviata') return 'accent';
+  if (stato === 'visualizzata') return 'neutral';
+  return 'quiet';
 }
 
 function shortDate(iso: string, t: Dictionary): string {
@@ -169,54 +154,20 @@ function shortDate(iso: string, t: Dictionary): string {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  safeArea: { flex: 1, maxWidth: MaxContentWidth, width: '100%' },
-  topbar: { flexDirection: 'row', paddingHorizontal: Spacing.four },
-  scroll: { padding: Spacing.four, gap: Spacing.three },
-  header: { gap: Spacing.one },
-  nuova: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.two,
-    height: 46,
-    borderRadius: 23,
-  },
-  nuovaLabel: { color: '#FFFFFF' },
-  empty: {
-    alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.five,
-    borderRadius: Spacing.four,
-  },
-  emptyText: { textAlign: 'center', lineHeight: 20 },
-  error: { color: '#B3261E' },
-  card: {
-    gap: Spacing.two,
-    padding: Spacing.four,
-    borderRadius: Spacing.four,
-    borderWidth: 1,
-  },
-  cardHead: {
+  scroll: { paddingHorizontal: Gutter, paddingBottom: Spacing.xxl, gap: Spacing.sm + 2 },
+  head: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: Spacing.two,
-    backgroundColor: 'transparent',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  badge: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 1,
-  },
-  badgeLabel: { fontSize: 11, lineHeight: 16, fontWeight: '600' },
-  meta: { fontSize: 11 },
-  stato: { lineHeight: 18 },
+  message: { marginBottom: Spacing.sm },
   footer: {
-    gap: Spacing.half,
-    paddingTop: Spacing.two,
+    gap: Spacing.hair,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    backgroundColor: 'transparent',
+    borderTopColor: Line.hairline,
   },
 });

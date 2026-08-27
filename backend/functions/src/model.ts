@@ -12,6 +12,7 @@ import {
   type Source,
 } from './agent';
 import type { StoredTurn } from './conversations';
+import type { MemoryEntry, ToolCall, ToolDeclaration } from './memory';
 import { describeProfile, type ClientProfile } from './profile';
 
 /**
@@ -79,6 +80,49 @@ export async function complete(
   return response.text?.trim() ?? '';
 }
 
+/**
+ * Una decisione del modello espressa come chiamate a strumenti, senza testo.
+ *
+ * È il meccanismo con cui l'assistente tiene la sua memoria (vedi `memory.ts`):
+ * invece di far scrivere al modello un JSON dentro una risposta e poi sperare di
+ * saperlo leggere, gli si dichiarano gli strumenti e si eseguono le chiamate che
+ * decide di fare. La differenza pratica è che gli argomenti arrivano già tipizzati
+ * e che «non fare niente» è una risposta valida — nessuna chiamata — invece di una
+ * frase da interpretare.
+ *
+ * Nessuna risposta allo strumento torna al modello: qui gli strumenti sono azioni
+ * che non hanno un esito da riferire, e un secondo giro raddoppierebbe il tempo per
+ * far dire al modello "ok".
+ */
+export async function decide(
+  prompt: string,
+  tools: ToolDeclaration[],
+  { temperature = 0 }: { temperature?: number } = {},
+): Promise<ToolCall[]> {
+  const ai = await client();
+
+  const response = await ai.models.generateContent({
+    model: geminiModel.value(),
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: {
+      temperature,
+      tools: [
+        {
+          functionDeclarations: tools.map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            parametersJsonSchema: tool.parameters,
+          })),
+        },
+      ],
+    },
+  });
+
+  return (response.functionCalls ?? [])
+    .filter((call) => typeof call.name === 'string')
+    .map((call) => ({ name: call.name as string, args: call.args ?? {} }));
+}
+
 export type Answer = {
   text: string;
   sources: Source[];
@@ -106,11 +150,18 @@ export async function respond({
   profile,
   history,
   message,
+  memory = [],
   onChunk,
 }: {
   profile: ClientProfile;
   history: StoredTurn[];
   message: string;
+  /**
+   * I fatti che l'assistente ha imparato su questo cliente. Vuota per la prova dal
+   * backoffice: là non c'è un cliente vero che parla, e mettergli in bocca una
+   * memoria che non ha proverebbe un assistente diverso da quello che risponde.
+   */
+  memory?: MemoryEntry[];
   /** `Promise<unknown>` e non `void`: `sendChunk` restituisce un booleano che non ci serve. */
   onChunk?: (text: string) => Promise<unknown>;
 }): Promise<Answer> {
@@ -125,6 +176,7 @@ export async function respond({
     agent.config,
     describeProfile(profile),
     selected,
+    memory,
   );
 
   const contents = [

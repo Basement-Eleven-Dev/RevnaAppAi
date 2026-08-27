@@ -1,198 +1,247 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
-  Animated,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AssistantBadge } from '@/components/assistant-badge';
 import { ContactRequestModal } from '@/components/contact-request-modal';
+import { HandoffCard, HandoffSent } from '@/components/handoff-card';
 import { Markdown } from '@/components/markdown';
 import { MenuButton } from '@/components/menu-button';
 import { Sources } from '@/components/sources';
-import { NewChatIcon, SendIcon } from '@/components/tab-icon';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  Appear,
+  AssistantSignature,
+  Bevel,
+  ErrorNote,
+  GlassPanel,
+  IconButton,
+  Mark,
+  PlusIcon,
+  Screen,
+  ScreenBar,
+  SendIcon,
+  stagger,
+  StreamCaret,
+  Text,
+  Tile,
+  TypingDots,
+} from '@/components/ui';
 import { useAssistant } from '@/hooks/use-assistant';
 import { useClientProfile } from '@/hooks/use-client-profile';
 import { createContactRequest } from '@/hooks/use-contact-requests';
 import { useT } from '@/hooks/use-language';
 import { useStarters } from '@/hooks/use-starters';
-import { useTheme } from '@/hooks/use-theme';
+import { Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
+/**
+ * La chat con l'assistente: la prima schermata dell'app.
+ *
+ * A conversazione vuota il monogramma fa da segno d'attesa e gli spunti sono
+ * tessere a piena larghezza — si leggono con una mano, invece di essere tre
+ * bottoni in fila da centrare. A conversazione avviata il monogramma torna
+ * piccolo, come firma di ogni risposta.
+ *
+ * **Ogni turno entra in scena.** È la schermata in cui l'app scrive da sola, e un
+ * paragrafo che compare di colpo non si distingue da un salto del layout: salendo
+ * di 8px mentre si accende dice «questo è nuovo, ed è arrivato adesso» — che è
+ * l'unica cosa che si deve capire di un messaggio in una conversazione. Vale anche
+ * per il turno dell'utente: il proprio messaggio che sale dal composer è la
+ * conferma che è partito.
+ */
 export default function ChatScreen() {
-  const theme = useTheme();
   const t = useT();
   const { profile } = useClientProfile();
   const router = useRouter();
-  const { conversationId, turns, busy, waiting, error, send, startNew } = useAssistant();
+  const { conversationId, title, turns, busy, waiting, error, pending, send, startNew, takePending } =
+    useAssistant();
   // Gli spunti arrivano dal backoffice: sono parte della personalità dell'assistente,
   // non una costante dell'app.
   const spunti = useStarters();
-  const [draft, setDraft] = useState('');
+  const [typed, setTyped] = useState('');
   /** Il turno di cui si sta confermando la richiesta di contatto, se ce n'è uno. */
   const [proposing, setProposing] = useState<{ key: string; text: string } | null>(null);
   /**
-   * I turni da cui una richiesta è già partita, per non farla partire due volte.
-   * Vive quanto la schermata: a richiesta inviata la traccia sta nella sezione
-   * «Richieste», che è il posto dove ha senso cercarla.
+   * I turni da cui una richiesta è già partita, o che sono stati messi da parte con
+   * «No grazie». Vive quanto la schermata: a richiesta inviata la traccia sta nella
+   * sezione «Richieste», che è il posto dove ha senso cercarla.
    */
   const [sent, setSent] = useState<Record<string, boolean>>({});
+  const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
   const scroller = useRef<ScrollView>(null);
 
-  const struttura = profile?.struttura.nome;
+  const struttura = profile?.struttura.nome ?? t.chat.strutturaSconosciuta;
+
+  /**
+   * Nel composer c'è quello che l'utente ha scritto, o — finché non ha scritto
+   * niente — la domanda che gli arriva da un'altra schermata (in fondo a un
+   * avviso c'è «Chiedi cosa cambia per me»).
+   *
+   * È stato derivato e non una copia sincronizzata con un effetto: la domanda
+   * pronta non è una seconda verità da tenere allineata, è il valore di partenza
+   * di questo campo.
+   */
+  const draft = pending !== '' ? pending : typed;
   const canSend = draft.trim() !== '' && !busy;
+
+  /** Il primo tasto premuto rende il testo dell'utente: la proposta ha finito. */
+  function edit(next: string) {
+    if (pending !== '') takePending();
+    setTyped(next);
+  }
 
   function submit(text: string) {
     if (busy || text.trim() === '') return;
-    setDraft('');
+    if (pending !== '') takePending();
+    setTyped('');
     void send(text);
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={[styles.topbar, { borderBottomColor: theme.border }]}>
-          <MenuButton />
+    <Screen>
+      <ScreenBar
+        left={<MenuButton />}
+        right={
+          turns.length > 0 ? (
+            // Non c'era e ora c'è: senza entrata è un bottone che si materializza
+            // nella barra mentre si sta leggendo la risposta sotto.
+            <Appear rise={0}>
+              <IconButton onPress={startNew} accessibilityLabel={t.chat.nuovaConversazione}>
+                <PlusIcon color={Ink.secondary} />
+              </IconButton>
+            </Appear>
+          ) : undefined
+        }>
+        {/* Dentro una conversazione in cima si legge di cosa si sta parlando; su un
+            foglio bianco, con chi si sta parlando e per quale struttura. */}
+        <Text variant="rowTitle" numberOfLines={1} style={styles.barTitle}>
+          {title || t.chat.titolo}
+        </Text>
+        <Text variant="tab" color={Ink.muted} numberOfLines={1} style={styles.barSubtitle}>
+          {title ? t.chat.messaggi(turns.length) : struttura}
+        </Text>
+      </ScreenBar>
 
-          <View style={styles.titles}>
-            <ThemedText type="smallBold" numberOfLines={1}>
-              {t.chat.titolo}
-            </ThemedText>
-            <ThemedText
-              type="small"
-              themeColor="textSecondary"
-              numberOfLines={1}
-              style={styles.subtitle}>
-              {struttura ? struttura : t.chat.strutturaSconosciuta}
-            </ThemedText>
-          </View>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          ref={scroller}
+          contentContainerStyle={styles.scroll}
+          keyboardDismissMode="interactive"
+          onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}>
+          {turns.length === 0 && (
+            // Il foglio bianco è la prima cosa che si vede aprendo l'app: il segno
+            // e l'incipit arrivano insieme, gli spunti dopo e a scaletta — così si
+            // legge prima con chi si sta parlando e poi cosa gli si può chiedere.
+            <View style={styles.empty}>
+              <Appear>
+                <Mark height={56} glow />
+                <Text variant="title" style={styles.incipit}>
+                  {t.chat.incipit}
+                </Text>
+                <Text variant="service" color={Ink.muted} style={styles.incipitHelp}>
+                  {t.chat.incipitAiuto(struttura)}
+                </Text>
+              </Appear>
 
-          {turns.length > 0 && (
-            <Pressable
-              onPress={startNew}
-              hitSlop={8}
-              accessibilityLabel={t.chat.nuovaConversazione}
-              style={[styles.iconButton, { borderColor: theme.border }]}>
-              <NewChatIcon color={theme.textSecondary} size={18} />
-            </Pressable>
+              <View style={styles.spunti}>
+                {spunti.map((spunto, index) => (
+                  <Appear key={spunto} delay={Duration.enter + stagger(index)}>
+                    <Tile onPress={() => submit(spunto)} accessibilityLabel={spunto}>
+                      <Text variant="service" color={Ink.body} style={styles.spuntoLabel}>
+                        {spunto}
+                      </Text>
+                    </Tile>
+                  </Appear>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {turns.map((turn, index) => {
+            if (turn.role === 'user') {
+              return (
+                <Appear key={index}>
+                  <Bevel radius={Corner.card - 2} fill={Surface.bubble} style={styles.bubble}>
+                    <Text variant="body" color={Ink.primary}>
+                      {turn.text}
+                    </Text>
+                  </Bevel>
+                </Appear>
+              );
+            }
+
+            const streaming = busy && index === turns.length - 1;
+            const key = proposalKey(conversationId, index);
+
+            return (
+              <Appear key={index} style={styles.answer}>
+                <AssistantSignature name={t.assistente.nome} disclaimer={t.assistente.generatoDaAi} />
+                <Markdown text={turn.text} />
+                {streaming && <StreamCaret />}
+                {turn.sources !== undefined && <Sources sources={turn.sources} />}
+
+                {turn.proposal !== undefined &&
+                  !streaming &&
+                  (sent[key] === true ? (
+                    <HandoffSent onGoToRequests={() => router.navigate('/richieste')} />
+                  ) : dismissed[key] === true ? null : (
+                    <HandoffCard
+                      proposal={turn.proposal}
+                      onReview={() => setProposing({ key, text: turn.proposal ?? '' })}
+                      onDismiss={() => setDismissed((already) => ({ ...already, [key]: true }))}
+                    />
+                  ))}
+              </Appear>
+            );
+          })}
+
+          {waiting && (
+            <Appear style={styles.answer}>
+              <AssistantSignature name={t.assistente.nome} disclaimer={t.assistente.generatoDaAi} />
+              <TypingDots />
+            </Appear>
+          )}
+
+          {error !== '' && <ErrorNote>{error}</ErrorNote>}
+        </ScrollView>
+
+        <View style={styles.composerWrap}>
+          <GlassPanel style={styles.composer}>
+            <TextInput
+              style={styles.input}
+              placeholder={t.chat.scrivi}
+              placeholderTextColor={Ink.ghost}
+              multiline
+              value={draft}
+              onChangeText={edit}
+              editable={!busy}
+            />
+            <IconButton
+              tone={canSend ? 'accent' : 'ghost'}
+              size={38}
+              disabled={!canSend}
+              accessibilityLabel={t.chat.invia}
+              onPress={() => submit(draft)}>
+              <SendIcon color={canSend ? Ink.onAccent : Ink.muted} />
+            </IconButton>
+          </GlassPanel>
+
+          {/* Solo a conversazione vuota: da lì in poi la trasparenza la porta la
+              firma «Generata da AI», che sta su ogni singola risposta. */}
+          {turns.length === 0 && (
+            <Text variant="tab" color={Ink.ghost} style={styles.disclaimer}>
+              {t.chat.disclaimer}
+            </Text>
           )}
         </View>
-
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            ref={scroller}
-            contentContainerStyle={styles.scroll}
-            keyboardDismissMode="interactive"
-            onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}>
-            {turns.length === 0 && (
-              <View style={styles.empty}>
-                <ThemedText type="subtitle">{t.chat.incipit}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {t.chat.incipitAiuto}
-                </ThemedText>
-                <View style={styles.spunti}>
-                  {spunti.map((spunto) => (
-                    <Pressable key={spunto} onPress={() => submit(spunto)}>
-                      {({ pressed }) => (
-                        <ThemedView
-                          type="backgroundElement"
-                          style={[styles.spunto, { borderColor: theme.border, opacity: pressed ? 0.6 : 1 }]}>
-                          <ThemedText type="small">{spunto}</ThemedText>
-                        </ThemedView>
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {turns.map((turn, index) =>
-              turn.role === 'user' ? (
-                <ThemedView
-                  key={index}
-                  type="backgroundSelected"
-                  style={[styles.bubble, styles.mine]}>
-                  <ThemedText type="small">{turn.text}</ThemedText>
-                </ThemedView>
-              ) : (
-                <View key={index} style={styles.answer}>
-                  <AssistantBadge />
-                  <Markdown text={turn.text} />
-                  {busy && index === turns.length - 1 && <Caret />}
-                  {turn.sources !== undefined && <Sources sources={turn.sources} />}
-                  {turn.proposal !== undefined && !(busy && index === turns.length - 1) && (
-                    <ContactCta
-                      sent={sent[proposalKey(conversationId, index)] === true}
-                      onOpen={() =>
-                        setProposing({
-                          key: proposalKey(conversationId, index),
-                          text: turn.proposal ?? '',
-                        })
-                      }
-                      onGoToRequests={() => router.navigate('/richieste')}
-                    />
-                  )}
-                </View>
-              )
-            )}
-
-            {waiting && (
-              <View style={styles.answer}>
-                <AssistantBadge />
-                <TypingDots />
-              </View>
-            )}
-
-            {error !== '' && (
-              <ThemedText type="small" style={{ color: '#B3261E' }}>
-                {error}
-              </ThemedText>
-            )}
-          </ScrollView>
-
-          <View style={styles.composerWrap}>
-            <View
-              style={[
-                styles.composer,
-                { borderColor: theme.border, backgroundColor: theme.backgroundElement },
-              ]}>
-              <TextInput
-                style={[styles.input, { color: theme.text }]}
-                placeholder={t.chat.scrivi}
-                placeholderTextColor={theme.textSecondary}
-                multiline
-                value={draft}
-                onChangeText={setDraft}
-                editable={!busy}
-              />
-              <Pressable
-                style={[
-                  styles.send,
-                  { backgroundColor: canSend ? theme.primary : theme.backgroundSelected },
-                ]}
-                disabled={!canSend}
-                accessibilityLabel={t.chat.invia}
-                onPress={() => submit(draft)}>
-                <SendIcon color={canSend ? '#FFFFFF' : theme.textSecondary} />
-              </Pressable>
-            </View>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.disclaimer}>
-              {t.chat.disclaimer}
-            </ThemedText>
-          </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+      </KeyboardAvoidingView>
 
       <ContactRequestModal
         // La modale riparte dalla proposta di questo turno e non da quella di prima:
@@ -212,65 +261,12 @@ export default function ChatScreen() {
           setProposing(null);
         }}
       />
-    </ThemedView>
+    </Screen>
   );
 }
 
 /**
- * L'offerta di essere ricontattati, sotto la risposta che l'ha motivata.
- *
- * Sta lì e non in fondo alla schermata perché è la coda di quella risposta: è quando
- * si legge «questo non me ne occupo io» che ha senso chiedere una persona, e un
- * bottone lontano da quella frase costringerebbe a ricordarsi perché era comparso.
- *
- * A richiesta inviata il bottone non torna: al suo posto resta la conferma e la
- * strada per andare a vedere che fine ha fatto.
- */
-function ContactCta({
-  sent,
-  onOpen,
-  onGoToRequests,
-}: {
-  sent: boolean;
-  onOpen: () => void;
-  onGoToRequests: () => void;
-}) {
-  const theme = useTheme();
-  const t = useT();
-
-  if (sent) {
-    return (
-      <Pressable onPress={onGoToRequests} style={[styles.cta, { borderColor: theme.border }]}>
-        <ThemedText type="smallBold">{t.richieste.inviata}</ThemedText>
-        <ThemedText type="small" themeColor="primary">
-          {t.richieste.trovaInSezione}
-        </ThemedText>
-      </Pressable>
-    );
-  }
-
-  return (
-    <Pressable onPress={onOpen} accessibilityRole="button">
-      {({ pressed }) => (
-        <View
-          style={[
-            styles.cta,
-            { borderColor: theme.primary, opacity: pressed ? 0.6 : 1 },
-          ]}>
-          <ThemedText type="smallBold" themeColor="primary">
-            {t.richieste.apri}
-          </ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {t.richieste.modale.aiuto}
-          </ThemedText>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-/**
- * La chiave con cui ricordare che da questo turno una richiesta è già partita.
+ * La chiave con cui ricordare cosa è già stato fatto con la proposta di un turno.
  * Porta dentro la conversazione: cambiando chat gli indici ripartono, e senza
  * l'id il turno 3 di una sarebbe il turno 3 dell'altra.
  */
@@ -278,136 +274,35 @@ function proposalKey(conversationId: string | undefined, index: number): string 
   return `${conversationId ?? 'nuova'}:${index}`;
 }
 
-/** Cursore che lampeggia in coda al testo mentre la risposta arriva. */
-function Caret() {
-  const theme = useTheme();
-  const opacity = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const blink = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.15, duration: 500, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-      ])
-    );
-    blink.start();
-    return () => blink.stop();
-  }, [opacity]);
-
-  return (
-    <Animated.View style={[styles.caret, { opacity, backgroundColor: theme.primary }]} />
-  );
-}
-
-/** Tre puntini nell'attesa tra l'invio e il primo pezzo di risposta. */
-function TypingDots() {
-  const theme = useTheme();
-  const dots = useRef([0, 1, 2].map(() => new Animated.Value(0.3))).current;
-
-  useEffect(() => {
-    const animations = dots.map((dot, index) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(index * 160),
-          Animated.timing(dot, { toValue: 1, duration: 320, useNativeDriver: true }),
-          Animated.timing(dot, { toValue: 0.3, duration: 320, useNativeDriver: true }),
-          Animated.delay((2 - index) * 160),
-        ])
-      )
-    );
-    animations.forEach((animation) => animation.start());
-    return () => animations.forEach((animation) => animation.stop());
-  }, [dots]);
-
-  return (
-    <View style={styles.dots}>
-      {dots.map((dot, index) => (
-        <Animated.View
-          key={index}
-          style={[styles.dot, { opacity: dot, backgroundColor: theme.textSecondary }]}
-        />
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
   flex: { flex: 1 },
-  safeArea: { flex: 1, maxWidth: MaxContentWidth, width: '100%' },
-  topbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.three,
-    borderBottomWidth: 1,
-  },
-  titles: { flex: 1 },
-  subtitle: { marginTop: 1 },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scroll: { padding: Spacing.four, gap: Spacing.four },
-  empty: { gap: Spacing.two, paddingTop: Spacing.four },
-  spunti: { gap: Spacing.two, marginTop: Spacing.three },
-  spunto: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-    borderWidth: 1,
-  },
-  bubble: {
-    padding: Spacing.three,
-    borderRadius: Spacing.four,
-    maxWidth: '88%',
-  },
-  mine: { alignSelf: 'flex-end', borderBottomRightRadius: Spacing.one },
+  barTitle: { fontSize: 14, lineHeight: 17 },
+  barSubtitle: { fontFamily: Family.sansMedium, fontSize: 11.5, marginTop: 1 },
+  scroll: { paddingHorizontal: Gutter, paddingTop: Spacing.sm, paddingBottom: Spacing.lg, gap: Spacing.xl },
+  empty: { paddingTop: Spacing.lg },
+  incipit: { marginTop: Spacing.xl },
+  incipitHelp: { marginTop: Spacing.sm + 2, maxWidth: 280, lineHeight: 21 },
+  spunti: { gap: Spacing.sm + 1, marginTop: Spacing.xl + 4 },
+  spuntoLabel: { fontSize: 13.5, lineHeight: 19.5 },
+  bubble: { alignSelf: 'flex-end', maxWidth: '82%', paddingHorizontal: Spacing.md + 2, paddingVertical: Spacing.md },
   answer: { alignSelf: 'stretch' },
-  caret: { width: 8, height: 16, borderRadius: 2, marginTop: Spacing.one },
-  cta: {
-    gap: Spacing.one,
-    marginTop: Spacing.three,
-    padding: Spacing.three,
-    borderWidth: 1,
-    borderRadius: Spacing.three,
-  },
-  dots: { flexDirection: 'row', gap: 5, paddingVertical: Spacing.two },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  composerWrap: {
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.two,
-    gap: Spacing.two,
-  },
+  composerWrap: { paddingHorizontal: Gutter, paddingTop: Spacing.md, paddingBottom: Spacing.sm + 2 },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: Spacing.two,
-    paddingLeft: Spacing.three,
-    paddingRight: Spacing.one,
-    paddingVertical: Spacing.one,
-    borderWidth: 1,
-    borderRadius: 24,
+    gap: Spacing.sm + 1,
+    paddingLeft: Spacing.lg - 1,
+    paddingRight: Spacing.sm - 1,
+    paddingVertical: Spacing.sm - 1,
   },
   input: {
     flex: 1,
-    fontSize: 16,
     maxHeight: 140,
-    paddingVertical: Spacing.two + 2,
-    // I campi non passano da ThemedText: il font del brand va detto qui.
-    fontFamily: Fonts.sans,
+    paddingVertical: Spacing.sm + 2,
+    fontFamily: Family.sans,
+    fontSize: 15,
+    lineHeight: 20,
+    color: Ink.primary,
   },
-  send: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  disclaimer: { textAlign: 'center', fontSize: 11, lineHeight: 14 },
+  disclaimer: { textAlign: 'center', fontSize: 10.5, lineHeight: 15, marginTop: Spacing.sm + 1 },
 });

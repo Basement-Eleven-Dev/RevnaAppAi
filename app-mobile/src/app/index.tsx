@@ -1,22 +1,29 @@
 import { Redirect } from 'expo-router';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/hooks/use-auth';
-import { useTheme } from '@/hooks/use-theme';
+import { Brand, Surface } from '@/theme';
 
-/** Smistamento all'avvio: area riservata o login. */
+/** Smistamento all'avvio: area riservata o accesso. */
 export default function IndexScreen() {
-  const theme = useTheme();
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <ThemedView style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={theme.primary} />
-      </ThemedView>
+      <View style={styles.centered}>
+        <ActivityIndicator color={Brand.accent} />
+      </View>
     );
   }
 
   return <Redirect href={user ? '/chat' : '/login'} />;
 }
+
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Surface.base,
+  },
+});

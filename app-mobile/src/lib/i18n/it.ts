@@ -25,6 +25,9 @@ export const it = {
     ieri: 'Ieri',
     indietro: 'Indietro',
     password: 'Password',
+    /** Sul campo password: dice cosa fa il tocco, non che cosa sta accadendo ora. */
+    mostra: 'Mostra',
+    nascondi: 'Nascondi',
   },
 
   nav: {
@@ -38,12 +41,12 @@ export const it = {
   },
 
   login: {
-    sottotitolo: 'Accesso riservato ai clienti Revna',
+    sottotitolo: 'L’assistente della tua struttura, con il metodo Revna dentro.',
     accedi: 'Accedi',
     inCorso: 'Accesso in corso…',
     passwordDimenticata: 'Password dimenticata?',
     hoUnCodice: 'Ho un codice di attivazione',
-    nessunAccesso: 'Non hai un accesso? Te lo attiva il tuo referente Revna.',
+    nessunAccesso: 'L’accesso lo apre Revna.',
     firebaseDaConfigurare: (chiavi: string) => `Firebase da configurare: mancano ${chiavi}`,
     fallito: 'Accesso non riuscito.',
   },
@@ -93,9 +96,12 @@ export const it = {
   chat: {
     titolo: 'Assistente Revna',
     strutturaSconosciuta: 'La tua struttura',
+    messaggi: (quanti: number): string =>
+      quanti === 1 ? '1 messaggio' : `${quanti} messaggi`,
     nuovaConversazione: 'Nuova conversazione',
-    incipit: 'Da dove partiamo?',
-    incipitAiuto: 'Le risposte tengono conto dei dati della tua struttura.',
+    incipit: 'Da dove partiamo\noggi?',
+    incipitAiuto: (struttura: string) =>
+      `Conosco il profilo di ${struttura}, i materiali di Revna e le tue conversazioni passate.`,
     scrivi: 'Scrivi la tua domanda…',
     invia: 'Invia',
     disclaimer: 'Revna AI può sbagliare. Verifica le informazioni importanti.',
@@ -127,6 +133,11 @@ export const it = {
       'Nessuna richiesta. Aprine una quando ti serve una persona: il tuo referente Revna la prende in mano.',
     nuova: 'Nuova richiesta',
     apri: 'Chiedi di essere ricontattato',
+    /** L'occhiello della card che nasce sotto la risposta dell'assistente. */
+    tiFaccioRichiamare: 'Ti faccio richiamare',
+    rivediEInvia: 'Rivedi e invia',
+    noGrazie: 'No grazie',
+    testoModificabile: 'Il testo è modificabile: parte quello che leggi tu.',
     inviata: 'Richiesta inviata',
     trovaInSezione: 'La trovi in Richieste, con il suo stato.',
     aperta: (quando: string) => `Aperta ${quando}`,
@@ -192,6 +203,10 @@ export const it = {
       'Nessun avviso. Quando Revna ha qualcosa da comunicarti lo trovi qui, e te lo segnala una notifica.',
     leggi: 'Leggi',
     da: 'Revna',
+    giaLetti: 'Già letti',
+    /** L'unica azione in fondo a un avviso: portarlo in chat, dove ci sono i numeri. */
+    chiediAllAssistente: 'Chiedi cosa cambia per me',
+    domandaSuAvviso: (titolo: string) => `Cosa cambia per me con «${titolo}»?`,
     ritirato: 'Questo avviso non è più disponibile: è stato ritirato da Revna.',
     tuttiGliAvvisi: 'Vedi tutti gli avvisi',
     /** Solo a permesso negato: dice dove si rimedia, senza insistere. */
@@ -206,6 +221,9 @@ export const it = {
     apri: 'Apri documento',
     apertura: 'Apertura…',
     nonApribile: 'Non è stato possibile aprire il documento.',
+    /** Un documento arrivato negli ultimi giorni: l'unico uso dell'arancio nell'elenco. */
+    nuovo: 'Nuovo',
+    nota: 'I file si aprono con un link valido cinque minuti, richiesto al momento dell’apertura.',
     categorie: {
       report: 'Report',
       presentazione: 'Presentazione',
@@ -220,6 +238,13 @@ export const it = {
   profilo: {
     titolo: 'Profilo',
     apriImpostazioni: 'Impostazioni',
+    /** I numeri grandi in cima alla scheda: la struttura in tre dati. */
+    statistiche: {
+      unita: (tipologie: number) =>
+        tipologie === 1 ? 'unità · 1 tipologia' : `unità · ${tipologie} tipologie`,
+      apertaDal: 'aperta dal',
+      canali: (quanti: number): string => (quanti === 1 ? 'canale attivo' : 'canali attivi'),
+    },
     nonCompilato:
       'Il tuo profilo non è ancora stato compilato. Lo redige il tuo referente Revna: appena pronto lo trovi qui.',
     esci: 'Esci',
@@ -254,6 +279,7 @@ export const it = {
         'Aggiungi quello che ritieni utile. Restano tue: non sovrascrivono il profilo scritto da Revna.',
       placeholder: 'Note personali…',
       salva: 'Salva le mie note',
+      modifica: 'Modifica',
       inCorso: 'Salvataggio…',
       fallito: 'Salvataggio non riuscito.',
     },
@@ -347,6 +373,36 @@ export const it = {
 
   impostazioni: {
     titolo: 'Impostazioni',
+
+    /**
+     * La memoria dell'assistente. Sta nelle impostazioni e non in una sezione sua:
+     * è una cosa che si apre quando si vuole controllare, non tutti i giorni.
+     */
+    memoria: {
+      titolo: 'Memoria dell’assistente',
+      aiuto:
+        'Le preferenze che hai dato all’assistente parlando: come vuoi che ti risponda, cosa non deve fare. Le rispetta in ogni risposta, senza che tu le ripeta. Le annota lui: tu puoi correggere una riga, cancellarla, o cancellare tutto.',
+      vuoto:
+        'Non ha ancora annotato niente. Quando gli dici come preferisci essere aiutato — «non usare elenchi puntati», «rispondimi più corto» — te lo ritrovi qui.',
+      conteggio: (quanti: number) =>
+        quanti === 1 ? '1 preferenza ricordata' : `${quanti} preferenze ricordate`,
+      visualizza: 'Visualizza i ricordi',
+      imparato: (data: string) => (data ? `Imparato il ${data}` : 'Imparato'),
+      corretto: 'corretto da te',
+      da: (titolo: string) => `da «${titolo}»`,
+      modifica: 'Correggi',
+      salva: 'Salva la correzione',
+      inCorso: 'Salvataggio…',
+      dimentica: 'Dimentica',
+      confermaTitolo: 'Dimenticare questo?',
+      confermaTesto: (testo: string) => `L’assistente non terrà più conto di: «${testo}»`,
+      cancellaTutto: 'Cancella tutta la memoria',
+      cancellaTuttoTitolo: 'Cancellare tutta la memoria?',
+      cancellaTuttoTesto:
+        'L’assistente dimenticherà tutto quello che ha imparato su di te e ricomincerà da capo. Le conversazioni e il profilo della struttura restano. Non si può annullare.',
+      cancellazione: 'Cancellazione…',
+      fallito: 'Non è stato possibile aggiornare la memoria.',
+    },
 
     lingua: {
       titolo: 'Lingua',

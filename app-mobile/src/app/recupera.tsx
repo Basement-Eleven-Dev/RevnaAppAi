@@ -1,16 +1,13 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, TextInput, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
-import { BrandLogo } from '@/components/brand-logo';
+import { Wordmark } from '@/components/brand/wordmark';
 import { LegalLinks } from '@/components/legal-links';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Button, Field, FieldNote, Screen, ScreenBar, Text } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
-import { useTheme } from '@/hooks/use-theme';
 import { authErrorMessage, requestPasswordReset } from '@/lib/auth';
+import { Brand, Family, Gutter, Ink, Spacing } from '@/theme';
 
 /**
  * Recupero della password: il cliente chiede il link, poi lo riceve per email.
@@ -23,9 +20,7 @@ import { authErrorMessage, requestPasswordReset } from '@/lib/auth';
  * poi le due strade sono la stessa cosa — un codice e una password nuova.
  */
 export default function RecoverScreen() {
-  const theme = useTheme();
   const t = useT();
-
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -50,113 +45,88 @@ export default function RecoverScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.hero}>
-          <BrandLogo width={200} />
-          <ThemedText type="small" themeColor="textSecondary" style={styles.centeredText}>
-            {t.recupero.titolo}
-          </ThemedText>
-        </ThemedView>
+    <Screen>
+      {/* La barra vuota prende lo spazio della status bar: il lettering parte da
+          lì, e il form resta ancorato in basso come nella schermata d'accesso. */}
+      <ScreenBar />
 
-        <ThemedView style={styles.form}>
-          {sentTo === '' ? (
-            <>
-              <ThemedText type="small" themeColor="textSecondary">
-                {t.recupero.sottotitolo}
-              </ThemedText>
+      <View style={styles.hero}>
+        <Wordmark width={112} />
+        <Text variant="title" style={styles.title}>
+          {t.recupero.titolo}
+        </Text>
+      </View>
 
-              <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.border }]}
-                placeholder={t.comune.email}
-                placeholderTextColor={theme.textSecondary}
-                autoCapitalize="none"
-                autoComplete="email"
-                autoFocus
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-                onSubmitEditing={submit}
-              />
+      <View style={styles.spacer} />
 
-              {error !== '' && (
-                <ThemedText type="small" style={styles.error}>
-                  {error}
-                </ThemedText>
-              )}
+      <View style={styles.form}>
+        {sentTo === '' ? (
+          <>
+            <Text variant="service" color={Ink.secondary} style={styles.help}>
+              {t.recupero.sottotitolo}
+            </Text>
 
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  { backgroundColor: theme.primary, opacity: canSubmit ? 1 : 0.5 },
-                ]}
-                disabled={!canSubmit}
-                onPress={submit}>
-                <ThemedText type="smallBold" style={styles.buttonLabel}>
-                  {busy ? t.recupero.inCorso : t.recupero.invia}
-                </ThemedText>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <ThemedText type="small" themeColor="primary">
-                {t.recupero.fatto(sentTo)}
-              </ThemedText>
+            <Field
+              placeholder={t.comune.email}
+              autoCapitalize="none"
+              autoComplete="email"
+              autoFocus
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+              onSubmitEditing={submit}
+            />
 
-              {/* Rimandare indietro invece di rinviare subito: il secondo invio
-                  invalida il codice del primo, e la mail più vecchia è spesso
-                  quella che il cliente ha già aperto. */}
-              <TouchableOpacity
-                style={[styles.button, styles.buttonGhost, { borderColor: theme.border }]}
-                onPress={() => {
-                  setSentTo('');
-                  setError('');
-                }}>
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  {t.recupero.riprova}
-                </ThemedText>
-              </TouchableOpacity>
-            </>
-          )}
+            {error !== '' && <FieldNote tone="error">{error}</FieldNote>}
 
-          {/* `dismissTo` e non un push: si torna alla schermata di accesso che c'è
-              già nello stack, non se ne impila una seconda. */}
-          <Link href="/login" dismissTo style={styles.centeredText}>
-            <ThemedText type="small" themeColor="primary">
-              {t.recupero.tornaAllAccesso}
-            </ThemedText>
-          </Link>
+            <Button
+              label={t.recupero.invia}
+              loading={busy}
+              loadingLabel={t.recupero.inCorso}
+              disabled={!canSubmit}
+              onPress={submit}
+            />
+          </>
+        ) : (
+          <>
+            <Text variant="service" color={Brand.accent} style={styles.help}>
+              {t.recupero.fatto(sentTo)}
+            </Text>
 
-          <LegalLinks />
-        </ThemedView>
-      </SafeAreaView>
-    </ThemedView>
+            {/* Rimandare indietro invece di rinviare subito: il secondo invio
+                invalida il codice del primo, e la mail più vecchia è spesso
+                quella che il cliente ha già aperto. */}
+            <Button
+              label={t.recupero.riprova}
+              variant="secondary"
+              onPress={() => {
+                setSentTo('');
+                setError('');
+              }}
+            />
+          </>
+        )}
+
+        {/* `dismissTo` e non un push: si torna alla schermata di accesso che c'è
+            già nello stack, non se ne impila una seconda. */}
+        <Link href="/login" dismissTo style={styles.back}>
+          <Text variant="service" color={Ink.secondary} style={styles.backLabel}>
+            {t.recupero.tornaAllAccesso}
+          </Text>
+        </Link>
+
+        <LegalLinks />
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    paddingBottom: Spacing.five,
-    maxWidth: MaxContentWidth,
-    width: '100%',
-  },
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
-  form: { gap: Spacing.three },
-  input: {
-    borderWidth: 1,
-    borderRadius: Spacing.three,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
-    fontSize: 16,
-    // I campi non passano da ThemedText: il font del brand va detto qui.
-    fontFamily: Fonts.sans,
-  },
-  button: { borderRadius: Spacing.three, paddingVertical: Spacing.three, alignItems: 'center' },
-  buttonGhost: { borderWidth: 1 },
-  buttonLabel: { color: '#FFFFFF' },
-  centeredText: { textAlign: 'center' },
-  error: { color: '#B3261E' },
+  hero: { paddingHorizontal: Gutter + 2 },
+  spacer: { flex: 1 },
+  title: { marginTop: Spacing.xl },
+  form: { paddingHorizontal: Gutter + 2, paddingBottom: Spacing.huge - 4, gap: Spacing.md - 1 },
+  help: { lineHeight: 20 },
+  back: { alignSelf: 'center', marginTop: Spacing.sm },
+  backLabel: { fontFamily: Family.sansSemibold, fontSize: 12.5 },
 });

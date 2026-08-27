@@ -4,7 +4,8 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { db } from './admin';
 import type { Source } from './agent';
 import { conversationsOf, MAX_STORED_TURNS, type StoredTurn } from './conversations';
-import { complete, respond } from './model';
+import { loadMemory, updateMemory, type MemoryEntry } from './memory';
+import { complete, decide, respond } from './model';
 import { sanitizeProfile } from './profile';
 
 type Request = { message: string; conversationId?: string };
@@ -49,21 +50,27 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
       throw new HttpsError('invalid-argument', 'Messaggio vuoto.');
     }
 
-    const snapshot = await db.collection('users').doc(uid).get();
-    const profile = sanitizeProfile(snapshot.data()?.['profile']);
-
     // Conversazione esistente o nuova. Lo storico viene dal documento, non dal
     // client: così non è manipolabile e sopravvive al riavvio dell'app.
     const conversationRef = request.data.conversationId
       ? conversationsOf(uid).doc(request.data.conversationId)
       : conversationsOf(uid).doc();
-    const conversation = await conversationRef.get();
+
+    // Le tre letture insieme: sono su documenti diversi e nessuna dipende dall'altra.
+    const [snapshot, conversation, memory] = await Promise.all([
+      db.collection('users').doc(uid).get(),
+      conversationRef.get(),
+      loadMemory(uid),
+    ]);
+
+    const profile = sanitizeProfile(snapshot.data()?.['profile']);
     const stored: StoredTurn[] = (conversation.data()?.['messages'] as StoredTurn[]) ?? [];
 
     const answer = await respond({
       profile,
       history: stored,
       message,
+      memory,
       onChunk: (text) => streamed?.sendChunk({ text }) ?? Promise.resolve(),
     });
 
@@ -89,21 +96,35 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
       },
     ].slice(-MAX_STORED_TURNS);
 
-    await conversationRef.set(
-      {
-        title,
-        messages,
-        updatedAt: now,
-        ...(conversation.exists ? {} : { createdAt: now }),
-      },
-      { merge: true },
-    );
+    // Il salvataggio e l'aggiornamento della memoria insieme: la conversazione è
+    // salva appena la scrittura passa, e la memoria non la fa aspettare.
+    const [, annotati] = await Promise.all([
+      conversationRef.set(
+        {
+          title,
+          messages,
+          updatedAt: now,
+          ...(conversation.exists ? {} : { createdAt: now }),
+        },
+        { merge: true },
+      ),
+      learn({
+        uid,
+        entries: memory,
+        message,
+        answer: answer.text,
+        conversationId: conversationRef.id,
+        conversazione: title,
+      }),
+    ]);
 
     logger.info('Risposta assistente', {
       uid,
       chars: answer.text.length,
       fonti: answer.sources.length,
       conoscenzaInContesto: answer.selected.length,
+      memoriaInContesto: memory.length,
+      memoriaAggiornata: annotati,
     });
 
     return {
@@ -137,5 +158,54 @@ async function summarize(message: string): Promise<string> {
   } catch (cause) {
     logger.warn('Titolo non generato', { cause });
     return fallback;
+  }
+}
+
+/**
+ * Le risposte di cortesia, in italiano e in inglese.
+ *
+ * Un turno così non contiene preferenze, e scoprirlo non vale una chiamata al modello.
+ * L'elenco è volutamente corto e chiuso, e non un conteggio di parole: da quando la
+ * memoria tiene le preferenze, «no elenchi» sono due parole che valgono un giro e
+ * «grazie mille davvero» sono tre che non valgono niente. Sbagliare per eccesso costa
+ * una chiamata, sbagliare per difetto costa una preferenza persa.
+ */
+const CORTESIA = new Set([
+  'ok', 'okay', 'va bene', 'vabbè', 'grazie', 'grazie mille', 'ti ringrazio', 'perfetto',
+  'chiaro', 'chiarissimo', 'capito', 'ottimo', 'bene', 'benissimo', 'si', 'sì', 'no',
+  'thanks', 'thank you', 'thanks a lot', 'great', 'perfect', 'got it', 'clear', 'yes',
+  'no thanks', 'nope', 'sure',
+]);
+
+/**
+ * Il turno di memoria: cosa si è imparato parlando, se si è imparato qualcosa.
+ *
+ * Aspettarlo prima di rispondere è una scelta, non una dimenticanza. Il lavoro dopo
+ * la risposta su Cloud Functions non è garantito — l'istanza può venire congelata
+ * appena la richiesta si chiude — quindi le alternative erano aspettare qualche
+ * decimo di secondo in più a testo già scritto, o una memoria che si aggiorna
+ * quando capita. Il testo, a questo punto, il cliente l'ha già davanti: è arrivato
+ * in streaming mentre il modello lo scriveva.
+ *
+ * Un errore qui non deve mai diventare un errore sulla risposta: la conversazione è
+ * già salva, e una memoria che si aggiorna al turno dopo non la nota nessuno.
+ */
+async function learn(input: {
+  uid: string;
+  /** La memoria com'era prima di questo turno. */
+  entries: MemoryEntry[];
+  message: string;
+  answer: string;
+  conversationId: string;
+  conversazione: string;
+}): Promise<number> {
+  const asciutto = input.message.toLowerCase().replace(/[.!?…,;:\s]+/g, ' ').trim();
+  if (asciutto === '' || CORTESIA.has(asciutto)) return 0;
+
+  try {
+    return await updateMemory({ ...input, decide });
+  } catch (cause) {
+    logger.warn('Memoria non aggiornata', { uid: input.uid, cause });
+    return 0;
   }
 }

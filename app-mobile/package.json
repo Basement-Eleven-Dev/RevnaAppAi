@@ -3,7 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@expo-google-fonts/rethink-sans": "^0.4.2",
+    "@expo-google-fonts/funnel-display": "^0.4.1",
+    "@expo-google-fonts/funnel-sans": "^0.4.2",
     "@expo/ui": "~57.0.13",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.16",
@@ -38,7 +39,6 @@
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.1",
-    "react-native-svg-transformer": "^1.5.3",
     "typescript": "~6.0.3"
   },
   "scripts": {

@@ -1,13 +1,12 @@
 import { Image } from 'expo-image';
 import { Fragment, useState } from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { Fonts, sansStyle, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Bevel, SourceMarker, Text } from '@/components/ui';
+import { Brand, Corner, Family, Ink, Line, Spacing, Surface } from '@/theme';
 
 /**
- * Renderer markdown minimale per le risposte dell'assistente.
+ * Renderer markdown minimale per le risposte dell'assistente e per gli avvisi.
  *
  * Scritto a mano invece di usare una libreria per due motivi: durante lo streaming
  * il testo è quasi sempre markdown incompleto (un `**` aperto, una lista a metà,
@@ -18,10 +17,9 @@ import { useTheme } from '@/hooks/use-theme';
  * codice inline e a blocco, citazioni, link, righe orizzontali.
  *
  * Le immagini invece l'assistente non le produce: servono agli **avvisi**, scritti dal
- * backoffice con un editor che può metterne (vedi `app/(app)/avvisi`). Stanno qui e non
- * in un renderer a parte perché il resto di un avviso sono esattamente questi blocchi:
- * due renderer per lo stesso markdown vorrebbero dire due modi in cui un titolo può
- * apparire nell'app.
+ * backoffice con un editor che può metterne. Stanno qui e non in un renderer a parte
+ * perché il resto di un avviso sono esattamente questi blocchi: due renderer per lo
+ * stesso markdown vorrebbero dire due modi in cui un titolo può apparire nell'app.
  */
 export function Markdown({ text }: { text: string }) {
   return <>{parseBlocks(text).map((block, index) => renderBlock(block, index))}</>;
@@ -138,9 +136,9 @@ function renderBlock(block: Block, key: number) {
       return <Heading key={key} level={block.level} text={block.text} />;
     case 'paragraph':
       return (
-        <ThemedText key={key} type="small" style={styles.paragraph}>
+        <Text key={key} variant="body" style={styles.paragraph}>
           <Inline text={block.text} />
-        </ThemedText>
+        </Text>
       );
     case 'bullet':
       return <List key={key} items={block.items} />;
@@ -157,27 +155,30 @@ function renderBlock(block: Block, key: number) {
   }
 }
 
+/**
+ * I titoli dentro il testo usano i due ruoli che il sistema ha: `section` per il
+ * primo livello, `rowTitle` per quelli sotto. Non c'è una scala di sei misure —
+ * dentro un avviso non servono sei livelli di gerarchia.
+ */
 function Heading({ level, text }: { level: number; text: string }) {
-  const size = level <= 1 ? 20 : level === 2 ? 18 : 16;
   return (
-    <ThemedText type="smallBold" style={[styles.heading, { fontSize: size, lineHeight: size + 8 }]}>
+    <Text variant={level <= 2 ? 'section' : 'rowTitle'} style={styles.heading}>
       <Inline text={text} />
-    </ThemedText>
+    </Text>
   );
 }
 
 function List({ items, ordered = false }: { items: string[]; ordered?: boolean }) {
-  const theme = useTheme();
   return (
     <View style={styles.list}>
       {items.map((item, index) => (
         <View key={index} style={styles.listItem}>
-          <ThemedText type="small" style={[styles.bullet, { color: theme.primary }]}>
+          <Text variant="body" color={Brand.accent} style={styles.bullet}>
             {ordered ? `${index + 1}.` : '•'}
-          </ThemedText>
-          <ThemedText type="small" style={styles.listText}>
+          </Text>
+          <Text variant="body" style={styles.listText}>
             <Inline text={item} />
-          </ThemedText>
+          </Text>
         </View>
       ))}
     </View>
@@ -185,24 +186,22 @@ function List({ items, ordered = false }: { items: string[]; ordered?: boolean }
 }
 
 function Quote({ text }: { text: string }) {
-  const theme = useTheme();
   return (
-    <View style={[styles.quote, { borderLeftColor: theme.primary }]}>
-      <ThemedText type="small" themeColor="textSecondary">
+    <View style={styles.quote}>
+      <Text variant="body" color={Ink.secondary}>
         <Inline text={text} />
-      </ThemedText>
+      </Text>
     </View>
   );
 }
 
 function CodeBlock({ text }: { text: string }) {
-  const theme = useTheme();
   return (
-    <View style={[styles.codeBlock, { borderColor: theme.border }]}>
-      <ThemedText type="small" style={styles.mono}>
+    <Bevel radius={Corner.control} fill={Surface.card} style={styles.codeBlock}>
+      <Text variant="body" color={Ink.secondary} style={styles.mono}>
         {text}
-      </ThemedText>
-    </View>
+      </Text>
+    </Bevel>
   );
 }
 
@@ -216,36 +215,44 @@ function CodeBlock({ text }: { text: string }) {
  * sotto non salta quando l'immagine arriva.
  */
 function MarkdownImage({ url, alt }: { url: string; alt: string }) {
-  const theme = useTheme();
   const [ratio, setRatio] = useState(3 / 2);
 
   return (
-    <Image
-      source={url}
-      accessibilityLabel={alt}
-      style={[
-        styles.image,
-        { aspectRatio: ratio, backgroundColor: theme.backgroundSelected },
-      ]}
-      contentFit="cover"
-      transition={180}
-      onLoad={({ source }) => {
-        if (source.width > 0 && source.height > 0) setRatio(source.width / source.height);
-      }}
-    />
+    <Bevel radius={Corner.card} mask={Surface.base} style={styles.imageWrap}>
+      <Image
+        source={url}
+        accessibilityLabel={alt}
+        style={[styles.image, { aspectRatio: ratio }]}
+        contentFit="cover"
+        transition={180}
+        onLoad={({ source }) => {
+          if (source.width > 0 && source.height > 0) setRatio(source.width / source.height);
+        }}
+      />
+    </Bevel>
   );
 }
 
 function Rule() {
-  const theme = useTheme();
-  return <View style={[styles.rule, { backgroundColor: theme.border }]} />;
+  return <View style={styles.rule} />;
 }
 
-type Span = { text: string; bold?: boolean; italic?: boolean; code?: boolean; href?: string };
+type Span = {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  code?: boolean;
+  href?: string;
+  /** Il numero di una fonte citata: `[1]` dentro la risposta. */
+  source?: number;
+};
 
-// Un solo passaggio per tutti i marcatori inline: l'ordine conta, `**` va provato
-// prima di `*`, altrimenti il grassetto verrebbe letto come due corsivi vuoti.
-const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*)|(__[^_]+__)|(\*[^*\n]+\*)|(_[^_\n]+_)|(\[[^\]]+\]\([^)]+\))/;
+// Un solo passaggio per tutti i marcatori inline: l'ordine conta. `**` va provato
+// prima di `*`, altrimenti il grassetto verrebbe letto come due corsivi vuoti; e il
+// link va provato prima del marcatore di fonte, perché `[1](url)` è un link e `[1]`
+// da solo è una citazione.
+const INLINE =
+  /(`[^`]+`)|(\*\*[^*]+\*\*)|(__[^_]+__)|(\*[^*\n]+\*)|(_[^_\n]+_)|(\[[^\]]+\]\([^)]+\))|(\[\d{1,2}\])/;
 
 function parseInline(text: string): Span[] {
   const spans: Span[] = [];
@@ -267,7 +274,11 @@ function parseInline(text: string): Span[] {
       spans.push({ text: token.slice(2, -2), bold: true });
     } else if (token.startsWith('[')) {
       const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
-      spans.push({ text: link?.[1] ?? token, href: link?.[2] });
+      if (link) {
+        spans.push({ text: link[1], href: link[2] });
+      } else {
+        spans.push({ text: token, source: Number(token.slice(1, -1)) });
+      }
     } else {
       spans.push({ text: token.slice(1, -1), italic: true });
     }
@@ -278,23 +289,35 @@ function parseInline(text: string): Span[] {
   return spans;
 }
 
+/**
+ * Il peso e il corsivo stanno nel nome della famiglia e non in `fontWeight`: su una
+ * famiglia già del peso giusto il sistema metterebbe sopra un finto grassetto.
+ *
+ * I marcatori `[1]` che il modello mette accanto a un'affermazione diventano il
+ * numero della fonte in accento — gli stessi numeri dei chip in fondo alla
+ * risposta, così si risale dalla singola frase al materiale che la sostiene.
+ */
 function Inline({ text }: { text: string }) {
-  const theme = useTheme();
-
   return (
     <>
       {parseInline(text).map((span, index) => (
         <Fragment key={index}>
-          <Text
-            style={[
-              span.bold && styles.bold,
-              span.italic && styles.italic,
-              span.code && [styles.mono, styles.inlineCode, { color: theme.primary }],
-              span.href !== undefined && [styles.link, { color: theme.primary }],
-            ]}
-            onPress={span.href ? () => Linking.openURL(span.href as string) : undefined}>
-            {span.text}
-          </Text>
+          {span.source !== undefined ? (
+            <SourceMarker n={span.source} />
+          ) : (
+            <Text
+              variant="body"
+              color={span.code || span.href !== undefined ? Brand.accentSoft : undefined}
+              style={[
+                span.bold && styles.bold,
+                span.italic && styles.italic,
+                span.code && styles.mono,
+                span.href !== undefined && styles.link,
+              ]}
+              onPress={span.href ? () => Linking.openURL(span.href as string) : undefined}>
+              {span.text}
+            </Text>
+          )}
         </Fragment>
       ))}
     </>
@@ -302,30 +325,26 @@ function Inline({ text }: { text: string }) {
 }
 
 const styles = StyleSheet.create({
-  paragraph: { marginBottom: Spacing.two },
-  heading: { marginTop: Spacing.two, marginBottom: Spacing.one },
-  list: { marginBottom: Spacing.two, gap: Spacing.one },
-  listItem: { flexDirection: 'row', gap: Spacing.two },
-  bullet: { ...sansStyle(700), minWidth: 16 },
+  // Misura da articolo: nel corpo di un avviso si legge a interlinea più larga
+  // di quella di una descrizione in elenco.
+  paragraph: { lineHeight: 25, marginBottom: Spacing.sm },
+  heading: { marginTop: Spacing.lg, marginBottom: Spacing.sm - 2 },
+  list: { marginBottom: Spacing.sm, gap: Spacing.xs },
+  listItem: { flexDirection: 'row', gap: Spacing.sm },
+  bullet: { fontFamily: Family.sansBold, minWidth: 16 },
   listText: { flex: 1 },
   quote: {
     borderLeftWidth: 3,
-    paddingLeft: Spacing.three,
-    marginBottom: Spacing.two,
+    borderLeftColor: Brand.accent,
+    paddingLeft: Spacing.md,
+    marginBottom: Spacing.sm,
   },
-  codeBlock: {
-    borderWidth: 1,
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
-    marginBottom: Spacing.two,
-  },
-  rule: { height: 1, marginVertical: Spacing.three },
-  image: { width: '100%', borderRadius: Spacing.three, marginBottom: Spacing.three },
-  mono: { fontFamily: Fonts.mono, fontSize: 13 },
-  inlineCode: { fontSize: 13 },
-  // Il peso e il corsivo stanno nel nome della famiglia, non in fontWeight:
-  // vedi `sansStyle` in constants/theme.
-  bold: sansStyle(700),
-  italic: sansStyle(400, true),
+  codeBlock: { padding: Spacing.md, marginBottom: Spacing.sm },
+  rule: { height: 1, marginVertical: Spacing.lg, backgroundColor: Line.hairline },
+  imageWrap: { marginBottom: Spacing.lg },
+  image: { width: '100%', backgroundColor: Surface.card },
+  mono: { fontFamily: Family.mono, fontSize: 13 },
+  bold: { fontFamily: Family.sansBold },
+  italic: { fontFamily: Family.sansItalic },
   link: { textDecorationLine: 'underline' },
 });
