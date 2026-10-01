@@ -151,7 +151,7 @@ td strong {
   word-break: break-word;
 }
 
-tr.spenta td {
+tr.spenta td:not(.buttons) {
   opacity: 0.45;
 }
 
@@ -170,7 +170,7 @@ tr.spenta td {
   white-space: nowrap;
 }
 
-td.buttons {
+td.buttons > div {
   display: flex;
   gap: 8px;
   white-space: nowrap;

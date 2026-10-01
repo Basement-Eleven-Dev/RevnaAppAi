@@ -131,18 +131,20 @@
             <td class="muted">{{ stimaToken(voce.contenuto.length) }}</td>
             <td class="muted">{{ date(voce.updatedAt) }}</td>
             <td class="buttons">
-              <a [routerLink]="['/assistente/conoscenza', voce.id]">
-                <button type="button" class="ghost">Apri</button>
-              </a>
-              <button
-                type="button"
-                class="ghost"
-                [disabled]="!voce.attivo && voce.contenuto === ''"
-                (click)="toggle(voce)"
-              >
-                {{ voce.attivo ? 'Sospendi' : 'Attiva' }}
-              </button>
-              <button type="button" class="ghost danger" (click)="remove(voce)">Elimina</button>
+              <div>
+                <a [routerLink]="['/assistente/conoscenza', voce.id]">
+                  <button type="button" class="ghost">Apri</button>
+                </a>
+                <button
+                  type="button"
+                  class="ghost"
+                  [disabled]="!voce.attivo && voce.contenuto === ''"
+                  (click)="toggle(voce)"
+                >
+                  {{ voce.attivo ? 'Sospendi' : 'Attiva' }}
+                </button>
+                <button type="button" class="ghost danger" (click)="remove(voce)">Elimina</button>
+              </div>
             </td>
           </tr>
         }

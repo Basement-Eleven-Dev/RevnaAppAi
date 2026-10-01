@@ -1,3 +1,4 @@
+import type { DocumentReference } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
@@ -54,7 +55,11 @@ type IngestResponse = { chars: number };
  * riscrive il testo. Serve dopo un caricamento, e serve per riprovare quando la
  * prima estrazione è andata storta.
  *
- * La voce resta sospesa se l'estrazione fallisce: una voce attiva senza contenuto
+ * La prima lettura riuscita attiva la voce, che nasce sospesa; lo stesso vale per
+ * una ripresa dopo un errore. Una voce già pronta tiene invece l'interruttore che
+ * ha: se qualcuno l'ha sospesa, rileggerla non la rimette in contesto.
+ *
+ * Se l'estrazione fallisce la voce torna sospesa: una voce attiva senza contenuto
  * verrebbe contata fra quelle disponibili e non direbbe niente al modello.
  */
 export const ingestKnowledgeFile = onCall<IngestRequest, Promise<IngestResponse>>(
@@ -85,25 +90,12 @@ export const ingestKnowledgeFile = onCall<IngestRequest, Promise<IngestResponse>
       throw new HttpsError('failed-precondition', 'Questa voce non ha un file da leggere.');
     }
 
+    const giaPronta = snapshot.get('stato') === 'pronto';
+
+    let contenuto: string;
     try {
       const [buffer] = await getStorage().bucket().file(storagePath).download();
-      const contenuto = trim(
-        await extract(buffer, file?.contentType ?? '', file?.name ?? storagePath),
-      );
-
-      await reference.set(
-        {
-          contenuto,
-          stato: 'pronto',
-          errore: '',
-          updatedAt: new Date().toISOString(),
-          updatedBy: request.auth?.token['email'] ?? '',
-        },
-        { merge: true },
-      );
-
-      logger.info('Documento di conoscenza letto', { entryId, chars: contenuto.length });
-      return { chars: contenuto.length };
+      contenuto = trim(await extract(buffer, file?.contentType ?? '', file?.name ?? storagePath));
     } catch (cause) {
       const errore =
         cause instanceof HttpsError
@@ -111,15 +103,43 @@ export const ingestKnowledgeFile = onCall<IngestRequest, Promise<IngestResponse>
           : 'Lettura del documento non riuscita. Riprova, o carica il file in un altro formato.';
 
       logger.error('Lettura del documento di conoscenza fallita', { entryId, storagePath, cause });
-      await reference.set(
-        { contenuto: '', stato: 'errore', errore, attivo: false },
-        { merge: true },
-      );
+      await aggiorna(reference, { contenuto: '', stato: 'errore', errore, attivo: false });
 
       throw cause instanceof HttpsError ? cause : new HttpsError('internal', errore);
     }
+
+    await aggiorna(reference, {
+      contenuto,
+      stato: 'pronto',
+      errore: '',
+      ...(giaPronta ? {} : { attivo: true }),
+      updatedAt: new Date().toISOString(),
+      updatedBy: request.auth?.token['email'] ?? '',
+    });
+
+    logger.info('Documento di conoscenza letto', { entryId, chars: contenuto.length });
+    return { chars: contenuto.length };
   },
 );
+
+/** Codice gRPC di Firestore per un documento che non c'è. */
+const NOT_FOUND = 5;
+
+/**
+ * `update` e non `set`: una voce eliminata mentre il file veniva letto non deve
+ * rinascere come documento con il solo testo e nessun titolo.
+ */
+async function aggiorna(
+  reference: DocumentReference,
+  data: Record<string, unknown>,
+): Promise<void> {
+  await reference.update(data).catch((cause: unknown) => {
+    if ((cause as { code?: number }).code === NOT_FOUND) {
+      throw new HttpsError('not-found', 'Questa voce è stata eliminata durante la lettura.');
+    }
+    throw cause;
+  });
+}
 
 /**
  * Il testo dentro un file.

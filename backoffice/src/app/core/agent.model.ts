@@ -169,12 +169,12 @@ export function tipoLabel(value: string): string {
 /**
  * Quali file il backend sa trasformare in testo.
  *
- * PDF e immagini passano dal modello, che li trascrive (e legge anche le scansioni);
- * i formati testuali si decodificano e basta. Word ed Excel non ci sono: nessuno dei
- * due si legge senza una libreria dedicata, e l'esportazione in PDF costa un clic.
+ * Gli stessi di `extract` in `backend/functions/src/knowledge.ts`: PDF con testo
+ * selezionabile e formati testuali. Immagini e scansioni no: il backend non ne
+ * ricava testo. Word ed Excel nemmeno: nessuno dei due si legge senza una libreria
+ * dedicata, e l'esportazione in PDF costa un clic.
  */
-export const FILE_ACCETTATI =
-  '.pdf,.txt,.md,.markdown,.csv,.json,.png,.jpg,.jpeg,.webp,application/pdf,text/*,image/png,image/jpeg,image/webp';
+export const FILE_ACCETTATI = '.pdf,.txt,.md,.markdown,.csv,.tsv,.json,.log,application/pdf,text/*';
 
 /** Oltre questa dimensione il caricamento viene rifiutato prima di partire. */
 export const MAX_FILE_BYTES = 30 * 1024 * 1024;

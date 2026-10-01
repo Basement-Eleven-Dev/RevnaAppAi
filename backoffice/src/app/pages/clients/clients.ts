@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
-import { ClientsService, type Client } from '../../core/clients.service';
+import { ClientsService, type Client, type Invite } from '../../core/clients.service';
 
 @Component({
   selector: 'app-clients',
@@ -21,6 +21,9 @@ export class Clients {
   /** uid della riga in modifica, e valore corrente del campo nome. */
   protected readonly editing = signal('');
   protected draftName = '';
+  /** L'ultimo invito rimandato, col link da consegnare a mano se l'email non è partita. */
+  protected readonly invited = signal<(Invite & { email: string }) | null>(null);
+  protected readonly copied = signal('');
 
   constructor() {
     void this.reload();
@@ -54,6 +57,18 @@ export class Clients {
 
   protected async toggle(client: Client): Promise<void> {
     await this.run(client.uid, () => this.clients.setDisabled(client.uid, !client.disabled));
+  }
+
+  protected async resend(client: Client): Promise<void> {
+    await this.run(client.uid, async () => {
+      const invite = await this.clients.resendInvite(client.uid);
+      this.invited.set({ ...invite, email: client.email });
+    });
+  }
+
+  protected async copy(link: string): Promise<void> {
+    await navigator.clipboard.writeText(link);
+    this.copied.set(link);
   }
 
   private async run(uid: string, action: () => Promise<void>): Promise<void> {

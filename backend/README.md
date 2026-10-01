@@ -38,7 +38,8 @@ Le function callable, tutte in `europe-west1`:
 
 | Function | Cosa fa | Stato |
 | --- | --- | --- |
-| `createInvite` | Crea l'utenza, genera il link di attivazione e manda l'email | deployata; l'invio parte quando c'è la chiave Resend |
+| `createInvite` | Crea l'utenza, genera il link di attivazione e manda l'email. Rifiuta un'email già registrata | deployata; l'invio parte quando c'è la chiave Resend |
+| `resendInvite` | Nuovo link di attivazione per un cliente attivo mai entrato; spegne il precedente | da deployare |
 | `requestPasswordReset` | Manda al cliente il link per rifare la password. **Senza autenticazione** | da deployare |
 | `listClients` | Elenco dei clienti (tutti gli utenti senza claim `revnaAdmin`) | deployata |
 | `updateClient` | Rinomina, disattiva/riattiva e revoca le sessioni | deployata |
@@ -54,6 +55,8 @@ Le function callable, tutte in `europe-west1`:
 | `markAnnouncementRead` | Segna un avviso come letto e conta la lettura | da deployare |
 | `askAssistant` | Assistente Revna: proxy verso Gemini, ragiona sul profilo della struttura e sulla base di conoscenza | deployata; serve la chiave Gemini |
 | `previewAssistant` | Prova l'assistente dal backoffice con il profilo di un cliente | da deployare |
+| `ingestKnowledgeFile` | Estrae il testo di un file della base di conoscenza e, alla prima lettura riuscita, attiva la voce | da deployare |
+| `getKnowledgeFileUrl` | Rilascia un URL firmato a 5 minuti per il file dietro una voce di conoscenza | da deployare |
 
 ### Il documento `users/{uid}`
 
@@ -130,6 +133,13 @@ scrive lo stesso form.
 cliente ne vede soltanto quello che l'assistente cita rispondendo a una sua domanda.
 `askAssistant` la legge con l'Admin SDK, che non passa dalle regole.
 
+Una voce può anche nascere da un **file** (PDF con testo selezionabile o file di testo):
+il backoffice lo carica su Storage in `knowledge/{id}-<nome>` e crea la voce sospesa,
+poi `ingestKnowledgeFile` ne estrae il testo in `contenuto`. La prima lettura riuscita
+**attiva** la voce, e così una lettura riuscita dopo un errore; se la lettura fallisce la
+voce resta sospesa, con il motivo in `errore`. Rileggere una voce già pronta non cambia
+`attivo`: una voce sospesa a mano resta sospesa. Le scansioni vengono rifiutate.
+
 I messaggi sono un array dentro il documento e non una sottocollezione: una
 conversazione si legge e si mostra sempre intera, e il limite di 1 MB per documento è
 lontanissimo dalla lunghezza di una chat di consulenza. Oltre 200 turni i più vecchi
@@ -198,6 +208,14 @@ https://revnaappai.web.app/attiva?code=<oobCode>
 ```
 
 Il passaggio dal web serve solo perché un'email deve puntare a un URL `https`.
+
+`createInvite` **crea e basta**: se l'email ha già un'utenza risponde `already-exists`
+— con l'`uid` nei `details` se è di un cliente, con un messaggio a parte se è di un
+referente Revna — e non tocca niente. Per un cliente che non ha mai usato il link c'è
+`resendInvite({ uid })`: genera un link nuovo (il precedente smette di valere) e lo
+rimanda, senza toccare il profilo. Rifiuta i referenti Revna, le utenze disattivate e
+chi è già entrato almeno una volta: per loro la strada è «Password dimenticata?»
+nell'app.
 
 ### Recupero della password
 

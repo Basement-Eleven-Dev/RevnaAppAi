@@ -17,6 +17,10 @@ type Response = { uid: string; activationUrl: string; emailSent: boolean };
  * L'app non ha registrazione libera: gli utenti nascono solo da qui, chiamata
  * dal pannello interno Revna.
  *
+ * Crea e basta: un'email che ha già un'utenza viene rifiutata. Riusarla vorrebbe
+ * dire riscrivere il profilo di un cliente esistente e spegnergli il link che ha
+ * in mano; per mandargli un link nuovo c'è `resendInvite`.
+ *
  * Il link NON è quello di Firebase: estraiamo il solo `oobCode` e lo incapsuliamo
  * in una nostra pagina, che rimanda all'app. La password il cliente la sceglie
  * dentro l'app, non su una pagina Firebase.
@@ -34,22 +38,23 @@ export const createInvite = onCall<Request, Promise<Response>>(
     const profile = sanitizeProfile(request.data.profile);
     const displayName = profileDisplayName(profile) || undefined;
 
-    const user = await auth
-      .getUserByEmail(email)
-      .catch(() => auth.createUser({ email, displayName }));
+    // `createUser` e non una lettura prima: è Auth a garantire l'unicità
+    // dell'email, anche fra due creazioni partite insieme.
+    const user = await auth.createUser({ email, displayName }).catch(async (cause: unknown) => {
+      if ((cause as { code?: string }).code !== 'auth/email-already-exists') throw cause;
+      throw await alreadyExists(email);
+    });
 
     // Il profilo è pronto prima ancora che il cliente entri: al primo accesso
     // non trova un questionario, trova la sua struttura già descritta.
-    await db.collection('users').doc(user.uid).set(
-      {
-        email,
-        profile,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        updatedBy: request.auth?.token['email'] ?? null,
-      },
-      { merge: true }
-    );
+    const now = new Date().toISOString();
+    await db.collection('users').doc(user.uid).set({
+      email,
+      profile,
+      createdAt: now,
+      updatedAt: now,
+      updatedBy: request.auth?.token['email'] ?? null,
+    });
 
     const activationUrl = await buildActivationUrl(email);
     const emailSent = await sendEmail({
@@ -60,6 +65,80 @@ export const createInvite = onCall<Request, Promise<Response>>(
     logger.info('Invito creato', { uid: user.uid, emailSent });
 
     return { uid: user.uid, activationUrl, emailSent };
+  }
+);
+
+/** L'errore per un'email già registrata: col cliente in `details`, per aprirne la scheda. */
+async function alreadyExists(email: string): Promise<HttpsError> {
+  const existing = await auth.getUserByEmail(email).catch(() => null);
+
+  if (existing?.customClaims?.['revnaAdmin'] === true) {
+    return new HttpsError(
+      'already-exists',
+      'Questa email è di un referente Revna: non può diventare un cliente.'
+    );
+  }
+
+  return new HttpsError(
+    'already-exists',
+    'Esiste già un cliente con questa email. Per mandargli un nuovo link usa «Rimanda invito» ' +
+      "dall'elenco dei clienti.",
+    existing ? { uid: existing.uid } : undefined
+  );
+}
+
+/**
+ * Manda di nuovo il link di attivazione a un cliente che non è mai entrato.
+ *
+ * Il link nuovo spegne il precedente: è il motivo per cui serve, quando il primo
+ * è scaduto o si è perso. Chi è già entrato almeno una volta ha una password, e
+ * per lui la strada è «Password dimenticata?» nell'app.
+ *
+ * Non tocca Firestore: il profilo resta quello che c'è.
+ */
+export const resendInvite = onCall<{ uid: string }, Promise<Omit<Response, 'uid'>>>(
+  { region: 'europe-west1', secrets: [resendApiKey] },
+  async (request) => {
+    requireAdmin(request);
+
+    const { uid } = request.data;
+    if (!uid) {
+      throw new HttpsError('invalid-argument', 'uid mancante.');
+    }
+
+    const target = await auth.getUser(uid).catch(() => null);
+    if (!target?.email) {
+      throw new HttpsError('not-found', 'Utente inesistente.');
+    }
+    if (target.customClaims?.['revnaAdmin'] === true) {
+      throw new HttpsError('permission-denied', 'I referenti Revna non ricevono inviti da qui.');
+    }
+    if (target.disabled) {
+      throw new HttpsError(
+        'failed-precondition',
+        "L'utenza è disattivata: riattivala prima di mandare un nuovo invito."
+      );
+    }
+    if (target.metadata.lastSignInTime) {
+      throw new HttpsError(
+        'failed-precondition',
+        "Il cliente ha già attivato l'accesso: se ha perso la password, può usare " +
+          '«Password dimenticata?» nell\'app.'
+      );
+    }
+
+    const snapshot = await db.collection('users').doc(uid).get();
+    const nome = sanitizeProfile(snapshot.get('profile')).referente.nome;
+
+    const activationUrl = await buildActivationUrl(target.email);
+    const emailSent = await sendEmail({
+      to: target.email,
+      ...activationEmail(activationUrl, nome || target.displayName || undefined),
+    });
+
+    logger.info('Invito rimandato', { uid, emailSent });
+
+    return { activationUrl, emailSent };
   }
 );
 

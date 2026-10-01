@@ -105,9 +105,10 @@
         Una voce sospesa resta qui ma esce dal contesto. Utile per il materiale in revisione, o per
         un contenuto che invecchia — un capitolo sull'AI di due anni fa, per esempio.
         @if (documento()) {
-          Un documento di cui il testo non è stato estratto resta sospeso finché la rilettura non
-          riesce: attivarlo vuoto lo farebbe contare fra le voci disponibili senza dire niente al
-          modello.
+          Un documento si attiva da sé la prima volta che il testo viene letto. Se la lettura non
+          riesce resta sospeso, e non si può attivare finché «Rileggi» non va a buon fine. Una
+          rilettura non cambia l'interruttore di un documento che era già stato letto: se l'hai
+          sospeso, resta sospeso.
         }
       </p>
     </section>

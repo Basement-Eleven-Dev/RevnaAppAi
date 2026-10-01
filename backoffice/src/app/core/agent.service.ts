@@ -32,8 +32,8 @@ import { getFirebaseDb, getFirebaseFunctions, getFirebaseStorage } from './fireb
  * prompt del modello. È la stessa scelta fatta per i documenti dei clienti.
  *
  * L'eccezione sono i file: il binario va su Storage direttamente da qui, ma il testo
- * lo estrae `ingestKnowledgeFile`, perché leggere un PDF nel browser vorrebbe dire
- * portarsi dietro una libreria e comunque non saprebbe leggere le scansioni.
+ * lo estrae `ingestKnowledgeFile`: leggere un PDF nel browser vorrebbe dire portarsi
+ * dietro una libreria nel bundle.
  */
 @Injectable({ providedIn: 'root' })
 export class AgentService {
@@ -170,8 +170,9 @@ export class AgentService {
    * resta una voce **sospesa** con lo stato in errore — visibile, riprovabile, e
    * soprattutto fuori dal contesto dell'assistente finché non ha un testo dentro.
    *
-   * La voce nasce sospesa apposta: una voce senza contenuto che risultasse attiva
-   * verrebbe contata fra quelle disponibili e non direbbe niente al modello.
+   * La voce nasce sospesa apposta, e la attiva `ingestKnowledgeFile` quando la
+   * lettura riesce: una voce senza contenuto che risultasse attiva verrebbe contata
+   * fra quelle disponibili e non direbbe niente al modello.
    */
   async uploadFile({
     file,
@@ -229,8 +230,8 @@ export class AgentService {
    * Serve anche da solo: se l'estrazione fallisce — modello non raggiungibile,
    * PDF illeggibile — si riprova senza ricaricare il file.
    */
-  async ingest(entryId: string): Promise<{ chars: number; troncato: boolean }> {
-    const call = httpsCallable<{ entryId: string }, { chars: number; troncato: boolean }>(
+  async ingest(entryId: string): Promise<{ chars: number }> {
+    const call = httpsCallable<{ entryId: string }, { chars: number }>(
       getFirebaseFunctions(),
       'ingestKnowledgeFile',
     );

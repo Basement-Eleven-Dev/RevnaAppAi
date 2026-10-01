@@ -25,7 +25,12 @@
     <app-profile-fields [form]="profile" />
 
     @if (error()) {
-      <p class="error">{{ error() }}</p>
+      <p class="error">
+        {{ error() }}
+        @if (existingUid()) {
+          <a [routerLink]="['/clienti', existingUid()]">Apri la scheda</a>
+        }
+      </p>
     }
 
     <button type="submit" [disabled]="account.invalid || busy()">

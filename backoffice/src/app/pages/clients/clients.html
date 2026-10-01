@@ -14,6 +14,25 @@
     <p class="error">{{ error() }}</p>
   }
 
+  @if (invited(); as invite) {
+    <section class="card">
+      <div class="row">
+        <strong>Invito rimandato a {{ invite.email }}</strong>
+        <span class="badge" [class.on]="invite.emailSent">
+          {{ invite.emailSent ? 'Email inviata' : 'Email non inviata' }}
+        </span>
+        <button type="button" class="ghost" (click)="copy(invite.activationUrl)">
+          {{ copied() === invite.activationUrl ? 'Copiato' : 'Copia link' }}
+        </button>
+      </div>
+      @if (!invite.emailSent) {
+        <p class="hint">Il servizio di invio non è ancora configurato: consegna tu il link.</p>
+      }
+      <code>{{ invite.activationUrl }}</code>
+      <p class="hint">Il link mandato in precedenza non vale più.</p>
+    </section>
+  }
+
   @if (loading()) {
     <p class="hint">Caricamento…</p>
   } @else if (!list().length) {
@@ -51,27 +70,39 @@
                 {{ client.disabled ? 'Disattivata' : 'Attiva' }}
               </span>
             </td>
-            <td class="actions">
+            <td class="buttons">
               @if (editing() !== client.uid) {
-                <a class="ghost link" [routerLink]="['/clienti', client.uid]">Profilo</a>
-                <a class="ghost link" [routerLink]="['/clienti', client.uid, 'documenti']"
-                  >Documenti</a
-                >
-                <a class="ghost link" [routerLink]="['/clienti', client.uid, 'conversazioni']"
-                  >Conversazioni</a
-                >
-                <a class="ghost link" routerLink="/richieste" [queryParams]="{ cliente: client.uid }"
-                  >Richieste</a
-                >
-                <button type="button" class="ghost" (click)="startEdit(client)">Rinomina</button>
-                <button
-                  type="button"
-                  class="ghost"
-                  [disabled]="pending() === client.uid"
-                  (click)="toggle(client)"
-                >
-                  {{ client.disabled ? 'Riattiva' : 'Disattiva' }}
-                </button>
+                <div class="actions">
+                  <a class="ghost link" [routerLink]="['/clienti', client.uid]">Profilo</a>
+                  <a class="ghost link" [routerLink]="['/clienti', client.uid, 'documenti']"
+                    >Documenti</a
+                  >
+                  <a class="ghost link" [routerLink]="['/clienti', client.uid, 'conversazioni']"
+                    >Conversazioni</a
+                  >
+                  <a class="ghost link" routerLink="/richieste" [queryParams]="{ cliente: client.uid }"
+                    >Richieste</a
+                  >
+                  <button type="button" class="ghost" (click)="startEdit(client)">Rinomina</button>
+                  @if (!client.disabled && !client.lastSignInAt) {
+                    <button
+                      type="button"
+                      class="ghost"
+                      [disabled]="pending() === client.uid"
+                      (click)="resend(client)"
+                    >
+                      Rimanda invito
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="ghost"
+                    [disabled]="pending() === client.uid"
+                    (click)="toggle(client)"
+                  >
+                    {{ client.disabled ? 'Riattiva' : 'Disattiva' }}
+                  </button>
+                </div>
               }
             </td>
           </tr>

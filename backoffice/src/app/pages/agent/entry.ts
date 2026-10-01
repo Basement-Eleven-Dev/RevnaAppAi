@@ -76,6 +76,12 @@ export class AgentEntry {
       this.tags.set(entry.tags);
       // Il testo di un documento è di sola lettura: la fonte di verità è il file.
       if (entry.formato === 'file') this.form.controls.contenuto.disable();
+      // Un documento senza testo non si attiva: si attiva da sé quando la lettura riesce.
+      if (entry.formato === 'file' && !entry.contenuto) {
+        this.form.controls.attivo.disable();
+      } else {
+        this.form.controls.attivo.enable();
+      }
     } catch (cause) {
       this.error.set(message(cause));
     } finally {

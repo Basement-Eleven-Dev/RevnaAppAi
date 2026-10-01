@@ -80,8 +80,12 @@
             <td class="muted">{{ formatSize(document.size) }}</td>
             <td class="muted">{{ date(document.uploadedAt) }}</td>
             <td class="actions">
-              <button type="button" class="ghost" (click)="open(document)">Apri</button>
-              <button type="button" class="ghost danger" (click)="remove(document)">Elimina</button>
+              <div>
+                <button type="button" class="ghost" (click)="open(document)">Apri</button>
+                <button type="button" class="ghost danger" (click)="remove(document)">
+                  Elimina
+                </button>
+              </div>
             </td>
           </tr>
         }

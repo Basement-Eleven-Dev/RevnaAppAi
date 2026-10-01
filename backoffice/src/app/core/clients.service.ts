@@ -30,6 +30,11 @@ export class ClientsService {
     Invite
   >(this.functions, 'createInvite');
 
+  private readonly resendInviteFn = httpsCallable<{ uid: string }, Omit<Invite, 'uid'>>(
+    this.functions,
+    'resendInvite'
+  );
+
   private readonly listClientsFn = httpsCallable<void, { clients: Client[] }>(
     this.functions,
     'listClients'
@@ -51,6 +56,12 @@ export class ClientsService {
   ): Promise<Invite> {
     const { data } = await this.createInviteFn({ email, profile });
     return data;
+  }
+
+  /** Nuovo link di attivazione per un cliente mai entrato: il precedente smette di valere. */
+  async resendInvite(uid: string): Promise<Invite> {
+    const { data } = await this.resendInviteFn({ uid });
+    return { uid, ...data };
   }
 
   /** Legge il profilo direttamente da Firestore: le regole aprono la lettura agli admin. */

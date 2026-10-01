@@ -148,7 +148,7 @@ td strong {
   white-space: nowrap;
 }
 
-td.actions {
+td.actions > div {
   display: flex;
   gap: 8px;
   white-space: nowrap;

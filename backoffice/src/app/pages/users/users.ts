@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { FunctionsError } from 'firebase/functions';
 
 import { ProfileFields } from '../../components/profile-fields/profile-fields';
 import { ClientsService, type Invite } from '../../core/clients.service';
@@ -25,6 +26,8 @@ export class Users {
 
   protected readonly busy = signal(false);
   protected readonly error = signal('');
+  /** Il cliente che ha già l'email inserita, per aprirne la scheda invece di ricrearlo. */
+  protected readonly existingUid = signal('');
   /** Utenze create in questa sessione, la più recente in cima. */
   protected readonly created = signal<Created[]>([]);
   protected readonly copied = signal('');
@@ -34,6 +37,7 @@ export class Users {
 
     this.busy.set(true);
     this.error.set('');
+    this.existingUid.set('');
 
     const email = this.account.controls.email.value.trim().toLowerCase();
     try {
@@ -43,6 +47,9 @@ export class Users {
       this.profile.reset();
     } catch (cause) {
       this.error.set(cause instanceof Error ? cause.message : 'Creazione non riuscita.');
+      if (cause instanceof FunctionsError && cause.code === 'functions/already-exists') {
+        this.existingUid.set((cause.details as { uid?: string } | undefined)?.uid ?? '');
+      }
     } finally {
       this.busy.set(false);
     }

@@ -3,7 +3,7 @@
  * Regione europe-west1 per tutte le function (dati e utenti sono in UE).
  */
 
-export { createInvite } from './invites';
+export { createInvite, resendInvite } from './invites';
 export { requestPasswordReset } from './password-reset';
 export { listClients, updateClient, saveClientProfile } from './clients';
 export { askAssistant } from './assistant';

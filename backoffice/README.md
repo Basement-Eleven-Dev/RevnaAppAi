@@ -54,8 +54,13 @@ l'email di attivazione via Resend e restituisce il link. Finché la chiave Resen
 configurata l'email non parte: la pagina lo segnala e mostra il link da copiare — che è
 anche il modo più rapido per attivare un'utenza di prova.
 
+Un'email che ha già un'utenza viene rifiutata, senza toccare il cliente esistente: la
+pagina lo dice e, se è un cliente, mette il link alla sua scheda.
+
 `/clienti` chiama `listClients` e `updateClient`. Disattivare revoca le sessioni: il
-cliente viene buttato fuori dall'app entro pochi minuti.
+cliente viene buttato fuori dall'app entro pochi minuti. Per i clienti attivi che non
+sono mai entrati c'è **«Rimanda invito»** (`resendInvite`): un link nuovo, mostrato da
+copiare se l'email non parte; quello mandato prima smette di valere.
 
 La password non si imposta nel backoffice né su una pagina Firebase: `/attiva` rimanda
 all'app, dove il cliente la sceglie.
@@ -184,6 +189,12 @@ ritrovato. Meglio saperlo prima che dopo.
 
 Una voce **sospesa** resta in elenco ma esce dal contesto: serve per il materiale in
 revisione, o per un contenuto che invecchia.
+
+Un **file** caricato (PDF con testo selezionabile o file di testo; niente immagini né
+scansioni) diventa una voce il cui testo lo estrae `ingestKnowledgeFile`. La voce si
+**attiva da sé** quando la lettura riesce; se fallisce resta sospesa, mostra il motivo e
+non si può attivare finché «Rileggi» non va a buon fine. Rileggere un documento già
+letto non cambia l'interruttore: se l'hai sospeso, resta sospeso.
 
 **Prova** (`pages/agent/prova`) è il banco di collaudo delle altre due: si sceglie una
 struttura fra i clienti attivi e si fa la conversazione che farebbe il suo albergatore.
