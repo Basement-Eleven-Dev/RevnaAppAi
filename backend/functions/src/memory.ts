@@ -128,9 +128,12 @@ function toEntry(id: string, input: unknown): MemoryEntry {
  * righe che si contraddicono vince la più recente: leggendole in fila, l'ultima parola
  * è quella giusta. L'app le mostra al contrario, dove conta vedere subito l'ultima
  * cosa che si è chiesta.
+ *
+ * Tutte, senza limite: sono al massimo `MAX_ENTRIES` per costruzione, e un limite qui
+ * lascerebbe fuori proprio le più recenti se mai fossero di più.
  */
 export async function loadMemory(uid: string): Promise<MemoryEntry[]> {
-  const snapshot = await memoryOf(uid).orderBy('at', 'asc').limit(MAX_ENTRIES).get();
+  const snapshot = await memoryOf(uid).orderBy('at', 'asc').get();
 
   return snapshot.docs
     .map((document) => toEntry(document.id, document.data()))
@@ -382,12 +385,39 @@ export async function updateMemory({
 }
 
 /**
+ * Le righe che escono quando la memoria è piena.
+ *
+ * Escono le righe aggiornate da più tempo, non le più vecchie: una preferenza espressa
+ * un anno fa ma riconfermata il mese scorso è ancora viva; una di due mesi fa che
+ * nessuno ha più toccato no. Quelle toccate nel turno restano comunque.
+ *
+ * Il conto è sul totale che c'è davvero, `current`, non sulla memoria letta a inizio
+ * turno: fra le due un altro turno può aver aggiunto righe.
+ */
+export function overflow(
+  current: MemoryEntry[],
+  { touched, removed, added }: { touched: Set<string>; removed: Set<string>; added: number }
+): MemoryEntry[] {
+  const surplus = current.filter((entry) => !removed.has(entry.id)).length + added - MAX_ENTRIES;
+  if (surplus <= 0) return [];
+
+  return current
+    .filter((entry) => !touched.has(entry.id))
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+    .slice(0, surplus);
+}
+
+/**
  * Esegue le chiamate del modello sulla memoria.
  *
  * Una riga si tocca una volta per turno: se il modello chiede due volte del numero 3
- * — capita, `aggiorna` e poi `dimentica` — vale la prima e le altre cadono. Con un
- * batch le scritture successive sullo stesso documento avrebbero un esito che dipende
- * dall'ordine, e l'ordine qui lo decide un modello.
+ * — capita, `aggiorna` e poi `dimentica` — vale la prima e le altre cadono. Con
+ * scritture successive sullo stesso documento l'esito dipenderebbe dall'ordine, e
+ * l'ordine qui lo decide un modello.
+ *
+ * Tutto in una transazione che rilegge la memoria: due turni chiusi insieme, o il
+ * cliente che cancella una riga dall'app mentre l'assistente la aggiorna, devono
+ * lasciare una memoria entro il limite e senza righe resuscitate.
  */
 async function applyCalls({
   uid,
@@ -403,89 +433,85 @@ async function applyCalls({
   conversazione: string;
 }): Promise<number> {
   const now = new Date().toISOString();
-  const batch = db.batch();
   const collection = memoryOf(uid);
-
-  /** Le righe già toccate in questo turno, e quelle cancellate. */
-  const touched = new Set<string>();
-  const removed = new Set<string>();
-  /** I testi già in memoria o appena aggiunti: l'argine ai doppioni. */
-  const seen = new Set(entries.map((entry) => entry.testo.toLowerCase()));
-
-  let added = 0;
-  let done = 0;
 
   const pick = (args: Record<string, unknown>): MemoryEntry | undefined => {
     const numero = Number(args['numero']);
     return Number.isInteger(numero) ? entries[numero - 1] : undefined;
   };
 
-  for (const call of calls.slice(0, MAX_OPS_PER_TURN)) {
-    if (call.name === 'ricorda') {
-      const testo = sanitizeText(call.args['testo']);
-      if (!testo || seen.has(testo.toLowerCase())) continue;
+  const { done, uscite } = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(collection);
+    const current = snapshot.docs.map((document) => toEntry(document.id, document.data()));
+    const exists = new Set(current.map((entry) => entry.id));
 
-      seen.add(testo.toLowerCase());
-      added++;
-      batch.set(collection.doc(), {
-        testo,
-        at: now,
-        updatedAt: now,
-        conversationId,
-        ...(conversazione ? { conversazione } : {}),
-        origine: 'assistente' satisfies MemoryOrigin,
-      });
-      done++;
-      continue;
+    /** Le righe già toccate in questo turno, e quelle cancellate. */
+    const touched = new Set<string>();
+    const removed = new Set<string>();
+    /** I testi già in memoria o appena aggiunti: l'argine ai doppioni. */
+    const seen = new Set(current.map((entry) => entry.testo.toLowerCase()));
+
+    let added = 0;
+    let done = 0;
+
+    for (const call of calls.slice(0, MAX_OPS_PER_TURN)) {
+      if (call.name === 'ricorda') {
+        const testo = sanitizeText(call.args['testo']);
+        if (!testo || seen.has(testo.toLowerCase())) continue;
+
+        seen.add(testo.toLowerCase());
+        added++;
+        transaction.set(collection.doc(), {
+          testo,
+          at: now,
+          updatedAt: now,
+          conversationId,
+          ...(conversazione ? { conversazione } : {}),
+          origine: 'assistente' satisfies MemoryOrigin,
+        });
+        done++;
+        continue;
+      }
+
+      const entry = pick(call.args);
+      if (!entry || !exists.has(entry.id) || touched.has(entry.id)) continue;
+
+      if (call.name === 'aggiorna') {
+        const testo = sanitizeText(call.args['testo']);
+        if (!testo || testo.toLowerCase() === entry.testo.toLowerCase()) continue;
+
+        touched.add(entry.id);
+        // `at` non si tocca: la data in cui la cosa è entrata in memoria è parte della
+        // preferenza, e sovrascriverla farebbe sembrare appena chiesto ciò che è di sei mesi fa.
+        transaction.update(collection.doc(entry.id), {
+          testo,
+          updatedAt: now,
+          conversationId,
+          ...(conversazione ? { conversazione } : {}),
+          origine: 'assistente' satisfies MemoryOrigin,
+        });
+        done++;
+        continue;
+      }
+
+      if (call.name === 'dimentica') {
+        touched.add(entry.id);
+        removed.add(entry.id);
+        transaction.delete(collection.doc(entry.id));
+        done++;
+      }
     }
 
-    const entry = pick(call.args);
-    if (!entry || touched.has(entry.id)) continue;
+    if (!done) return { done, uscite: 0 };
 
-    if (call.name === 'aggiorna') {
-      const testo = sanitizeText(call.args['testo']);
-      if (!testo || testo.toLowerCase() === entry.testo.toLowerCase()) continue;
+    const dropped = overflow(current, { touched, removed, added });
+    for (const entry of dropped) transaction.delete(collection.doc(entry.id));
 
-      touched.add(entry.id);
-      // `at` non si tocca: la data in cui la cosa è entrata in memoria è parte del
-      // preferenza, e sovrascriverla farebbe sembrare appena chiesto ciò che è di sei mesi fa.
-      batch.update(collection.doc(entry.id), {
-        testo,
-        updatedAt: now,
-        conversationId,
-        ...(conversazione ? { conversazione } : {}),
-        origine: 'assistente' satisfies MemoryOrigin,
-      });
-      done++;
-      continue;
-    }
+    return { done, uscite: dropped.length };
+  });
 
-    if (call.name === 'dimentica') {
-      touched.add(entry.id);
-      removed.add(entry.id);
-      batch.delete(collection.doc(entry.id));
-      done++;
-    }
-  }
-
-  if (!done) return 0;
-
-  // La memoria piena: escono le righe aggiornate da più tempo, non le più vecchie. Una
-  // preferenza espressa un anno fa ma riconfermata il mese scorso è ancora viva; una di
-  // due mesi fa che nessuno ha più toccato no.
-  const surplus = entries.length - removed.size + added - MAX_ENTRIES;
-
-  if (surplus > 0) {
-    const droppable = entries
-      .filter((entry) => !touched.has(entry.id))
-      .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
-      .slice(0, surplus);
-
-    for (const entry of droppable) batch.delete(collection.doc(entry.id));
-    logger.info('Memoria al limite, righe uscite', { uid, quanti: droppable.length });
-  }
-
-  await batch.commit();
+  // Fuori dalla transazione: in caso di conflitto la funzione riparte, e il log si ripeterebbe.
+  if (uscite) logger.info('Memoria al limite, righe uscite', { uid, quanti: uscite });
   return done;
 }
 

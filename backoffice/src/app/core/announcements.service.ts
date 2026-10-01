@@ -114,8 +114,8 @@ export class AnnouncementsService {
 
     const path = `announcements/${announcementId}/${Date.now()}-${safeFileName(immagine.name)}`;
     const task = uploadBytesResumable(ref(getFirebaseStorage(), path), immagine, {
-      // Il tipo deve esserci e deve essere quello vero: le regole ammettono solo
-      // `image/*`, e un file senza tipo arriverebbe come `application/octet-stream`.
+      // Il tipo deve esserci e deve essere quello vero: le regole ammettono solo PNG,
+      // JPEG, WebP e GIF, e un file senza tipo arriverebbe come `application/octet-stream`.
       contentType: immagine.type || 'image/jpeg',
     });
 

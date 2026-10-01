@@ -37,6 +37,14 @@ const MAX_EDGE = 1600;
  */
 const PASSTHROUGH_BYTES = 600 * 1024;
 
+/**
+ * I formati che un avviso accetta, gli stessi delle regole di Storage.
+ *
+ * Fuori restano l'SVG, che può contenere script e verrebbe servito a chiunque abbia il
+ * link, e i formati che il telefono del cliente potrebbe non saper mostrare.
+ */
+const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+
 /** I formati che riscriviamo. Un GIF animato passa intatto: ridisegnarlo lo fermerebbe. */
 const REENCODABLE = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -52,6 +60,13 @@ export async function prepareImage(file: File): Promise<File> {
     throw new Error(
       'Questo file non è un\'immagine. In una comunicazione si possono mettere foto, ' +
         'grafici e schermate; per un documento usa i Documenti del cliente.'
+    );
+  }
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    throw new Error(
+      `Questo formato (${formatName(file.type)}) non si può usare in una comunicazione: ` +
+        'salva l\'immagine in PNG, JPEG, WebP o GIF e riprova.'
     );
   }
 
@@ -149,6 +164,11 @@ async function redraw(
 function renamed(name: string, type: string): string {
   const base = name.replace(/\.[^.]+$/, '') || 'immagine';
   return `${base}.${type === 'image/png' ? 'png' : 'jpg'}`;
+}
+
+/** `image/svg+xml` → `SVG`, `image/heic` → `HEIC`. */
+function formatName(type: string): string {
+  return type.replace(/^image\//, '').replace(/\+.*$/, '').toUpperCase();
 }
 
 function megabytes(bytes: number): string {

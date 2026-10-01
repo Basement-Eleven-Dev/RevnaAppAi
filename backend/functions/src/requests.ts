@@ -117,19 +117,6 @@ export const createContactRequest = onCall<CreateRequest, Promise<CreateResponse
       throw new HttpsError('invalid-argument', 'La richiesta è troppo lunga.');
     }
 
-    const aperte = await collectionRef()
-      .where('uid', '==', uid)
-      .where('stato', 'in', ['inviata', 'visualizzata'])
-      .count()
-      .get();
-
-    if (aperte.data().count >= MAX_OPEN) {
-      throw new HttpsError(
-        'resource-exhausted',
-        'Hai già diverse richieste aperte: il tuo referente Revna le sta guardando.'
-      );
-    }
-
     const snapshot = await db.collection('users').doc(uid).get();
     const profile = sanitizeProfile(snapshot.data()?.['profile']);
     const now = new Date().toISOString();
@@ -142,21 +129,41 @@ export const createContactRequest = onCall<CreateRequest, Promise<CreateResponse
     const origine: Origine = conversationIdChiesto ? 'assistente' : 'richieste';
     const conversationId = await resolveConversation(uid, conversationIdChiesto);
 
-    const document = await collectionRef().add({
-      uid,
-      stato: 'inviata' satisfies Stato,
-      messaggio,
-      origine,
-      ...(conversationId ? { conversationId } : {}),
-      contatto: {
-        email: request.auth?.token['email'] ?? (snapshot.data()?.['email'] as string) ?? '',
-        nome: `${profile.referente.nome} ${profile.referente.cognome}`.trim(),
-        ruolo: profile.referente.ruolo,
-        telefono: profile.referente.telefono,
-        struttura: profile.struttura.nome,
-      },
-      createdAt: now,
-      updatedAt: now,
+    const document = collectionRef().doc();
+
+    // Conteggio e creazione nella stessa transazione: due richieste partite insieme
+    // vedrebbero altrimenti lo stesso numero di aperte, e il tetto si supererebbe.
+    await db.runTransaction(async (transaction) => {
+      const aperte = await transaction.get(
+        collectionRef()
+          .where('uid', '==', uid)
+          .where('stato', 'in', ['inviata', 'visualizzata'])
+          .limit(MAX_OPEN)
+      );
+
+      if (aperte.size >= MAX_OPEN) {
+        throw new HttpsError(
+          'resource-exhausted',
+          'Hai già diverse richieste aperte: il tuo referente Revna le sta guardando.'
+        );
+      }
+
+      transaction.create(document, {
+        uid,
+        stato: 'inviata' satisfies Stato,
+        messaggio,
+        origine,
+        ...(conversationId ? { conversationId } : {}),
+        contatto: {
+          email: request.auth?.token['email'] ?? (snapshot.data()?.['email'] as string) ?? '',
+          nome: `${profile.referente.nome} ${profile.referente.cognome}`.trim(),
+          ruolo: profile.referente.ruolo,
+          telefono: profile.referente.telefono,
+          struttura: profile.struttura.nome,
+        },
+        createdAt: now,
+        updatedAt: now,
+      });
     });
 
     logger.info('Richiesta di contatto aperta', { id: document.id, uid, origine });

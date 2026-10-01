@@ -33,14 +33,36 @@ type Layout = {
   /** Riga di anteprima nella lista dei messaggi, prima ancora di aprire. */
   preheader: string;
   hello: string;
-  /** Paragrafi del corpo, già come testo semplice: l'HTML lo mettiamo noi. */
+  /** Paragrafi del corpo, già in HTML: costanti scritte qui, mai dati del cliente. */
   body: string[];
   cta: { label: string; url: string };
   /** Chiusa in piccolo: cosa fare se questa email non te l'aspettavi. */
   footnote: string;
 };
 
-function html({ preheader, hello, body, cta, footnote }: Layout): string {
+/**
+ * Un valore pronto per stare nell'HTML, come testo o dentro un attributo.
+ *
+ * Il saluto porta il nome del cliente, che scrive il backoffice: senza escape un nome
+ * con un `<a href>` dentro diventerebbe un link vero in un'email firmata Revna.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function html(layout: Layout): string {
+  // I paragrafi del corpo restano come sono: sono HTML scritto qui, non dati.
+  const { body } = layout;
+  const preheader = escapeHtml(layout.preheader);
+  const hello = escapeHtml(layout.hello);
+  const footnote = escapeHtml(layout.footnote);
+  const cta = { label: escapeHtml(layout.cta.label), url: escapeHtml(layout.cta.url) };
+
   const paragraphs = body
     .map(
       (line) =>
@@ -67,7 +89,7 @@ function html({ preheader, hello, body, cta, footnote }: Layout): string {
 
         <tr>
           <td align="left" style="background:${INK};padding:24px 32px">
-            <img src="${logoUrl()}" width="160" height="68" alt="Revna AI"
+            <img src="${escapeHtml(logoUrl())}" width="160" height="68" alt="Revna AI"
                  style="display:block;border:0;outline:none;text-decoration:none;width:160px;height:68px;color:#ffffff;font-family:${FONT};font-size:22px;font-weight:700;letter-spacing:-0.01em">
           </td>
         </tr>

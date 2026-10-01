@@ -51,14 +51,16 @@ service firebase.storage {
     // dentro come immagine. Per quello ci sono i Documenti.
     //
     // La `read` qui sotto serve al backoffice per ottenere quel token al caricamento.
-    // Tetto a 5 MB: è un'immagine dentro un avviso, non un allegato.
+    // Tetto a 5 MB: è un'immagine dentro un avviso, non un allegato. Solo formati
+    // raster: un SVG servito da qui potrebbe contenere script, e lo leggerebbe chiunque
+    // abbia il link. Sono gli stessi di `image-prep.ts` nel backoffice.
     match /announcements/{announcementId}/{fileName} {
       allow read: if isRevnaAdmin();
 
       allow write: if isRevnaAdmin()
         && (request.resource == null
             || (request.resource.size < 5 * 1024 * 1024
-                && request.resource.contentType.matches('image/.*')));
+                && request.resource.contentType.matches('image/(png|jpeg|webp|gif)')));
     }
 
     match /{allPaths=**} {

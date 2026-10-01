@@ -442,7 +442,9 @@ proposito, e non un conteggio di parole: «no elenchi» sono due parole che valg
 
 Gli argini, tutti in `memory.ts`: **25 righe** per cliente (quando è piena escono quelle
 aggiornate da più tempo), **280 caratteri** per riga, **3 operazioni** per turno, e nessun
-doppione esatto.
+doppione esatto. Le operazioni di un turno stanno in una transazione che rilegge la
+memoria: due turni chiusi insieme non la portano oltre le 25 righe, e il conto di chi
+esce si fa sul totale reale, non su quello letto a inizio turno.
 
 **Il cliente la vede tutta**, nelle impostazioni dell'app, e questa è la parte che rende la
 cosa accettabile: può correggere il testo di una riga, dimenticarne una, o cancellare tutto
@@ -505,7 +507,8 @@ nel frattempo è stato corretto. Il profilo vivo resta a un clic, nella scheda d
 
 Un cliente può avere al massimo **10 richieste aperte**. Non è una tariffa, è un argine:
 dieci richieste aperte sono già un segnale che qualcosa non funziona, e senza un limite
-un ciclo dell'app potrebbe riempire la coda del backoffice.
+un ciclo dell'app potrebbe riempire la coda del backoffice. Conteggio e creazione stanno
+nella stessa transazione, così anche richieste partite insieme non superano il tetto.
 
 ### Comunicazioni ai clienti
 
@@ -575,7 +578,9 @@ Firebase, con il suo token. Chiunque lo abbia vede l'immagine, senza essere aute
 È la differenza con i documenti, ed è voluta — un'immagine dentro un testo la deve poter
 caricare il telefono di ogni cliente che apre l'avviso, anche fra un mese, e con URL
 firmati a 5 minuti mostrerebbe un riquadro vuoto. Chi scrive lo deve sapere: lì ci vanno
-grafici e foto, non un report riservato messo dentro come immagine.
+grafici e foto, non un report riservato messo dentro come immagine. I formati ammessi
+sono **PNG, JPEG, WebP e GIF**, fino a 5 MB: niente SVG, che potrebbe contenere script e
+verrebbe servito a chiunque abbia il link.
 
 ### Notifiche push
 

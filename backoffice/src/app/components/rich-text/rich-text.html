@@ -125,7 +125,7 @@
       <label class="strumento picker" title="Inserisci un'immagine">
         <input
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/webp,image/gif"
           [disabled]="disabilitato() || caricando()"
           (change)="onFile($event)"
         />
