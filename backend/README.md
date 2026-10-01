@@ -240,8 +240,10 @@ solo l'Admin SDK, e il `deny` finale la tiene chiusa a tutti gli altri.
 
 ### Invio delle email (Resend)
 
-Il mittente e la base degli URL sono parametri non segreti in `functions/.env`;
-la chiave sta in Secret Manager con un valore segnaposto:
+Il mittente e la base degli URL sono parametri non segreti in
+`functions/.env.revnaappai`, versionato: i valori di produzione li decide il repo, non chi
+lancia il deploy (senza il file, la CLI li chiede a terminale). La chiave invece sta in
+Secret Manager con un valore segnaposto:
 
 ```bash
 firebase functions:secrets:set RESEND_API_KEY
@@ -249,7 +251,7 @@ firebase functions:secrets:set RESEND_API_KEY
 
 Finché la chiave è `PLACEHOLDER` l'invio viene **saltato senza errori** e il backoffice
 mostra il link da consegnare a mano. Serve anche un dominio mittente verificato su
-Resend, da riportare in `MAIL_FROM` dentro `functions/.env`.
+Resend, da riportare in `MAIL_FROM` dentro `functions/.env.revnaappai`.
 
 ### Disattivazione
 
@@ -276,8 +278,8 @@ da `users/{uid}`, quindi è il server a decidere di chi si sta parlando.
 | Cosa | Dove |
 | --- | --- |
 | Provider | Google Gemini **via Vertex AI**, SDK `@google/genai` |
-| Modello | `GEMINI_MODEL` in `functions/.env` (oggi `gemini-3.1-flash-lite`) |
-| Regione | `GEMINI_LOCATION` in `functions/.env` (oggi `global`) |
+| Modello | `GEMINI_MODEL` in `functions/.env.revnaappai` (oggi `gemini-3.1-flash-lite`) |
+| Regione | `GEMINI_LOCATION` in `functions/.env.revnaappai` (oggi `global`) |
 | Autenticazione | nessuna chiave: Application Default Credentials del service account |
 | Persona e perimetro | documento `agent/config`, redatto dal backoffice |
 | Base di conoscenza | collezione `knowledge`, redatta dal backoffice |
