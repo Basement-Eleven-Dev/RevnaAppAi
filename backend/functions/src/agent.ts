@@ -92,14 +92,16 @@ export const DEFAULT_SPUNTI = [
 ];
 
 /**
- * Quanta conoscenza sta nel contesto senza selezione.
+ * Quanta conoscenza sta nel contesto, in caratteri.
  *
  * Sotto questa soglia si inietta tutto: con una base di conoscenza piccola, un
  * passaggio di selezione costerebbe una chiamata e mezzo secondo per scartare
- * niente. Sopra, si sceglie. 120.000 caratteri sono circa 30.000 token: sta larga
- * nella finestra di Gemini insieme al profilo e allo storico.
+ * niente. Sopra, si sceglie, e le voci scelte devono comunque starci dentro: tre PDF
+ * da mezzo milione di caratteri sono «tre voci», ma non un prompt. 120.000 caratteri
+ * sono circa 30.000 token: sta larga nella finestra di Gemini insieme al profilo e
+ * allo storico.
  */
-const FULL_CONTEXT_BUDGET_CHARS = 120_000;
+export const FULL_CONTEXT_BUDGET_CHARS = 120_000;
 
 /** Quante voci passare al modello quando la selezione entra in gioco. */
 const MAX_SELECTED = 10;
@@ -140,7 +142,8 @@ function sanitizeEntry(id: string, input: unknown): KnowledgeEntry {
       ? (raw['tags'] as unknown[]).filter((tag): tag is string => typeof tag === 'string')
       : [],
     contenuto: text(raw['contenuto']),
-    attivo: raw['attivo'] !== false,
+    // Mancante vale sospesa, come per la query di `loadAgent`.
+    attivo: raw['attivo'] === true,
   };
 }
 
@@ -221,7 +224,7 @@ export async function selectKnowledge(
   // Se il modello non ha scelto — errore, o davvero nessuna voce pertinente — non
   // si resta a mani vuote: un punteggio per parole chiave è grezzo ma non sbaglia
   // di molto, e una risposta senza fonti è peggio di una con fonti approssimative.
-  const selected = picked.length ? picked : byKeyword(question, entries);
+  const selected = withinBudget(picked.length ? picked : byKeyword(question, entries));
 
   logger.info('Conoscenza selezionata', {
     disponibili: entries.length,
@@ -229,6 +232,40 @@ export async function selectKnowledge(
   });
   return selected;
 }
+
+/**
+ * Le voci, in ordine di pertinenza, finché il totale sta nel budget.
+ *
+ * Una voce che non ci sta viene saltata e si prova con la successiva, più corta. Fa
+ * eccezione la prima: se da sola supera il budget entra troncata, perché è la più
+ * pertinente e scartarla lascerebbe il modello senza la cosa che serve di più.
+ */
+function withinBudget(ranked: KnowledgeEntry[]): KnowledgeEntry[] {
+  const selected: KnowledgeEntry[] = [];
+  let used = 0;
+
+  for (const entry of ranked) {
+    if (used + entry.contenuto.length <= FULL_CONTEXT_BUDGET_CHARS) {
+      selected.push(entry);
+      used += entry.contenuto.length;
+    } else if (!selected.length) {
+      logger.info('Voce di conoscenza troncata nel contesto', {
+        id: entry.id,
+        chars: entry.contenuto.length,
+      });
+      selected.push({ ...entry, contenuto: truncate(entry.contenuto) });
+      break;
+    }
+  }
+
+  return selected;
+}
+
+const TRUNCATED_NOTICE =
+  '\n\n[Testo troncato: qui sopra c\'è solo la prima parte di questa voce.]';
+
+const truncate = (contenuto: string): string =>
+  contenuto.slice(0, FULL_CONTEXT_BUDGET_CHARS - TRUNCATED_NOTICE.length) + TRUNCATED_NOTICE;
 
 /** Ripiego senza modello: quante parole della domanda ricorrono nella voce. */
 function byKeyword(question: string, entries: KnowledgeEntry[]): KnowledgeEntry[] {
@@ -268,8 +305,10 @@ Come usi il materiale Revna
 - Il materiale qui sotto è la base di conoscenza di Revna. È la tua fonte: quando
   una risposta poggia su una di quelle voci, cita il suo numero fra parentesi quadre
   subito dopo l'affermazione — così: [1]. Più fonti insieme: [1] [3].
-- Cita solo i numeri che vedi elencati. Non inventare numeri e non citare materiale
-  che non ti è stato dato.
+- Cita solo i numeri delle voci, quelli scritti nell'intestazione di ciascuna. I
+  numeri che trovi dentro i testi — pagine, slide, capitoli, paragrafi — non sono
+  voci: non scriverli mai fra parentesi quadre.
+- Non inventare numeri e non citare materiale che non ti è stato dato.
 - Non copiare i testi parola per parola: usali per ragionare e riformula.
 - Se le voci non coprono la domanda, rispondi con la tua competenza di settore ma
   senza citare nulla, e dillo in una riga.
@@ -331,7 +370,7 @@ export function extractContactProposal(answer: string): { text: string; proposal
   // Le citazioni dentro la proposta vanno via: là fuori quei numeri non vogliono
   // dire niente, e il testo lo leggerà un consulente, non l'app.
   const proposal = (end === -1 ? rest : rest.slice(0, end))
-    .replace(/\[\d{1,2}\]/g, '')
+    .replace(/\[\d+\]/g, '')
     .replace(/^["'«»]|["'«»]$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -387,9 +426,18 @@ export function buildSystemInstruction(
   }
 
   if (selected.length) {
+    // Inizio e fine dichiarati per ogni voce: un documento lungo è pieno di numeri
+    // suoi (pagine, slide, paragrafi), e senza confini il modello li scambia per
+    // numeri di voce.
     parts.push('', '--- Materiale Revna ---');
     for (const [index, entry] of selected.entries()) {
-      parts.push('', `[${index + 1}] ${entry.titolo}`, entry.contenuto);
+      const n = index + 1;
+      parts.push(
+        '',
+        `=== Voce [${n}]: ${entry.titolo} ===`,
+        entry.contenuto,
+        `=== Fine della voce [${n}] ===`,
+      );
     }
   }
 
@@ -408,13 +456,25 @@ export function resolveCitations(
   answer: string,
   selected: KnowledgeEntry[],
 ): { text: string; sources: Source[] } {
-  const marker = /\[(\d{1,2})\]/g;
+  const marker = /\[(\d+)\]/g;
 
   // Ordine di prima apparizione: è quello in cui il cliente legge le fonti.
   const used: number[] = [];
+  const unknown: number[] = [];
   for (const match of answer.matchAll(marker)) {
     const n = Number(match[1]);
-    if (n >= 1 && n <= selected.length && !used.includes(n)) used.push(n);
+    if (n >= 1 && n <= selected.length) {
+      if (!used.includes(n)) used.push(n);
+    } else if (!unknown.includes(n)) {
+      unknown.push(n);
+    }
+  }
+
+  if (unknown.length) {
+    logger.warn('Citazioni senza voce corrispondente, tolte dalla risposta', {
+      citate: unknown,
+      voci: selected.length,
+    });
   }
 
   // Un solo passaggio di sostituzione: rinumerare a tappe farebbe collidere le

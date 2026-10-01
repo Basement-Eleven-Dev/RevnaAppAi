@@ -44,6 +44,10 @@ type GenAI = InstanceType<
   typeof import('@google/genai', { with: { 'resolution-mode': 'import' } }).GoogleGenAI
 >;
 
+type ThinkingLevel = import('@google/genai', {
+  with: { 'resolution-mode': 'import' },
+}).ThinkingLevel;
+
 let cached: Promise<GenAI> | undefined;
 
 /**
@@ -66,18 +70,35 @@ function client(): Promise<GenAI> {
 
 type CompleteOptions = { temperature?: number; maxOutputTokens?: number };
 
-/** Una domanda secca al modello, senza streaming: la selezione e il titolo. */
+/**
+ * Una domanda secca al modello, senza streaming: la selezione e il titolo.
+ *
+ * Il ragionamento al minimo e un tetto largo per lo stesso motivo: i token del
+ * ragionamento contano nel tetto della risposta, e con un tetto stretto il modello
+ * può spenderli tutti a pensare e restituire un testo vuoto.
+ */
 export async function complete(
   prompt: string,
-  { temperature = 0, maxOutputTokens = 64 }: CompleteOptions = {},
+  { temperature = 0, maxOutputTokens = 256 }: CompleteOptions = {},
 ): Promise<string> {
   const ai = await client();
   const response = await ai.models.generateContent({
     model: geminiModel.value(),
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    config: { temperature, maxOutputTokens },
+    config: {
+      temperature,
+      maxOutputTokens,
+      thinkingConfig: { thinkingLevel: 'MINIMAL' as ThinkingLevel },
+    },
   });
-  return response.text?.trim() ?? '';
+
+  const text = response.text?.trim() ?? '';
+  if (!text) {
+    logger.warn('Risposta breve vuota dal modello', {
+      finishReason: response.candidates?.[0]?.finishReason,
+    });
+  }
+  return text;
 }
 
 /**

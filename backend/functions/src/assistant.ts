@@ -194,7 +194,7 @@ async function summarize(message: string): Promise<string> {
       'Riassumi questa domanda in un titolo di massimo 5 parole, in italiano, ' +
         'senza virgolette e senza punto finale. Rispondi solo con il titolo.\n\n' +
         message,
-      { temperature: 0.2, maxOutputTokens: 32 },
+      { temperature: 0.2 },
     );
 
     const title = answer.replace(/^["'«»]|["'«».]$/g, '');

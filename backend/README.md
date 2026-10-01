@@ -120,7 +120,7 @@ knowledge/{id}                riservato ai referenti Revna, in lettura e scrittu
 ├── fonte          «Hotel Mystery Guest, Derosas» — la provenienza che il cliente legge
 ├── riferimento    «cap. 7.4 — Le restrizioni tariffarie» — il punto preciso
 ├── contenuto      il testo che entra nel contesto del modello
-├── attivo         solo le voci attive finiscono in una risposta
+├── attivo         solo le voci attive finiscono in una risposta; se manca, la voce è sospesa
 └── updatedAt · updatedBy
 ```
 
@@ -135,7 +135,11 @@ cliente ne vede soltanto quello che l'assistente cita rispondendo a una sua doma
 
 Una voce può anche nascere da un **file** (PDF con testo selezionabile o file di testo):
 il backoffice lo carica su Storage in `knowledge/{id}-<nome>` e crea la voce sospesa,
-poi `ingestKnowledgeFile` ne estrae il testo in `contenuto`. La prima lettura riuscita
+poi `ingestKnowledgeFile` ne estrae il testo in `contenuto`. Dai PDF toglie intestazioni
+e piè di pagina (le righe che aprono o chiudono quasi ogni pagina, uguali a parte i
+numeri): i numeri di pagina, nel contesto, il modello li scambierebbe per fonti da
+citare. Il testo ha un tetto di 900.000 byte, sotto il limite di 1 MiB del documento
+Firestore. La prima lettura riuscita
 **attiva** la voce, e così una lettura riuscita dopo un errore; se la lettura fallisce la
 voce resta sospesa, con il motivo in `errore`. Rileggere una voce già pronta non cambia
 `attivo`: una voce sospesa a mano resta sospesa. Le scansioni vengono rifiutate.
@@ -330,13 +334,18 @@ A ogni domanda, `agent.ts`:
    selezione costerebbe una chiamata e mezzo secondo per non scartare niente. Sopra la
    soglia, un passaggio al modello sceglie le 10 voci più pertinenti dall'indice dei
    titoli; se quella chiamata fallisce si ripiega su un punteggio per parole chiave,
-   perché una risposta senza fonti è peggio di una con fonti approssimative;
-3. **numera** le voci nel prompt — `[1] Titolo — Fonte, riferimento` — e istruisce il
-   modello a citare `[1]` subito dopo l'affermazione che vi poggia;
+   perché una risposta senza fonti è peggio di una con fonti approssimative. In
+   entrambi i casi le voci scelte entrano **nello stesso budget di 120.000 caratteri**,
+   in ordine di pertinenza: chi non ci sta resta fuori, tranne la più pertinente, che
+   se da sola supera il budget entra troncata con un avviso nel testo;
+3. **numera** le voci nel prompt, ciascuna fra un'intestazione e una chiusura
+   (`=== Voce [1]: Titolo ===` … `=== Fine della voce [1] ===`), e istruisce il modello
+   a citare `[1]` subito dopo l'affermazione che vi poggia. I confini servono ai
+   documenti lunghi: pagine, slide e paragrafi numerati non vanno scambiati per voci;
 4. **risolve** i marcatori in `sources` strutturate, correggendo due errori tipici del
-   modello: i numeri che non esistono (marcatore rimosso) e le citazioni che partono da
-   `[2]` senza aver mai usato `[1]` (numerazione compattata, perché un elenco di fonti
-   che comincia da 2 sembra un pezzo mancante).
+   modello: i numeri che non esistono (marcatore rimosso e segnalato nei log) e le
+   citazioni che partono da `[2]` senza aver mai usato `[1]` (numerazione compattata,
+   perché un elenco di fonti che comincia da 2 sembra un pezzo mancante).
 
 Le `sources` viaggiano nella risposta finale e vengono salvate sul turno: riaprendo una
 conversazione dalla sidebar il cliente ritrova le fonti sotto ogni risposta.

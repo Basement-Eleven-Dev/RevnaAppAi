@@ -28,13 +28,13 @@ import { requireAdmin } from './guards';
 const URL_TTL_MS = 5 * 60 * 1000;
 
 /**
- * Tetto al testo estratto da un singolo file.
+ * Tetto al testo estratto da un singolo file, in byte UTF-8.
  *
- * Non è un limite del modello ma della base di conoscenza: una voce da un milione
- * di caratteri non verrebbe mai messa in contesto tutta intera, e nasconderebbe il
- * problema — meglio dire subito che il documento va spezzato.
+ * In byte perché il limite vero è quello di Firestore, 1 MiB per documento: in
+ * caratteri, un testo pieno di accenti o in un alfabeto non latino lo supererebbe
+ * prima del tetto, e la voce non si salverebbe. Il margine resta agli altri campi.
  */
-const MAX_CHARS = 600_000;
+const MAX_BYTES = 900_000;
 
 /**
  * Sotto questa quantità di testo un PDF è quasi certamente una scansione.
@@ -175,8 +175,9 @@ async function readPdf(buffer: Buffer): Promise<string> {
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
 
   try {
+    // Pagina per pagina e non `result.text`, che chiude ogni pagina con «-- 1 of 12 --».
     const result = await parser.getText();
-    const text = result.text ?? '';
+    const text = withoutRunningLines(result.pages.map((page) => page.text)).join('\n\n');
 
     // Un PDF di sole immagini si apre senza errori e restituisce pagine vuote:
     // senza dirlo, la voce risulterebbe pronta e conterrebbe niente.
@@ -196,7 +197,42 @@ async function readPdf(buffer: Buffer): Promise<string> {
   }
 }
 
-/** Righe vuote di troppo via, e un tetto ai caratteri con l'avviso dentro il testo. */
+/** Da quante pagine in su si cercano intestazioni e piè di pagina. */
+const MIN_PAGES_FOR_RUNNING_LINES = 5;
+
+/**
+ * Le pagine senza intestazioni e piè di pagina.
+ *
+ * Una riga che apre o chiude quasi ogni pagina, uguale a parte i numeri, è l'indirizzo
+ * del sito con il numero di pagina, il titolo del documento, il copyright: niente
+ * che serva al modello. Peggio, i numeri di pagina finiscono per sembrargli fonti
+ * da citare. I numeri si ignorano nel confronto perché è proprio lì che quelle
+ * righe cambiano da una pagina all'altra; e si guardano solo la prima e l'ultima
+ * riga, perché è lì che stanno: in mezzo, una riga ripetuta è contenuto.
+ */
+export function withoutRunningLines(pages: string[]): string[] {
+  if (pages.length < MIN_PAGES_FOR_RUNNING_LINES) return pages;
+
+  const shape = (line: string) => line.replace(/\d+/g, '#').replace(/\s+/g, '');
+  const linesOf = pages.map((page) => page.split('\n').filter((line) => shape(line)));
+
+  const pagesWith = new Map<string, number>();
+  for (const lines of linesOf) {
+    const edges = new Set([lines[0], lines[lines.length - 1]].filter(Boolean).map(shape));
+    for (const key of edges) pagesWith.set(key, (pagesWith.get(key) ?? 0) + 1);
+  }
+
+  const running = (line: string | undefined) =>
+    line !== undefined && (pagesWith.get(shape(line)) ?? 0) >= pages.length * 0.6;
+
+  return linesOf.map((lines) => {
+    const from = running(lines[0]) ? 1 : 0;
+    const to = lines.length > from && running(lines[lines.length - 1]) ? -1 : undefined;
+    return lines.slice(from, to).join('\n');
+  });
+}
+
+/** Righe vuote di troppo via, e un tetto in byte con l'avviso dentro il testo. */
 function trim(text: string): string {
   const clean = text
     .replace(/\r\n?/g, '\n')
@@ -208,9 +244,12 @@ function trim(text: string): string {
     throw new HttpsError('failed-precondition', 'Il documento non contiene testo.');
   }
 
-  return clean.length > MAX_CHARS
-    ? `${clean.slice(0, MAX_CHARS)}\n\n[Testo troncato: il documento supera i ${MAX_CHARS} caratteri. Caricalo diviso in più parti.]`
-    : clean;
+  const bytes = Buffer.from(clean, 'utf8');
+  if (bytes.length <= MAX_BYTES) return clean;
+
+  // Il taglio può cadere a metà di un carattere: il pezzo monco diventa «�» e va via.
+  const head = bytes.subarray(0, MAX_BYTES).toString('utf8').replace(/\uFFFD$/, '');
+  return `${head}\n\n[Testo troncato: il documento è troppo lungo. Caricalo diviso in più parti.]`;
 }
 
 /**
