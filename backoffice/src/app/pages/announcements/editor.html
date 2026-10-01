@@ -2,7 +2,17 @@
   <a class="back" routerLink="/comunicazioni">← Torna alle comunicazioni</a>
 
   <div class="testata">
-    <h1>{{ nuova() ? 'Nuova comunicazione' : inviata() ? 'Comunicazione inviata' : 'Bozza' }}</h1>
+    <h1>
+      {{
+        nuova()
+          ? 'Nuova comunicazione'
+          : inviata()
+            ? 'Comunicazione inviata'
+            : interrotta()
+              ? 'Invio non completato'
+              : 'Bozza'
+      }}
+    </h1>
   </div>
 
   @if (loading()) {
@@ -26,6 +36,15 @@
             {{ lettureLabel(c) }}. Correggere titolo o testo aggiorna subito l'avviso nell'app di
             chi l'ha ricevuta, senza mandare una seconda notifica; i destinatari non si cambiano
             più.
+          </p>
+        </section>
+      } @else if (interrotta()) {
+        <section class="card interrotto">
+          <h2>Invio non completato — riprova</h2>
+          <p class="hint">
+            La consegna ai {{ c.destinatariCount }} destinatari si è fermata prima di finire.
+            «Riprendi l'invio» la porta a chi non l'ha ancora ricevuta, senza una seconda notifica
+            per chi ce l'ha già; «Ritira» la toglie a tutti.
           </p>
         </section>
       }
@@ -66,7 +85,7 @@
     <section class="card">
       <h2>Destinatari</h2>
 
-      @if (inviata()) {
+      @if (partita()) {
         <p class="hint">
           Questa comunicazione è già partita: i destinatari sono quelli della consegna e non si
           cambiano. Per un altro pubblico, scrivine una nuova.
@@ -88,7 +107,7 @@
           </label>
         </div>
 
-        @if (form.getRawValue().modo === 'selezione') {
+        @if (modo() === 'selezione') {
           <div class="fields">
             <label class="grow">
               Cerca
@@ -128,22 +147,23 @@
 
     <div class="actions">
       <button type="button" (click)="save()" [disabled]="saving() || sending()">
-        {{ saving() ? 'Salvataggio…' : inviata() ? 'Salva la correzione' : 'Salva la bozza' }}
+        {{ saving() ? 'Salvataggio…' : partita() ? 'Salva la correzione' : 'Salva la bozza' }}
       </button>
 
       @if (!inviata()) {
         <button
           type="button"
-          class="invia"
-          [disabled]="saving() || sending() || quanti() === 0"
-          (click)="invia()"
+          [disabled]="saving() || sending() || chiede() !== null || quanti() === 0"
+          (click)="chiediInvio()"
         >
           {{
             sending()
               ? 'Invio…'
-              : quanti() === 1
-                ? 'Invia a 1 cliente'
-                : 'Invia a ' + quanti() + ' clienti'
+              : interrotta()
+                ? "Riprendi l'invio"
+                : quanti() === 1
+                  ? 'Invia a 1 cliente'
+                  : 'Invia a ' + quanti() + ' clienti'
           }}
         </button>
       }
@@ -151,11 +171,33 @@
       <div class="spacer"></div>
 
       @if (!nuova()) {
-        <button type="button" class="ghost danger" (click)="remove()">
-          {{ inviata() ? 'Ritira' : 'Elimina la bozza' }}
+        <button
+          type="button"
+          class="ghost danger"
+          [disabled]="saving() || sending() || chiede() !== null"
+          (click)="chiede.set('ritiro')"
+        >
+          {{ partita() ? 'Ritira' : 'Elimina la bozza' }}
         </button>
       }
     </div>
+
+    @if (chiede() === 'invio') {
+      <app-conferma
+        [testo]="domandaInvio()"
+        [etichetta]="interrotta() ? 'Riprendi ora' : 'Invia ora'"
+        (conferma)="invia()"
+        (annulla)="chiede.set(null)"
+      />
+    } @else if (chiede() === 'ritiro') {
+      <app-conferma
+        [testo]="domandaRitiro()"
+        [etichetta]="partita() ? 'Ritira' : 'Elimina'"
+        tono="danger"
+        (conferma)="remove()"
+        (annulla)="chiede.set(null)"
+      />
+    }
 
     @if (saved()) {
       <p class="saved">{{ saved() }}</p>

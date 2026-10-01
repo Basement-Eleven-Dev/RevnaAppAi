@@ -151,7 +151,12 @@ neanche se scelti a mano in una bozza di tre settimane fa.
 «Invia» **salva sempre prima di mandare**: il caso opposto — mandare a tutti i clienti la
 versione salvata prima, mentre a schermo c'è un'altra — è il modo più semplice di
 recapitare qualcosa che nessuno voleva mandare. La conferma dice il numero, perché fra
-mandare a un cliente e mandare a tutti la differenza è tutta lì.
+mandare a un cliente e mandare a tutti la differenza è tutta lì; è lo stesso conto del
+server, quindi solo i clienti attivi, anche in una selezione fatta a mano.
+
+Un invio che si ferma a metà resta **«Invio non completato»**, nell'elenco fra le inviate
+e nell'editor con i destinatari già bloccati. «Riprendi l'invio» lo porta a chi manca,
+senza toccare chi l'ha già ricevuta o letta; «Ritira» lo toglie a tutti.
 
 Dopo l'invio si correggono titolo e testo — la correzione arriva subito nell'app di chi
 ha ricevuto, senza una seconda notifica — ma **non i destinatari**: per un altro pubblico

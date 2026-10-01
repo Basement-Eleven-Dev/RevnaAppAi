@@ -93,6 +93,21 @@
   white-space: nowrap;
 }
 
+.link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.link input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
 .foglio {
   position: relative;
 }

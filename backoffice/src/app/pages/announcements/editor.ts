@@ -1,7 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
+import { Conferma } from '../../components/conferma/conferma';
 import { RichText } from '../../components/rich-text/rich-text';
 import {
   formatDateTime,
@@ -31,7 +33,7 @@ import { ClientsService, type Client } from '../../core/clients.service';
  */
 @Component({
   selector: 'app-announcement-editor',
-  imports: [ReactiveFormsModule, RouterLink, RichText],
+  imports: [ReactiveFormsModule, RouterLink, RichText, Conferma],
   templateUrl: './editor.html',
   styleUrl: './announcements.css',
 })
@@ -56,6 +58,17 @@ export class AnnouncementEditor {
     modo: ['tutti' as ModoDestinatari],
   });
 
+  /**
+   * I valori del form come signal: i `computed` qui sotto devono ricalcolarsi mentre si
+   * scrive e si sceglie, e il form da solo non è qualcosa che un `computed` sa seguire.
+   */
+  protected readonly modo = toSignal(this.form.controls.modo.valueChanges, {
+    initialValue: this.form.controls.modo.value,
+  });
+  private readonly corpo = toSignal(this.form.controls.corpo.valueChanges, {
+    initialValue: this.form.controls.corpo.value,
+  });
+
   /** I clienti scelti a mano, quando i destinatari non sono tutti. */
   protected readonly selezione = signal<string[]>([]);
   protected readonly cerca = signal('');
@@ -69,7 +82,16 @@ export class AnnouncementEditor {
   protected readonly saved = signal('');
   protected readonly error = signal('');
 
+  /** Quale azione irreversibile aspetta la conferma in pagina, se ce n'è una. */
+  protected readonly chiede = signal<'invio' | 'ritiro' | null>(null);
+
   protected readonly inviata = computed(() => this.comunicazione()?.stato === 'inviato');
+
+  /** Consegna partita e fermata a metà: i destinatari sono fissati, l'invio va ripreso. */
+  protected readonly interrotta = computed(() => this.comunicazione()?.stato === 'invio');
+
+  /** Partita, completa o no: i destinatari non sono più una scelta. */
+  protected readonly partita = computed(() => this.inviata() || this.interrotta());
 
   /** Solo i clienti attivi: a un accesso disattivato il server non consegna comunque. */
   protected readonly attivi = computed(() => this.clienti().filter((client) => !client.disabled));
@@ -82,12 +104,20 @@ export class AnnouncementEditor {
     );
   });
 
-  /** Quanti riceveranno: il numero che compare sul bottone e nella conferma. */
-  protected readonly quanti = computed(() =>
-    this.form.getRawValue().modo === 'tutti' ? this.attivi().length : this.selezione().length
-  );
+  /**
+   * Quanti riceveranno: il numero che compare sul bottone e nella conferma. Lo stesso
+   * conto del server, che consegna solo ai clienti attivi: una selezione salvata in
+   * bozza può contenere chi nel frattempo è stato disattivato o eliminato.
+   */
+  protected readonly quanti = computed(() => {
+    if (this.interrotta()) return this.comunicazione()?.destinatariCount ?? 0;
+    if (this.modo() === 'tutti') return this.attivi().length;
 
-  protected readonly caratteri = computed(() => this.form.getRawValue().corpo.length);
+    const scelti = new Set(this.selezione());
+    return this.attivi().filter((client) => scelti.has(client.uid)).length;
+  });
+
+  protected readonly caratteri = computed(() => this.corpo().length);
 
   constructor() {
     void this.loadClients();
@@ -131,7 +161,7 @@ export class AnnouncementEditor {
 
       // Su una comunicazione già partita i destinatari sono storia, non una scelta:
       // il controllo si spegne perché non c'è niente da decidere.
-      if (announcement.stato === 'inviato') this.form.controls.modo.disable();
+      if (announcement.stato !== 'bozza') this.form.controls.modo.disable();
     } catch (cause) {
       this.error.set(message(cause));
     } finally {
@@ -146,8 +176,11 @@ export class AnnouncementEditor {
     this.saved.set('');
   }
 
+  /** Aggiunge i visibili a chi era già scelto: la ricerca restringe la vista, non la scelta. */
   protected tutti(): void {
-    this.selezione.set(this.visibili().map((client) => client.uid));
+    this.selezione.update((list) => [
+      ...new Set([...list, ...this.visibili().map((client) => client.uid)]),
+    ]);
     this.saved.set('');
   }
 
@@ -195,7 +228,7 @@ export class AnnouncementEditor {
       }
 
       this.saved.set(
-        this.inviata()
+        this.partita()
           ? 'Salvato. La correzione è già nell\'app di chi l\'ha ricevuta.'
           : 'Bozza salvata. Nessuno l\'ha ancora ricevuta.'
       );
@@ -214,32 +247,40 @@ export class AnnouncementEditor {
   }
 
   /**
-   * Manda la comunicazione, dopo averla salvata.
-   *
-   * La conferma dice il numero e non solo «sei sicuro?»: la differenza fra mandare a un
-   * cliente e mandare a tutti è tutta lì, e con «tutti i clienti» selezionato è l'unico
-   * punto in cui quel numero si vede prima che parta.
+   * La domanda della conferma. Dice il numero e non solo «sei sicuro?»: la differenza fra
+   * mandare a un cliente e mandare a tutti è tutta lì, e con «tutti i clienti»
+   * selezionato è l'unico punto in cui quel numero si vede prima che parta.
    */
-  protected async invia(): Promise<void> {
+  protected domandaInvio(): string {
+    const quanti = this.quanti();
+    const a = quanti === 1 ? 'a 1 cliente' : `a ${quanti} clienti`;
+    const titolo = this.form.getRawValue().titolo;
+    return this.interrotta()
+      ? `Riprendere l'invio di «${titolo}»? Arriverà a chi non l'ha ancora ricevuta, ` +
+          `fra i ${quanti} destinatari fissati alla partenza.`
+      : `Inviare «${titolo}» ${a}? Riceveranno una notifica.`;
+  }
+
+  /** Il primo tocco su «Invia» chiede conferma; il secondo, nella conferma, manda. */
+  protected chiediInvio(): void {
     if (this.quanti() === 0) {
       this.error.set('Scegli almeno un destinatario.');
       return;
     }
+    this.error.set('');
+    this.chiede.set('invio');
+  }
 
-    const quanti = this.quanti();
-    const a = quanti === 1 ? 'a 1 cliente' : `a ${quanti} clienti`;
-    if (!confirm(`Inviare «${this.form.getRawValue().titolo}» ${a}? Riceveranno una notifica.`)) {
-      return;
-    }
-
+  /** Manda la comunicazione, dopo averla salvata. */
+  protected async invia(): Promise<void> {
+    this.chiede.set(null);
     if (!(await this.save())) return;
 
     this.sending.set(true);
     this.error.set('');
     try {
       const esito = await this.announcements.send(this.id());
-      this.comunicazione.set(await this.announcements.get(this.id()));
-      this.form.controls.modo.disable();
+      await this.refresh();
 
       // Le notifiche recapitate si dicono sempre, anche quando sono zero: senza
       // dispositivi registrati l'avviso arriva comunque nell'app, e chi ha premuto
@@ -250,24 +291,37 @@ export class AnnouncementEditor {
       );
     } catch (cause) {
       this.error.set(message(cause));
+      // Un invio fallito può essere partito a metà: la pagina deve mostrarlo com'è
+      // rimasto, con i destinatari bloccati e «Riprendi l'invio».
+      await this.refresh();
     } finally {
       this.sending.set(false);
     }
   }
 
+  private async refresh(): Promise<void> {
+    try {
+      const announcement = await this.announcements.get(this.id());
+      this.comunicazione.set(announcement);
+      if (announcement && announcement.stato !== 'bozza') this.form.controls.modo.disable();
+    } catch {
+      // L'errore dell'invio è già a schermo: quello della rilettura non aggiunge niente.
+    }
+  }
+
   /**
-   * Ritira: la comunicazione sparisce anche dall'app di chi l'ha ricevuta.
-   *
-   * Due conferme diverse perché sono due cose diverse: buttare una bozza che nessuno ha
+   * Due domande diverse perché sono due cose diverse: buttare una bozza che nessuno ha
    * visto, e togliere dalle mani dei clienti un avviso che stanno leggendo.
    */
-  protected async remove(): Promise<void> {
-    const domanda = this.inviata()
+  protected domandaRitiro(): string {
+    return this.partita()
       ? 'Ritirare questa comunicazione? Sparirà dall\'app dei clienti che l\'hanno ricevuta.'
       : 'Eliminare questa bozza?';
+  }
 
-    if (!confirm(domanda)) return;
-
+  /** Ritira: la comunicazione sparisce anche dall'app di chi l'ha ricevuta. */
+  protected async remove(): Promise<void> {
+    this.chiede.set(null);
     this.error.set('');
     try {
       await this.announcements.remove(this.id());

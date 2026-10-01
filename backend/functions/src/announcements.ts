@@ -1,9 +1,15 @@
-import { FieldValue } from 'firebase-admin/firestore';
+import {
+  FieldValue,
+  GrpcStatus,
+  type BulkWriter,
+  type DocumentSnapshot,
+  type WriteResult,
+} from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
-import { auth, db } from './admin';
+import { db, listAllUsers } from './admin';
 import { requireAdmin } from './guards';
 import { sendPush } from './push';
 
@@ -43,11 +49,18 @@ const MAX_BODY_CHARS = 20_000;
 /** Quanto testo entra nell'anteprima dell'elenco e nel corpo della notifica. */
 const EXCERPT_CHARS = 200;
 
-/**
- * Quante scritture per batch nella consegna. Il limite di Firestore è 500: 400 lascia
- * margine per l'aggiornamento dell'originale nello stesso giro.
- */
+/** Quante scritture per batch nel ritiro. Il limite di Firestore è 500. */
 const BATCH_SIZE = 400;
+
+/** Tempo massimo di `sendAnnouncement`: consegna e notifiche devono starci dentro. */
+const SEND_TIMEOUT_SECONDS = 120;
+
+/**
+ * Per quanto un `invio` si considera ancora in corso. Oltre il timeout della function
+ * quella consegna non può più essere viva — è caduta senza riuscire a dirlo — e la si
+ * può riprendere.
+ */
+const SEND_LEASE_MS = (SEND_TIMEOUT_SECONDS + 30) * 1000;
 
 /** Canale Android delle notifiche: lo crea l'app con lo stesso nome. */
 const PUSH_CHANNEL = 'avvisi';
@@ -69,7 +82,8 @@ export type Announcement = {
   /** Prime righe in chiaro: elenco nell'app, anteprima nel backoffice, testo della notifica. */
   estratto: string;
   destinatari: Destinatari;
-  stato: 'bozza' | 'inviato';
+  /** `invio`: destinatari fissati, consegna partita e non ancora finita (vedi `sendAnnouncement`). */
+  stato: 'bozza' | 'invio' | 'inviato';
   /** I destinatari veri, risolti all'invio: è la lista su cui si consegna e si corregge. */
   inviatoA: string[];
   destinatariCount: number;
@@ -80,6 +94,8 @@ export type Announcement = {
   updatedBy: string | null;
   inviatoAt?: string;
   inviatoBy?: string | null;
+  /** Inizio della consegna in corso; sparisce quando la consegna finisce o fallisce. */
+  invioIniziatoAt?: string;
 };
 
 function collectionRef() {
@@ -168,7 +184,9 @@ export const saveAnnouncement = onCall<SaveRequest, Promise<{ id: string }>>(
       return { id };
     }
 
-    const inviata = snapshot.get('stato') === 'inviato';
+    // Anche un invio rimasto a metà conta come partito: i destinatari sono già fissati
+    // e una parte dei clienti ha già la copia.
+    const inviata = snapshot.get('stato') !== 'bozza';
     await ref.update({
       titolo,
       corpo,
@@ -179,12 +197,26 @@ export const saveAnnouncement = onCall<SaveRequest, Promise<{ id: string }>>(
       updatedBy: by,
     });
 
-    // Una correzione deve arrivare a chi ha già ricevuto: le copie consegnate
-    // vengono riscritte, senza toccare chi l'aveva già letta.
+    // Una correzione deve arrivare a chi ha già ricevuto: si aggiornano titolo e testo
+    // delle copie che esistono, senza toccare `lettoAt`. Una copia che non c'è più — il
+    // cliente è stato eliminato, o la consegna non l'aveva ancora raggiunto — resta
+    // assente: ricrearla qui farebbe nascere avvisi che nessuno ha consegnato.
     if (inviata) {
       const uids = (snapshot.get('inviatoA') as string[] | undefined) ?? [];
-      await deliver(uids, id, { titolo, corpo, estratto }, { consegna: false });
-      logger.info('Comunicazione corretta e riconsegnata', { id, destinatari: uids.length, by });
+      const { scritti, falliti } = await writeCopies(
+        uids,
+        (writer, uid) => writer.update(deliveryRef(uid, id), { titolo, corpo, estratto }),
+        GrpcStatus.NOT_FOUND
+      );
+
+      if (falliti > 0) {
+        logger.error('Correzione non arrivata a tutte le copie', { id, falliti, by });
+        throw new HttpsError(
+          'unavailable',
+          'Testo salvato, ma la correzione non è arrivata a tutti i clienti: salva di nuovo.'
+        );
+      }
+      logger.info('Comunicazione corretta', { id, copie: scritti.length, by });
     }
 
     return { id };
@@ -199,14 +231,22 @@ export const saveAnnouncement = onCall<SaveRequest, Promise<{ id: string }>>(
  * è giù la consegna resta valida — il cliente trova l'avviso con il pallino rosso al
  * prossimo avvio — e l'invio non fallisce per questo (vedi `sendPush`).
  *
- * Si invia una volta sola. Una seconda consegna della stessa comunicazione
- * significherebbe una seconda notifica per un avviso già letto: se serve dire qualcosa
- * di nuovo, si scrive una comunicazione nuova.
+ * Si invia una volta sola, e la transazione iniziale è ciò che lo garantisce: due
+ * «Invia» simultanei leggono entrambi una bozza, ma uno solo riesce a farla passare a
+ * `invio`, e l'altro si ritrova un `failed-precondition`. Nella stessa transazione si
+ * fissano `inviatoA` e `destinatariCount`, **prima** di consegnare: da quel momento il
+ * ritiro sa a chi togliere l'avviso, anche se la consegna si fermasse a metà.
+ *
+ * Una consegna fermata a metà lascia l'avviso in `invio`, e un nuovo «Invia» la
+ * riprende sugli stessi destinatari. Le copie si **creano** e non si sovrascrivono: chi
+ * l'aveva già ricevuta non perde il suo `lettoAt` e non riceve una seconda notifica.
+ * Il prezzo è un caso solo: se la function cade fra la consegna e la notifica, alla
+ * ripresa chi aveva già la copia la trova con il pallino rosso ma senza notifica.
  */
 export const sendAnnouncement = onCall<
   { id: string },
   Promise<{ destinatari: number; notificati: number; dispositivi: number }>
->({ region: 'europe-west1' }, async (request) => {
+>({ region: 'europe-west1', timeoutSeconds: SEND_TIMEOUT_SECONDS }, async (request) => {
   requireAdmin(request);
 
   const id = request.data.id?.trim();
@@ -215,54 +255,109 @@ export const sendAnnouncement = onCall<
   }
 
   const ref = collectionRef().doc(id);
-  const snapshot = await ref.get();
-  if (!snapshot.exists) {
-    throw new HttpsError('not-found', 'Questa comunicazione non esiste più.');
-  }
-  if (snapshot.get('stato') === 'inviato') {
-    throw new HttpsError(
-      'failed-precondition',
-      'Questa comunicazione è già stata inviata. Per correggerla, salva le modifiche.'
-    );
-  }
-
-  const destinatari = sanitizeDestinatari(snapshot.get('destinatari'));
-  const uids = await resolveRecipients(destinatari);
-
-  if (uids.length === 0) {
-    throw new HttpsError(
-      'failed-precondition',
-      'Nessun destinatario: scegli almeno un cliente attivo.'
-    );
-  }
-
-  const titolo = snapshot.get('titolo') as string;
-  const corpo = snapshot.get('corpo') as string;
-  const estratto = (snapshot.get('estratto') as string) || excerptOf(corpo);
-  const now = new Date().toISOString();
   const by = request.auth?.token['email'] ?? request.auth?.uid ?? null;
 
-  await deliver(uids, id, { titolo, corpo, estratto }, { consegna: true });
+  const { uids, content } = await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) {
+      throw new HttpsError('not-found', 'Questa comunicazione non esiste più.');
+    }
 
+    const stato = snapshot.get('stato') as Announcement['stato'];
+    if (stato === 'inviato') {
+      throw new HttpsError(
+        'failed-precondition',
+        'Questa comunicazione è già stata inviata. Per correggerla, salva le modifiche.'
+      );
+    }
+    if (invioInCorso(snapshot)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Questa comunicazione è in consegna proprio ora. Se fra qualche minuto risulta ' +
+          'ancora non completata, riprova.'
+      );
+    }
+
+    // Una ripresa consegna a chi era stato fissato la prima volta: rifare la scelta
+    // adesso vorrebbe dire una comunicazione con due elenchi di destinatari.
+    const uids =
+      stato === 'invio'
+        ? ((snapshot.get('inviatoA') as string[] | undefined) ?? [])
+        : await resolveRecipients(sanitizeDestinatari(snapshot.get('destinatari')));
+
+    if (uids.length === 0) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Nessun destinatario: scegli almeno un cliente attivo.'
+      );
+    }
+
+    const now = new Date().toISOString();
+    transaction.update(ref, {
+      stato: 'invio',
+      inviatoA: uids,
+      destinatariCount: uids.length,
+      invioIniziatoAt: now,
+      // Alla ripresa qualcuno può averla già letta: il conteggio non si azzera.
+      ...(stato === 'bozza' ? { lettiCount: 0 } : {}),
+      updatedAt: now,
+      updatedBy: by,
+    });
+
+    const corpo = snapshot.get('corpo') as string;
+    return {
+      uids,
+      content: {
+        titolo: snapshot.get('titolo') as string,
+        corpo,
+        estratto: (snapshot.get('estratto') as string) || excerptOf(corpo),
+      },
+    };
+  });
+
+  const inviatoAt = new Date().toISOString();
+  const { scritti: consegnati, falliti } = await writeCopies(
+    uids,
+    (writer, uid) => writer.create(deliveryRef(uid, id), { ...content, inviatoAt, lettoAt: null }),
+    GrpcStatus.ALREADY_EXISTS
+  );
+
+  // Solo a chi ha ricevuto la copia adesso: chi l'aveva già, la notifica l'ha avuta.
+  const push = await sendPush(consegnati, {
+    title: content.titolo,
+    body: content.estratto,
+    // L'id serve al tocco sulla notifica: apre quell'avviso, non l'elenco.
+    data: { avvisoId: id },
+    channelId: PUSH_CHANNEL,
+  });
+
+  if (falliti > 0) {
+    // L'invio resta `invio`, ma libero: un nuovo «Invia» lo riprende subito.
+    await ref.update({ invioIniziatoAt: FieldValue.delete() });
+    logger.error('Consegna non completata', { id, consegnati: consegnati.length, falliti, by });
+    const chi = falliti === 1 ? '1 cliente non l\'ha' : `${falliti} clienti non l'hanno`;
+    throw new HttpsError(
+      'unavailable',
+      `Consegna non completata: ${chi} ancora ricevuta. ` +
+        'Riprova: chi l\'ha già ricevuta non la riceverà due volte.'
+    );
+  }
+
+  const now = new Date().toISOString();
   await ref.update({
     stato: 'inviato',
-    inviatoA: uids,
-    destinatariCount: uids.length,
-    lettiCount: 0,
+    invioIniziatoAt: FieldValue.delete(),
     inviatoAt: now,
     inviatoBy: by,
     updatedAt: now,
     updatedBy: by,
   });
 
-  logger.info('Comunicazione inviata', { id, destinatari: uids.length, by });
-
-  const push = await sendPush(uids, {
-    title: titolo,
-    body: estratto,
-    // L'id serve al tocco sulla notifica: apre quell'avviso, non l'elenco.
-    data: { avvisoId: id },
-    channelId: PUSH_CHANNEL,
+  logger.info('Comunicazione inviata', {
+    id,
+    destinatari: uids.length,
+    consegnatiOra: consegnati.length,
+    by,
   });
 
   return { destinatari: uids.length, notificati: push.sent, dispositivi: push.devices };
@@ -289,6 +384,14 @@ export const deleteAnnouncement = onCall<{ id: string }, Promise<{ ok: true }>>(
     const ref = collectionRef().doc(id);
     const snapshot = await ref.get();
     if (!snapshot.exists) return { ok: true };
+
+    // Ritirare mentre la consegna scrive lascerebbe in giro le copie create dopo.
+    if (invioInCorso(snapshot)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Questa comunicazione è in consegna proprio ora: ritirala fra qualche minuto.'
+      );
+    }
 
     const uids = (snapshot.get('inviatoA') as string[] | undefined) ?? [];
 
@@ -366,40 +469,52 @@ export const markAnnouncementRead = onCall<{ id: string }, Promise<{ ok: true }>
   }
 );
 
+/** Una consegna partita da meno del timeout di `sendAnnouncement`: può essere ancora viva. */
+function invioInCorso(snapshot: DocumentSnapshot): boolean {
+  const iniziato = snapshot.get('invioIniziatoAt') as string | undefined;
+  return (
+    snapshot.get('stato') === 'invio' &&
+    !!iniziato &&
+    Date.now() - Date.parse(iniziato) < SEND_LEASE_MS
+  );
+}
+
 /**
- * Scrive (o riscrive) la copia consegnata a ciascun destinatario.
+ * Una scrittura per destinatario sulla sua copia, con un esito per ciascuno.
  *
- * `merge` e non `set` pieno perché la stessa funzione serve due momenti: la consegna,
- * dove la copia non c'è, e la correzione, dove c'è già e porta il `lettoAt` del
- * cliente — che non è nostro da azzerare.
+ * `BulkWriter` e non batch perché le scritture devono poter fallire **una per una**: la
+ * consegna crea le copie e una copia che c'è già (`ALREADY_EXISTS`) è un cliente da
+ * saltare, non un errore; la correzione aggiorna e una copia che non c'è più
+ * (`NOT_FOUND`) è un cliente da lasciare stare. In un batch, uno solo di quei casi
+ * farebbe fallire tutti gli altri.
  *
- * Per questo `inviatoAt` e `lettoAt` si scrivono **solo alla consegna**: riscriverli su
- * una correzione rimetterebbe in cima all'elenco un avviso di tre settimane fa e lo
- * farebbe tornare non letto a chi l'aveva già letto. Il `lettoAt: null` iniziale è
- * esplicito di proposito: è il campo su cui l'app conta i non letti e su cui il server
- * calcola il pallino sull'icona, e un campo assente non si può interrogare.
+ * Torna chi è stato scritto davvero e quanti sono falliti per altri motivi, dopo i
+ * tentativi che `BulkWriter` fa da sé sugli errori temporanei.
  */
-async function deliver(
+async function writeCopies(
   uids: string[],
-  id: string,
-  content: { titolo: string; corpo: string; estratto: string },
-  { consegna }: { consegna: boolean }
-): Promise<void> {
-  const inviatoAt = new Date().toISOString();
+  write: (writer: BulkWriter, uid: string) => Promise<WriteResult>,
+  ignorato: GrpcStatus
+): Promise<{ scritti: string[]; falliti: number }> {
+  const writer = db.bulkWriter();
+  const scritti: string[] = [];
+  let falliti = 0;
 
-  for (let i = 0; i < uids.length; i += BATCH_SIZE) {
-    const batch = db.batch();
+  const esiti = uids.map((uid) =>
+    write(writer, uid).then(
+      () => void scritti.push(uid),
+      (error: { code?: GrpcStatus }) => {
+        if (error.code === ignorato) return;
+        falliti += 1;
+        logger.warn('Copia della comunicazione non scritta', { uid, cause: error });
+      }
+    )
+  );
 
-    for (const uid of uids.slice(i, i + BATCH_SIZE)) {
-      batch.set(
-        deliveryRef(uid, id),
-        { ...content, ...(consegna ? { inviatoAt, lettoAt: null } : {}) },
-        { merge: true }
-      );
-    }
+  await writer.close();
+  await Promise.all(esiti);
 
-    await batch.commit();
-  }
+  return { scritti, falliti };
 }
 
 /**
@@ -408,13 +523,9 @@ async function deliver(
  * Sempre filtrati sui clienti attivi, anche quando sono stati scelti a mano: un
  * cliente disattivato non deve ricevere comunicazioni, e una selezione salvata in
  * bozza tre settimane fa può contenere qualcuno che nel frattempo è uscito.
- *
- * Come `listClients`, si fermano a 1000 utenti: è il tetto di una pagina di
- * `listUsers` e la base utenti Revna è lontana da lì.
  */
 async function resolveRecipients(destinatari: Destinatari): Promise<string[]> {
-  const { users } = await auth.listUsers(1000);
-  const clienti = users
+  const clienti = (await listAllUsers())
     .filter((user) => user.customClaims?.['revnaAdmin'] !== true && !user.disabled)
     .map((user) => user.uid);
 

@@ -484,11 +484,12 @@ avvisi».
 announcements/{id}                 l'originale, riservato ai referenti Revna
 ├── titolo · corpo (markdown) · estratto
 ├── destinatari      { modo: 'tutti' | 'selezione', uids[] }   l'intenzione
-├── stato            'bozza' | 'inviato'
+├── stato            'bozza' | 'invio' | 'inviato'
 ├── inviatoA[]       i destinatari veri, risolti all'invio
 ├── destinatariCount · lettiCount
 ├── createdAt · createdBy · updatedAt · updatedBy
-└── inviatoAt · inviatoBy
+├── inviatoAt · inviatoBy
+└── invioIniziatoAt  solo mentre una consegna è in corso
 ```
 
 La **copia consegnata** sta sotto ciascun destinatario (`users/{uid}/announcements/{id}`,
@@ -506,9 +507,23 @@ potesse scrivere il client «inviato a 42 clienti» sarebbe un'affermazione senz
 | --- | --- |
 | `tutti` si risolve **all'invio**, non al salvataggio | Un avviso è datato: chi diventa cliente domani non deve ricevere quello di ieri |
 | I clienti **disattivati** non ricevono, anche se scelti a mano | Una bozza di tre settimane fa può contenere qualcuno che nel frattempo è uscito |
-| Si invia **una volta sola** | Una seconda consegna sarebbe una seconda notifica per un avviso già letto |
+| Si invia **una volta sola**, in transazione | Una seconda consegna sarebbe una seconda notifica per un avviso già letto; due «Invia» simultanei passano entrambi da `bozza`, ma solo uno la porta a `invio` |
+| `inviatoA` si scrive **prima** di consegnare | Il ritiro deve sapere a chi togliere l'avviso anche se la consegna si ferma a metà |
+| Un invio fermo in `invio` **si riprende** sugli stessi destinatari | Le copie si creano senza sovrascrivere: chi l'aveva già non perde `lettoAt` e non riceve una seconda notifica |
+| Le correzioni **aggiornano** le copie esistenti, non le ricreano | Una copia sparita — cliente eliminato, consegna non arrivata — non deve rinascere |
 | Dopo l'invio si correggono titolo e testo, **non i destinatari** | La correzione raggiunge subito chi ha ricevuto; allargare il pubblico farebbe arrivare la notifica a metà dei clienti e all'altra metà no |
 | Il ritiro **cancella davvero** — copie e immagini comprese | Un avviso mandato per errore deve poter sparire dall'app, e uno «ritirato» ma leggibile non risolve il problema per cui lo si ritira |
+
+**Invio a metà.** `sendAnnouncement` porta la comunicazione a `invio` e fissa `inviatoA`,
+`destinatariCount` e `invioIniziatoAt` in una transazione; poi crea le copie con un
+`BulkWriter`, manda la notifica a chi ha ricevuto la copia in quel giro e solo alla fine
+scrive `inviato`. Se qualche copia non si scrive, la risposta è `unavailable`, lo stato
+resta `invio` e `invioIniziatoAt` si toglie: un nuovo «Invia» riprende subito. Se invece
+la function cade senza poterlo dire, `invioIniziatoAt` resta e blocca invio e ritiro per
+il timeout della function più un margine (2 minuti e mezzo): dopo, la consegna non può
+più essere viva e si riprende. Il caso non coperto: se la function cade fra la consegna e
+la notifica, alla ripresa chi aveva già la copia la trova con il pallino rosso ma non
+riceve la notifica.
 
 `lettoAt` lo scrive `markAnnouncementRead` e non il client, per un motivo che non è la
 sicurezza — falsificare la propria lettura non porta niente a nessuno — ma la

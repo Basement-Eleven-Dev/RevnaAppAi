@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import {
   destinatariLabel,
   formatDateTime,
+  isBozza,
   lettureLabel,
   STATO_LABEL,
   type Announcement,
@@ -38,22 +39,20 @@ export class Announcements {
   protected readonly formatDateTime = formatDateTime;
   protected readonly destinatariLabel = destinatariLabel;
   protected readonly lettureLabel = lettureLabel;
+  protected readonly isBozza = isBozza;
 
   protected readonly list = signal<Announcement[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly filtro = signal<Filtro>('tutte');
 
-  protected readonly bozze = computed(
-    () => this.list().filter((announcement) => announcement.stato === 'bozza').length
-  );
+  protected readonly bozze = computed(() => this.list().filter(isBozza).length);
 
   protected readonly visible = computed(() => {
     const filtro = this.filtro();
     if (filtro === 'tutte') return this.list();
-    return this.list().filter((announcement) =>
-      filtro === 'bozze' ? announcement.stato === 'bozza' : announcement.stato === 'inviato'
-    );
+    // Un invio rimasto a metà sta fra le inviate: è partito, e lì lo si cerca.
+    return this.list().filter((announcement) => isBozza(announcement) === (filtro === 'bozze'));
   });
 
   constructor() {

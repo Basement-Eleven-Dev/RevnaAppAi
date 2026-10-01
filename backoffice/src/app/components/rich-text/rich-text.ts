@@ -1,6 +1,7 @@
 import {
   afterNextRender,
   Component,
+  effect,
   ElementRef,
   forwardRef,
   input,
@@ -93,6 +94,16 @@ export class RichText implements ControlValueAccessor {
   protected readonly errore = signal('');
   protected readonly disabilitato = signal(false);
 
+  /** Il campo dell'indirizzo, aperto da «Inserisci un link» sotto la barra. */
+  protected readonly chiedeLink = signal(false);
+  protected readonly indirizzo = signal('https://');
+  private readonly campoLink = viewChild<ElementRef<HTMLInputElement>>('campoLink');
+  /**
+   * La selezione del testo al momento del tocco sul link. Va tenuta da parte perché
+   * scrivere l'indirizzo sposta il fuoco nel campo, e con il fuoco se ne va anche lei.
+   */
+  private selezioneLink: Range | null = null;
+
   /** L'HTML da mettere nel campo appena la view esiste (`writeValue` arriva prima). */
   private daScrivere = '';
   /**
@@ -108,6 +119,8 @@ export class RichText implements ControlValueAccessor {
   private onTouched: () => void = () => {};
 
   constructor() {
+    effect(() => this.campoLink()?.nativeElement.select());
+
     afterNextRender(() => {
       // Invio crea un paragrafo, non un `<div>`: è il blocco che il serializzatore
       // si aspetta, e l'unico che il renderer dell'app sa mostrare.
@@ -205,8 +218,32 @@ export class RichText implements ControlValueAccessor {
 
   protected link(): void {
     const selezione = document.getSelection();
+    const element = this.editor()?.nativeElement;
+    this.selezioneLink =
+      selezione && selezione.rangeCount > 0 && element?.contains(selezione.anchorNode)
+        ? selezione.getRangeAt(0).cloneRange()
+        : null;
+    this.indirizzo.set('https://');
+    this.chiedeLink.set(true);
+  }
+
+  protected annullaLink(): void {
+    this.chiedeLink.set(false);
+    this.editor()?.nativeElement.focus();
+  }
+
+  protected inserisciLink(): void {
+    const url = this.indirizzo().trim();
+    this.chiedeLink.set(false);
+
+    // Il fuoco torna nel testo, e con lui la selezione da cui si era partiti.
+    this.editor()?.nativeElement.focus();
+    const selezione = document.getSelection();
+    if (selezione && this.selezioneLink) {
+      selezione.removeAllRanges();
+      selezione.addRange(this.selezioneLink);
+    }
     const testo = selezione?.toString() ?? '';
-    const url = prompt('Indirizzo del link', 'https://')?.trim();
 
     if (!url || url === 'https://') return;
     if (/^\s*(javascript|data|vbscript):/i.test(url)) {

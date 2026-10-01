@@ -1,0 +1,7 @@
+<div class="conferma" [class.danger]="tono() === 'danger'" role="alertdialog" aria-live="assertive">
+  <p>{{ testo() }}</p>
+  <div class="bottoni">
+    <button #bottone type="button" (click)="conferma.emit()">{{ etichetta() }}</button>
+    <button type="button" class="ghost" (click)="annulla.emit()">Annulla</button>
+  </div>
+</div>

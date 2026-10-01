@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
+import { Conferma } from '../../components/conferma/conferma';
 import {
   AREE_TEMATICHE,
   FILE_ACCETTATI,
@@ -33,7 +34,7 @@ import { AgentService } from '../../core/agent.service';
  */
 @Component({
   selector: 'app-agent-knowledge',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Conferma],
   templateUrl: './knowledge.html',
   styleUrl: './agent.css',
 })
@@ -60,6 +61,8 @@ export class AgentKnowledge {
   protected readonly voci = signal<KnowledgeEntry[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  /** La voce di cui si sta chiedendo conferma dell'eliminazione. */
+  protected readonly daEliminare = signal<string | null>(null);
 
   /** Nome del file in caricamento, percentuale, e fase: caricare e leggere sono due attese diverse. */
   protected readonly caricando = signal('');
@@ -175,7 +178,7 @@ export class AgentKnowledge {
   }
 
   protected async remove(voce: KnowledgeEntry): Promise<void> {
-    if (!confirm(`Eliminare «${voce.titolo}»? L'assistente non potrà più citarla.`)) return;
+    this.daEliminare.set(null);
 
     try {
       await this.agent.deleteEntry(voce);

@@ -118,7 +118,14 @@
         {{ saving() ? 'Salvataggio…' : 'Salva' }}
       </button>
       @if (id()) {
-        <button type="button" class="ghost danger" (click)="remove()">Elimina</button>
+        <button
+          type="button"
+          class="ghost danger"
+          [disabled]="chiedeElimina()"
+          (click)="chiedeElimina.set(true)"
+        >
+          Elimina
+        </button>
       }
       @if (saved()) {
         <span class="saved">{{ saved() }}</span>
@@ -127,5 +134,15 @@
         <span class="error">{{ error() }}</span>
       }
     </div>
+
+    @if (chiedeElimina()) {
+      <app-conferma
+        testo="Eliminare questa voce? L’assistente non potrà più citarla."
+        etichetta="Elimina"
+        tono="danger"
+        (conferma)="remove()"
+        (annulla)="chiedeElimina.set(false)"
+      />
+    }
   }
 </main>

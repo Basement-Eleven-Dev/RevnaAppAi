@@ -78,7 +78,7 @@
                   <span class="note">{{ announcement.estratto }}</span>
                 </td>
                 <td>
-                  @if (announcement.stato === 'inviato') {
+                  @if (!isBozza(announcement)) {
                     {{ announcement.destinatariCount }}
                     <span class="note">{{ destinatariLabel(announcement.destinatari) }}</span>
                   } @else {
@@ -86,7 +86,7 @@
                   }
                 </td>
                 <td>
-                  @if (announcement.stato === 'inviato') {
+                  @if (!isBozza(announcement)) {
                     {{ lettureLabel(announcement) }}
                   } @else {
                     <span class="muted">—</span>

@@ -2,12 +2,13 @@ import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
+import { Conferma } from '../../components/conferma/conferma';
 import { CATEGORIE_DOCUMENTO, categoriaLabel, formatSize, type ClientDocument } from '../../core/documents.model';
 import { DocumentsService } from '../../core/documents.service';
 
 @Component({
   selector: 'app-client-documents',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Conferma],
   templateUrl: './client-documents.html',
   styleUrl: './client-documents.css',
 })
@@ -27,6 +28,8 @@ export class ClientDocuments {
   protected readonly list = signal<ClientDocument[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  /** Il documento di cui si sta chiedendo conferma dell'eliminazione. */
+  protected readonly daEliminare = signal<string | null>(null);
   /** Nome del file in caricamento e percentuale, per la barra di avanzamento. */
   protected readonly uploading = signal('');
   protected readonly progress = signal(0);
@@ -87,7 +90,7 @@ export class ClientDocuments {
   }
 
   protected async remove(document: ClientDocument): Promise<void> {
-    if (!confirm(`Eliminare «${document.name}»? Il cliente non lo vedrà più.`)) return;
+    this.daEliminare.set(null);
 
     try {
       await this.documents.remove(this.uid, document);

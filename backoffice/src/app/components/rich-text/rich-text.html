@@ -172,6 +172,22 @@
     </button>
   </div>
 
+  @if (chiedeLink()) {
+    <div class="link">
+      <input
+        #campoLink
+        type="url"
+        aria-label="Indirizzo del link"
+        [value]="indirizzo()"
+        (input)="indirizzo.set($any($event.target).value)"
+        (keydown.enter)="$event.preventDefault(); inserisciLink()"
+        (keydown.escape)="annullaLink()"
+      />
+      <button type="button" (click)="inserisciLink()">Inserisci</button>
+      <button type="button" class="ghost" (click)="annullaLink()">Annulla</button>
+    </div>
+  }
+
   <div class="foglio">
     @if (vuoto() && placeholder()) {
       <p class="placeholder" aria-hidden="true">{{ placeholder() }}</p>

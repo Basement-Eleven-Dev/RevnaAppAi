@@ -1,0 +1,33 @@
+.conferma {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--brand);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.conferma.danger {
+  border-color: var(--danger);
+}
+
+.conferma.danger button:not(.ghost) {
+  background: var(--danger);
+}
+
+p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.bottoni {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.conferma.danger button:not(.ghost):hover {
+  filter: brightness(0.9);
+}

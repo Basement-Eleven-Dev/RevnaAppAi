@@ -13,7 +13,7 @@
  * (vedi `components/rich-text`): chi scrive non vede un asterisco.
  */
 
-export const STATI = ['bozza', 'inviato'] as const;
+export const STATI = ['bozza', 'invio', 'inviato'] as const;
 
 export type Stato = (typeof STATI)[number];
 
@@ -51,6 +51,7 @@ export const MAX_BODY_CHARS = 20_000;
 
 export const STATO_LABEL: Record<Stato, string> = {
   bozza: 'Bozza',
+  invio: 'Invio non completato',
   inviato: 'Inviata',
 };
 
@@ -105,7 +106,7 @@ export function toAnnouncement(id: string, data: Record<string, unknown>): Annou
       modo: destinatari.modo === 'selezione' ? 'selezione' : 'tutti',
       uids: Array.isArray(destinatari.uids) ? destinatari.uids : [],
     },
-    stato: data['stato'] === 'inviato' ? 'inviato' : 'bozza',
+    stato: STATI.includes(data['stato'] as Stato) ? (data['stato'] as Stato) : 'bozza',
     inviatoA: Array.isArray(data['inviatoA']) ? (data['inviatoA'] as string[]) : [],
     destinatariCount: Number(data['destinatariCount'] ?? 0),
     lettiCount: Number(data['lettiCount'] ?? 0),

@@ -82,12 +82,25 @@
             <td class="actions">
               <div>
                 <button type="button" class="ghost" (click)="open(document)">Apri</button>
-                <button type="button" class="ghost danger" (click)="remove(document)">
+                <button type="button" class="ghost danger" (click)="daEliminare.set(document.id)">
                   Elimina
                 </button>
               </div>
             </td>
           </tr>
+          @if (daEliminare() === document.id) {
+            <tr>
+              <td colspan="5">
+                <app-conferma
+                  [testo]="'Eliminare «' + document.name + '»? Il cliente non lo vedrà più.'"
+                  etichetta="Elimina"
+                  tono="danger"
+                  (conferma)="remove(document)"
+                  (annulla)="daEliminare.set(null)"
+                />
+              </td>
+            </tr>
+          }
         }
       </tbody>
     </table>

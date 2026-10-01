@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 
@@ -65,10 +65,10 @@ export class AnnouncementsService {
    * Revna. Ordinate per creazione e non per invio, così le bozze non finiscono in fondo.
    */
   async list(): Promise<Announcement[]> {
-    const snapshot = await getDocs(query(this.collectionRef(), orderBy('createdAt', 'desc')));
-    return snapshot.docs
-      .slice(0, MAX_LISTED)
-      .map((document) => toAnnouncement(document.id, document.data()));
+    const snapshot = await getDocs(
+      query(this.collectionRef(), orderBy('createdAt', 'desc'), limit(MAX_LISTED))
+    );
+    return snapshot.docs.map((document) => toAnnouncement(document.id, document.data()));
   }
 
   async get(id: string): Promise<Announcement | null> {

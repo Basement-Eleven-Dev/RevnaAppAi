@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
+import { Conferma } from '../../components/conferma/conferma';
 import {
   AREE_TEMATICHE,
   formatSize,
@@ -24,7 +25,7 @@ import { AgentService } from '../../core/agent.service';
  */
 @Component({
   selector: 'app-agent-entry',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Conferma],
   templateUrl: './entry.html',
   styleUrl: './agent.css',
 })
@@ -58,6 +59,7 @@ export class AgentEntry {
   protected readonly rileggendo = signal(false);
   protected readonly saved = signal('');
   protected readonly error = signal('');
+  protected readonly chiedeElimina = signal(false);
 
   constructor() {
     if (this.param !== 'nuova') void this.load(this.param);
@@ -161,7 +163,7 @@ export class AgentEntry {
   protected async remove(): Promise<void> {
     const voce = this.voce();
     if (!this.id()) return;
-    if (!confirm('Eliminare questa voce? L’assistente non potrà più citarla.')) return;
+    this.chiedeElimina.set(false);
 
     try {
       await this.agent.deleteEntry({ id: this.id(), file: voce?.file ?? null });

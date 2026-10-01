@@ -165,7 +165,8 @@ tr:last-child td {
 }
 
 /* Una bozza è un lavoro in corso, un'inviata è un fatto: la prima si vede, la
-   seconda non deve chiamare l'occhio in una tabella di cose già fatte. */
+   seconda non deve chiamare l'occhio in una tabella di cose già fatte. Un invio
+   non completato è un problema da risolvere, e si vede più di tutti. */
 .badge {
   display: inline-block;
   margin-left: 8px;
@@ -185,7 +186,20 @@ tr:last-child td {
   color: var(--brand);
 }
 
+.badge.invio {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 /* --- Editor --- */
+
+.interrotto {
+  border-color: var(--danger);
+}
+
+.interrotto h2 {
+  color: var(--danger);
+}
 
 .esito .numeri {
   display: flex;
@@ -258,11 +272,6 @@ tr:last-child td {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* L'invio è l'azione irreversibile della pagina: si distingue dal salvataggio. */
-.invia {
-  background: var(--brand-dark);
 }
 
 .saved {

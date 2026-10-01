@@ -1,11 +1,21 @@
 import { usePathname, useRouter } from 'expo-router';
 import type { DrawerContentComponentProps } from 'expo-router/drawer';
-import { useRef } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Wordmark } from '@/components/brand/wordmark';
-import { Appear, Bevel, Button, RequestsIcon, SettingsIcon, stagger, Tap, Text } from '@/components/ui';
+import {
+  Appear,
+  Bevel,
+  Button,
+  ConfirmSheet,
+  RequestsIcon,
+  SettingsIcon,
+  stagger,
+  Tap,
+  Text,
+} from '@/components/ui';
 import { useAssistant } from '@/hooks/use-assistant';
 import { useAuth } from '@/hooks/use-auth';
 import { useConversations, whenLabel, type ConversationSummary } from '@/hooks/use-conversations';
@@ -34,6 +44,8 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
   const { conversations, loading, remove } = useConversations();
   const { conversationId, open, startNew } = useAssistant();
   const longPressedConversation = useRef<string | null>(null);
+  /** La conversazione di cui si sta chiedendo conferma dell'eliminazione. */
+  const [asking, setAsking] = useState<ConversationSummary | null>(null);
 
   /**
    * Il Drawer si chiude da sé quando si naviga altrove, ma non quando la voce
@@ -50,21 +62,14 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
   }
 
   function confirmRemove(conversation: ConversationSummary) {
-    Alert.alert(
-      t.conversazioni.confermaTitolo,
-      t.conversazioni.confermaTesto(titleOf(conversation, t)),
-      [
-        { text: t.comune.annulla, style: 'cancel' },
-        {
-          text: t.comune.elimina,
-          style: 'destructive',
-          onPress: () => {
-            void remove(conversation.id);
-            if (conversation.id === conversationId) startNew();
-          },
-        },
-      ]
-    );
+    setAsking(conversation);
+  }
+
+  function removeAsked() {
+    if (!asking) return;
+    setAsking(null);
+    void remove(asking.id);
+    if (asking.id === conversationId) startNew();
   }
 
   return (
@@ -172,6 +177,16 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
           {user?.email ?? ''}
         </Text>
       </View>
+
+      <ConfirmSheet
+        visible={asking !== null}
+        titolo={t.conversazioni.confermaTitolo}
+        testo={asking ? t.conversazioni.confermaTesto(titleOf(asking, t)) : ''}
+        conferma={t.comune.elimina}
+        annulla={t.comune.annulla}
+        onCancel={() => setAsking(null)}
+        onConfirm={removeAsked}
+      />
     </SafeAreaView>
   );
 }
