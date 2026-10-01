@@ -41,7 +41,7 @@ Le function callable, tutte in `europe-west1`:
 | `createInvite` | Crea l'utenza, genera il link di attivazione e manda l'email. Rifiuta un'email già registrata | deployata; l'invio parte quando c'è la chiave Resend |
 | `resendInvite` | Nuovo link di attivazione per un cliente attivo mai entrato; spegne il precedente | da deployare |
 | `requestPasswordReset` | Manda al cliente il link per rifare la password. **Senza autenticazione** | da deployare |
-| `listClients` | Elenco dei clienti (tutti gli utenti senza claim `revnaAdmin`) | deployata |
+| `listClients` | Elenco completo dei clienti (tutti gli utenti senza claim `revnaAdmin`), dal più recente | deployata |
 | `updateClient` | Rinomina, disattiva/riattiva e revoca le sessioni | deployata |
 | `saveClientProfile` | Salva il profilo struttura redatto da Revna | deployata |
 | `deleteConversation` | Elimina una conversazione del cliente | deployata |
@@ -57,6 +57,16 @@ Le function callable, tutte in `europe-west1`:
 | `previewAssistant` | Prova l'assistente dal backoffice con il profilo di un cliente | da deployare |
 | `ingestKnowledgeFile` | Estrae il testo di un file della base di conoscenza e, alla prima lettura riuscita, attiva la voce | da deployare |
 | `getKnowledgeFileUrl` | Rilascia un URL firmato a 5 minuti per il file dietro una voce di conoscenza | da deployare |
+
+Il controllo d'accesso e la lettura degli input stanno in `functions/src/guards.ts`:
+
+- `requireAdmin` per il backoffice; `requireClient` per le callable dell'app, che
+  rifiuta i referenti Revna; `requireUser` per `getDocumentUrl`, aperta a entrambi.
+  Le ultime due verificano il token **con il controllo di revoca**, vedi
+  [Disattivazione](#disattivazione).
+- `stringa`, `idDoc` e `idDocFacoltativo` leggono i campi della richiesta: un tipo
+  sbagliato, un id vuoto o con `/` danno `invalid-argument` invece di un errore
+  `internal` o di un percorso Firestore diverso da quello atteso.
 
 ### Il documento `users/{uid}`
 
@@ -267,8 +277,11 @@ Resend, da riportare in `MAIL_FROM` dentro `functions/.env.revnaappai`.
 ### Disattivazione
 
 `updateClient` con `disabled: true` chiama anche `revokeRefreshTokens`. Non basta
-disattivare: l'ID token già in mano al client resta valido fino a un'ora. L'app forza
-il rinnovo all'apertura e ogni 5 minuti, quindi la sessione cade poco dopo.
+disattivare: l'ID token già in mano al client resta valido fino a un'ora. Per questo le
+callable dell'app (`requireClient` / `requireUser`) rileggono il token con
+`verifyIdToken(token, true)`: la chiamata successiva alla disattivazione riceve già
+`unauthenticated`. L'app, dal canto suo, forza il rinnovo all'apertura e ogni 5
+minuti, quindi la sessione cade poco dopo.
 
 ### Il custom claim `revnaAdmin`
 
@@ -312,6 +325,12 @@ messaggio generico.
 
 Il client manda solo il messaggio nuovo e l'id della conversazione: lo storico lo
 rilegge il server da Firestore.
+
+**Limite di frequenza:** al massimo 10 messaggi al minuto e 200 al giorno (giorno di
+calendario italiano) per cliente, contati prima di chiamare il modello in
+`assistantUsage/{uid}` (`functions/src/usage.ts`). Oltre, `resource-exhausted` con un
+messaggio per il cliente. La collezione la scrive solo l'Admin SDK: nelle regole la
+chiude la regola finale. `previewAssistant` non conta.
 
 La risposta viene inviata a pezzi con `response.sendChunk` mentre il modello la scrive.
 `sendChunk` non fa nulla se il client non ha chiesto lo streaming, quindi il testo

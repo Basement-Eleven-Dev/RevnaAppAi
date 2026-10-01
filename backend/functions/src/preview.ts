@@ -4,7 +4,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { auth, db } from './admin';
 import type { Source } from './agent';
 import type { StoredTurn } from './conversations';
-import { requireAdmin } from './guards';
+import { idDoc, requireAdmin, stringa } from './guards';
 import { respond } from './model';
 import { describeProfile, sanitizeProfile } from './profile';
 
@@ -59,12 +59,12 @@ export const previewAssistant = onCall<Request, Promise<Response>, Chunk>(
   async (request, streamed) => {
     requireAdmin(request);
 
-    const { uid } = request.data;
-    const message = request.data.message?.trim();
-
-    if (!uid) {
+    if (!request.data?.uid) {
       throw new HttpsError('invalid-argument', 'Indica il cliente da impersonare.');
     }
+    const uid = idDoc(request.data, 'uid');
+    const message = stringa(request.data, 'message');
+
     if (!message) {
       throw new HttpsError('invalid-argument', 'Messaggio vuoto.');
     }

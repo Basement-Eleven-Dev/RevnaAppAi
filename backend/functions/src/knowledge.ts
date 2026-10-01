@@ -4,7 +4,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { db } from './admin';
-import { requireAdmin } from './guards';
+import { idDoc, requireAdmin } from './guards';
 
 /**
  * I documenti della base di conoscenza.
@@ -67,10 +67,7 @@ export const ingestKnowledgeFile = onCall<IngestRequest, Promise<IngestResponse>
   async (request) => {
     requireAdmin(request);
 
-    const { entryId } = request.data;
-    if (!entryId) {
-      throw new HttpsError('invalid-argument', 'entryId mancante.');
-    }
+    const entryId = idDoc(request.data, 'entryId');
 
     const reference = db.collection('knowledge').doc(entryId);
     const snapshot = await reference.get();
@@ -263,10 +260,7 @@ export const getKnowledgeFileUrl = onCall<{ entryId: string }, Promise<{ url: st
   async (request) => {
     requireAdmin(request);
 
-    const { entryId } = request.data;
-    if (!entryId) {
-      throw new HttpsError('invalid-argument', 'entryId mancante.');
-    }
+    const entryId = idDoc(request.data, 'entryId');
 
     const snapshot = await db.collection('knowledge').doc(entryId).get();
     const storagePath = (snapshot.data()?.['file'] as { storagePath?: string } | undefined)

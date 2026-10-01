@@ -2,7 +2,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { db } from './admin';
-import { requireAdmin } from './guards';
+import { idDoc, idDocFacoltativo, requireAdmin, requireClient, stringa } from './guards';
 import { sanitizeProfile } from './profile';
 
 /**
@@ -106,12 +106,10 @@ type CreateResponse = { id: string };
 export const createContactRequest = onCall<CreateRequest, Promise<CreateResponse>>(
   { region: 'europe-west1' },
   async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError('unauthenticated', 'Accesso riservato ai clienti Revna.');
-    }
+    const uid = await requireClient(request);
 
-    const messaggio = request.data.messaggio?.trim();
+    const messaggio = stringa(request.data, 'messaggio');
+    const conversationIdChiesto = idDocFacoltativo(request.data, 'conversationId');
     if (!messaggio) {
       throw new HttpsError('invalid-argument', 'La richiesta è vuota.');
     }
@@ -141,8 +139,8 @@ export const createContactRequest = onCall<CreateRequest, Promise<CreateResponse
     // una chat inesistente è peggio che nessun link. Una richiesta nata dalla chat
     // resta «dalla chat» anche se il cliente ha cancellato la conversazione — quello
     // che si perde è il contesto, non la sua provenienza.
-    const origine: Origine = request.data.conversationId ? 'assistente' : 'richieste';
-    const conversationId = await resolveConversation(uid, request.data.conversationId);
+    const origine: Origine = conversationIdChiesto ? 'assistente' : 'richieste';
+    const conversationId = await resolveConversation(uid, conversationIdChiesto);
 
     const document = await collectionRef().add({
       uid,
@@ -186,10 +184,8 @@ export const updateContactRequest = onCall<UpdateRequest, Promise<{ ok: true }>>
   async (request) => {
     requireAdmin(request);
 
-    const { requestId, stato } = request.data;
-    if (!requestId) {
-      throw new HttpsError('invalid-argument', 'requestId mancante.');
-    }
+    const requestId = idDoc(request.data, 'requestId');
+    const { stato } = request.data;
     if (!STATI.includes(stato)) {
       throw new HttpsError('invalid-argument', 'Stato non ammesso.');
     }

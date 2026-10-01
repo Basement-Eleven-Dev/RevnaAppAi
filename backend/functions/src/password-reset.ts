@@ -2,6 +2,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { auth, db } from './admin';
+import { stringa } from './guards';
 import { buildActivationUrl } from './invites';
 import { resendApiKey, sendEmail } from './mailer';
 import { passwordResetEmail } from './templates';
@@ -28,7 +29,7 @@ type Response = { ok: true };
 export const requestPasswordReset = onCall<Request, Promise<Response>>(
   { region: 'europe-west1', secrets: [resendApiKey] },
   async (request) => {
-    const email = request.data.email?.trim().toLowerCase();
+    const email = stringa(request.data, 'email').toLowerCase();
 
     if (!email || !email.includes('@')) {
       throw new HttpsError('invalid-argument', 'Email mancante o non valida.');

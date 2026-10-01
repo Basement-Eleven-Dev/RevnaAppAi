@@ -1,7 +1,8 @@
 import { logger } from 'firebase-functions';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onCall } from 'firebase-functions/v2/https';
 
 import { db } from './admin';
+import { requireClient } from './guards';
 
 /**
  * La memoria dell'assistente: come vuole essere assistito chi gli scrive.
@@ -500,10 +501,7 @@ async function applyCalls({
 export const clearMemory = onCall<unknown, Promise<{ cancellati: number }>>(
   { region: 'europe-west1' },
   async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError('unauthenticated', 'Accesso riservato ai clienti Revna.');
-    }
+    const uid = await requireClient(request);
 
     const snapshot = await memoryOf(uid).get();
     if (snapshot.empty) return { cancellati: 0 };

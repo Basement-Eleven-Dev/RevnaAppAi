@@ -1,8 +1,8 @@
 import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
-import { auth, db } from './admin';
-import { requireAdmin } from './guards';
+import { auth, db, listAllUsers } from './admin';
+import { idDoc, requireAdmin, stringa } from './guards';
 import { profileDisplayName, sanitizeProfile } from './profile';
 
 export type Client = {
@@ -23,9 +23,7 @@ export const listClients = onCall<void, Promise<{ clients: Client[] }>>(
   async (request) => {
     requireAdmin(request);
 
-    const { users } = await auth.listUsers(1000);
-
-    const clients = users
+    const clients = (await listAllUsers())
       .filter((user) => user.customClaims?.['revnaAdmin'] !== true)
       .map<Client>((user) => ({
         uid: user.uid,
@@ -35,7 +33,9 @@ export const listClients = onCall<void, Promise<{ clients: Client[] }>>(
         createdAt: user.metadata.creationTime,
         lastSignInAt: user.metadata.lastSignInTime || null,
       }))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      // `creationTime` è in formato RFC 1123 («Wed, 01 Oct 2026 …»): come stringa si
+      // ordinerebbe per giorno della settimana.
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 
     return { clients };
   }
@@ -55,9 +55,13 @@ export const updateClient = onCall<UpdateRequest, Promise<{ ok: true }>>(
   async (request) => {
     requireAdmin(request);
 
-    const { uid, displayName, disabled } = request.data;
-    if (!uid) {
-      throw new HttpsError('invalid-argument', 'uid mancante.');
+    const uid = idDoc(request.data, 'uid');
+    // Un campo assente non si tocca: per questo il nome si legge solo se c'è.
+    const displayName =
+      request.data?.displayName === undefined ? undefined : stringa(request.data, 'displayName');
+    const { disabled } = request.data;
+    if (disabled !== undefined && typeof disabled !== 'boolean') {
+      throw new HttpsError('invalid-argument', 'disabled non valido.');
     }
 
     const target = await auth.getUser(uid).catch(() => null);
@@ -69,7 +73,7 @@ export const updateClient = onCall<UpdateRequest, Promise<{ ok: true }>>(
     }
 
     await auth.updateUser(uid, {
-      ...(displayName !== undefined ? { displayName: displayName.trim() || null } : {}),
+      ...(displayName !== undefined ? { displayName: displayName || null } : {}),
       ...(disabled !== undefined ? { disabled } : {}),
     });
 
@@ -98,10 +102,7 @@ export const saveClientProfile = onCall<SaveProfileRequest, Promise<{ ok: true }
   async (request) => {
     requireAdmin(request);
 
-    const { uid } = request.data;
-    if (!uid) {
-      throw new HttpsError('invalid-argument', 'uid mancante.');
-    }
+    const uid = idDoc(request.data, 'uid');
 
     const target = await auth.getUser(uid).catch(() => null);
     if (!target) {

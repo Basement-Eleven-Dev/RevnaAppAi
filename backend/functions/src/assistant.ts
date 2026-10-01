@@ -10,9 +10,11 @@ import {
   trimHistory,
   type StoredTurn,
 } from './conversations';
+import { idDocFacoltativo, requireClient, stringa } from './guards';
 import { loadMemory, updateMemory, type MemoryEntry } from './memory';
 import { complete, decide, respond } from './model';
 import { sanitizeProfile } from './profile';
+import { countMessage } from './usage';
 
 type Request = { message: string; conversationId?: string };
 type Response = {
@@ -46,12 +48,10 @@ type Chunk = { text: string };
 export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
   { region: 'europe-west1', timeoutSeconds: 120 },
   async (request, streamed) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError('unauthenticated', 'Accesso riservato ai clienti Revna.');
-    }
+    const uid = await requireClient(request);
 
-    const message = typeof request.data.message === 'string' ? request.data.message.trim() : '';
+    const message = stringa(request.data, 'message');
+    const conversationId = idDocFacoltativo(request.data, 'conversationId');
     if (!message) {
       throw new HttpsError('invalid-argument', 'Messaggio vuoto.');
     }
@@ -62,10 +62,12 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
       );
     }
 
+    await countMessage(uid);
+
     // Conversazione esistente o nuova. Lo storico viene dal documento, non dal
     // client: così non è manipolabile e sopravvive al riavvio dell'app.
-    const conversationRef = request.data.conversationId
-      ? conversationsOf(uid).doc(request.data.conversationId)
+    const conversationRef = conversationId
+      ? conversationsOf(uid).doc(conversationId)
       : conversationsOf(uid).doc();
 
     // Le tre letture insieme: sono su documenti diversi e nessuna dipende dall'altra.

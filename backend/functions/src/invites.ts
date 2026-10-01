@@ -3,7 +3,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { auth, db } from './admin';
 import { appBaseUrl } from './config';
-import { requireAdmin } from './guards';
+import { idDoc, requireAdmin, stringa } from './guards';
 import { resendApiKey, sendEmail } from './mailer';
 import { profileDisplayName, sanitizeProfile } from './profile';
 import { activationEmail } from './templates';
@@ -30,7 +30,7 @@ export const createInvite = onCall<Request, Promise<Response>>(
   async (request) => {
     requireAdmin(request);
 
-    const email = request.data.email?.trim().toLowerCase();
+    const email = stringa(request.data, 'email').toLowerCase();
     if (!email) {
       throw new HttpsError('invalid-argument', 'Email mancante.');
     }
@@ -101,10 +101,7 @@ export const resendInvite = onCall<{ uid: string }, Promise<Omit<Response, 'uid'
   async (request) => {
     requireAdmin(request);
 
-    const { uid } = request.data;
-    if (!uid) {
-      throw new HttpsError('invalid-argument', 'uid mancante.');
-    }
+    const uid = idDoc(request.data, 'uid');
 
     const target = await auth.getUser(uid).catch(() => null);
     if (!target?.email) {

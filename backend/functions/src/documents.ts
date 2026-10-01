@@ -3,6 +3,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { db } from './admin';
+import { idDoc, idDocFacoltativo, requireUser } from './guards';
 
 /**
  * Quanto vive un link a un documento. Abbastanza da aprirlo o scaricarlo,
@@ -27,18 +28,10 @@ type Request = {
 export const getDocumentUrl = onCall<Request, Promise<{ url: string; expiresAt: string }>>(
   { region: 'europe-west1' },
   async (request) => {
-    const caller = request.auth;
-    if (!caller) {
-      throw new HttpsError('unauthenticated', 'Accesso riservato.');
-    }
-
-    const isAdmin = caller.token['revnaAdmin'] === true;
-    const ownerUid = isAdmin ? (request.data.uid ?? caller.uid) : caller.uid;
-    const { documentId } = request.data;
-
-    if (!documentId) {
-      throw new HttpsError('invalid-argument', 'documentId mancante.');
-    }
+    const callerUid = await requireUser(request);
+    const isAdmin = request.auth?.token['revnaAdmin'] === true;
+    const ownerUid = isAdmin ? (idDocFacoltativo(request.data, 'uid') ?? callerUid) : callerUid;
+    const documentId = idDoc(request.data, 'documentId');
 
     const snapshot = await db
       .collection('users')
@@ -76,7 +69,7 @@ export const getDocumentUrl = onCall<Request, Promise<{ url: string; expiresAt: 
     logger.info('Documento richiesto', {
       documentId,
       ownerUid,
-      by: caller.token['email'] ?? caller.uid,
+      by: request.auth?.token['email'] ?? callerUid,
       isAdmin,
     });
 

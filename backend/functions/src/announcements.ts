@@ -10,7 +10,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { db, listAllUsers } from './admin';
-import { requireAdmin } from './guards';
+import { idDoc, idDocFacoltativo, requireAdmin, requireClient, stringa } from './guards';
 import { sendPush } from './push';
 
 /**
@@ -139,8 +139,8 @@ export const saveAnnouncement = onCall<SaveRequest, Promise<{ id: string }>>(
   async (request) => {
     requireAdmin(request);
 
-    const titolo = (request.data.titolo ?? '').trim();
-    const corpo = (request.data.corpo ?? '').trim();
+    const titolo = stringa(request.data, 'titolo');
+    const corpo = stringa(request.data, 'corpo');
 
     if (!titolo) {
       throw new HttpsError('invalid-argument', 'Il titolo è necessario.');
@@ -158,9 +158,8 @@ export const saveAnnouncement = onCall<SaveRequest, Promise<{ id: string }>>(
     const now = new Date().toISOString();
     const by = request.auth?.token['email'] ?? request.auth?.uid ?? null;
     const estratto = excerptOf(corpo);
-    const ref = request.data.id?.trim()
-      ? collectionRef().doc(request.data.id.trim())
-      : collectionRef().doc();
+    const esistente = idDocFacoltativo(request.data, 'id');
+    const ref = esistente ? collectionRef().doc(esistente) : collectionRef().doc();
     const id = ref.id;
     const snapshot = await ref.get();
 
@@ -249,10 +248,7 @@ export const sendAnnouncement = onCall<
 >({ region: 'europe-west1', timeoutSeconds: SEND_TIMEOUT_SECONDS }, async (request) => {
   requireAdmin(request);
 
-  const id = request.data.id?.trim();
-  if (!id) {
-    throw new HttpsError('invalid-argument', 'id mancante.');
-  }
+  const id = idDoc(request.data, 'id');
 
   const ref = collectionRef().doc(id);
   const by = request.auth?.token['email'] ?? request.auth?.uid ?? null;
@@ -376,10 +372,7 @@ export const deleteAnnouncement = onCall<{ id: string }, Promise<{ ok: true }>>(
   async (request) => {
     requireAdmin(request);
 
-    const id = request.data.id?.trim();
-    if (!id) {
-      throw new HttpsError('invalid-argument', 'id mancante.');
-    }
+    const id = idDoc(request.data, 'id');
 
     const ref = collectionRef().doc(id);
     const snapshot = await ref.get();
@@ -433,15 +426,8 @@ export const deleteAnnouncement = onCall<{ id: string }, Promise<{ ok: true }>>(
 export const markAnnouncementRead = onCall<{ id: string }, Promise<{ ok: true }>>(
   { region: 'europe-west1' },
   async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError('unauthenticated', 'Accesso riservato ai clienti Revna.');
-    }
-
-    const id = request.data.id?.trim();
-    if (!id) {
-      throw new HttpsError('invalid-argument', 'id mancante.');
-    }
+    const uid = await requireClient(request);
+    const id = idDoc(request.data, 'id');
 
     const delivery = deliveryRef(uid, id);
 

@@ -1,7 +1,8 @@
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onCall } from 'firebase-functions/v2/https';
 
 import { db } from './admin';
 import type { Source } from './agent';
+import { idDoc, requireClient } from './guards';
 
 /**
  * Un turno di conversazione. Le fonti stanno sul turno e non a parte perché sono
@@ -101,15 +102,8 @@ type DeleteRequest = { conversationId: string };
 export const deleteConversation = onCall<DeleteRequest, Promise<{ ok: true }>>(
   { region: 'europe-west1' },
   async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) {
-      throw new HttpsError('unauthenticated', 'Accesso riservato ai clienti Revna.');
-    }
-
-    const { conversationId } = request.data;
-    if (!conversationId) {
-      throw new HttpsError('invalid-argument', 'conversationId mancante.');
-    }
+    const uid = await requireClient(request);
+    const conversationId = idDoc(request.data, 'conversationId');
 
     await conversationsOf(uid).doc(conversationId).delete();
     return { ok: true };
