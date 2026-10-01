@@ -9,7 +9,7 @@ export { Bevel } from './bevel';
 export { Button, IconButton, type ButtonVariant } from './button';
 export { FormatBlock, SourceChip, SourceMarker, StatusChip, Tag, type ChipTone } from './chip';
 export { ConfirmSheet } from './confirm';
-export { Field, FieldNote, PasswordField } from './field';
+export { CharCount, Field, FieldNote, PasswordField } from './field';
 export { GlassBar, GlassPanel } from './glass';
 export { AccentGlow } from './glow';
 export {

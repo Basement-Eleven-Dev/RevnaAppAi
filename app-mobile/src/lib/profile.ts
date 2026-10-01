@@ -12,6 +12,9 @@
  * il compilatore tiene le due allineate.
  */
 
+/** Come sul server e nelle regole Firestore: oltre, la nota non si salva. */
+export const MAX_NOTE_CHARS = 2000;
+
 export type Alloggio = { tipologia: string; quantita: number };
 
 export type ClientProfile = {

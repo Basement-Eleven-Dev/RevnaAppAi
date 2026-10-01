@@ -141,9 +141,15 @@ voce resta sospesa, con il motivo in `errore`. Rileggere una voce già pronta no
 `attivo`: una voce sospesa a mano resta sospesa. Le scansioni vengono rifiutate.
 
 I messaggi sono un array dentro il documento e non una sottocollezione: una
-conversazione si legge e si mostra sempre intera, e il limite di 1 MB per documento è
-lontanissimo dalla lunghezza di una chat di consulenza. Oltre 200 turni i più vecchi
-cadono.
+conversazione si legge e si mostra sempre intera. Perché non arrivi mai al limite di
+1 MB per documento — oltre il quale non si salverebbe più — i turni più vecchi cadono
+oltre i 200 turni o gli 800 KB di `messages` (`trimHistory` in `conversations.ts`), e
+un messaggio del cliente è rifiutato prima del modello oltre i 4.000 caratteri.
+
+Il turno nuovo si aggiunge in una transazione, sullo storico com'è al momento del
+salvataggio: due domande ravvicinate restano entrambe. Se il cliente cancella la
+conversazione mentre il modello risponde, il turno non si salva e la conversazione non
+rinasce.
 
 Il cliente legge e cancella le proprie conversazioni; **scriverle è solo di
 `askAssistant`**, che è anche l'unico posto in cui lo storico viene composto — così il
@@ -191,8 +197,9 @@ etichette italiane in `backoffice/src/app/core/profile.model.ts` e
 migrazione dei documenti.
 
 Le regole Firestore fanno rispettare la separazione: il cliente legge tutto il proprio
-documento ma in scrittura può toccare **solo** `profile.noteCliente`; Revna legge tutto
-e scrive solo passando dalle functions, che normalizzano i campi.
+documento ma in scrittura può toccare **solo** `profile.noteCliente`, una stringa di al
+massimo 2.000 caratteri (`MAX_NOTE_CHARS`); Revna legge tutto e scrive solo passando
+dalle functions, che normalizzano i campi.
 
 ### Attivazione dell'account
 

@@ -23,7 +23,8 @@
       "ignore": [
         "node_modules",
         ".git",
-        "*.log"
+        "*.log",
+        "**/*.test.*"
       ],
       "predeploy": [
         "npm --prefix backend/functions run build"

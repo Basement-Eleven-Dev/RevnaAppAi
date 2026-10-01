@@ -25,6 +25,9 @@ service cloud.firestore {
     //
     // Il backoffice legge; per scrivere passa dalle Cloud Functions
     // (`createInvite`, `saveClientProfile`), che normalizzano i campi.
+    //
+    // I 2000 caratteri sono il `MAX_NOTE_CHARS` di `profile.ts`, ripetuto qui perché
+    // le regole non possono importarlo: se cambia là, cambia anche qui.
     match /users/{userId} {
       allow read: if isSelf(userId) || isRevnaAdmin();
 
@@ -32,7 +35,9 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['profile', 'updatedAt'])
         && request.resource.data.profile.diff(resource.data.profile).affectedKeys()
-             .hasOnly(['noteCliente']);
+             .hasOnly(['noteCliente'])
+        && request.resource.data.profile.noteCliente is string
+        && request.resource.data.profile.noteCliente.size() <= 2000;
 
       allow create, delete: if false;
 

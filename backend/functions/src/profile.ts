@@ -55,6 +55,12 @@ const emptyProfile: ClientProfile = {
   noteCliente: '',
 };
 
+/**
+ * La nota più lunga che il cliente può scrivere sul proprio profilo. Le regole
+ * Firestore e l'app ripetono lo stesso valore: il cliente la scrive da lì, non da qui.
+ */
+export const MAX_NOTE_CHARS = 2000;
+
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 const list = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
@@ -107,7 +113,7 @@ export function sanitizeProfile(input: unknown): ClientProfile {
     stagionalita: text(raw['stagionalita']),
     obiettivi: text(raw['obiettivi']),
     noteRevna: text(raw['noteRevna']),
-    noteCliente: text(raw['noteCliente']),
+    noteCliente: text(raw['noteCliente']).slice(0, MAX_NOTE_CHARS),
   };
 }
 

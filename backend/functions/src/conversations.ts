@@ -38,15 +38,50 @@ export type Conversation = {
 /**
  * Le conversazioni stanno sotto l'utente: `users/{uid}/conversations/{id}`.
  * I messaggi sono un array dentro il documento e non una sottocollezione —
- * una conversazione si legge e si mostra sempre intera, e il limite di 1 MB
- * per documento è lontanissimo dalla lunghezza di una chat di consulenza.
+ * una conversazione si legge e si mostra sempre intera. Il limite di 1 MB per
+ * documento lo tiene lontano `trimHistory`.
  */
 export function conversationsOf(uid: string) {
   return db.collection('users').doc(uid).collection('conversations');
 }
 
+/**
+ * Il messaggio più lungo che il cliente può mandare: una pagina e mezza, quanto
+ * basta per una domanda con incollata una recensione o una mail. Lo stesso valore
+ * sta nell'app, sul composer.
+ */
+export const MAX_MESSAGE_CHARS = 4000;
+
 /** Oltre questa soglia i turni più vecchi cadono, per non far crescere il documento. */
 export const MAX_STORED_TURNS = 200;
+
+/**
+ * Il peso massimo dei `messages`, in byte. Firestore rifiuta i documenti oltre 1 MB,
+ * e una conversazione che non si salva più resta bloccata per sempre: il margine
+ * copre titolo, date e la stima, che non è il conteggio esatto di Firestore.
+ */
+export const MAX_STORED_BYTES = 800_000;
+
+/**
+ * Lo storico da salvare: al massimo `MAX_STORED_TURNS` turni e `MAX_STORED_BYTES`,
+ * scartando i più vecchi.
+ *
+ * Non comincia mai con una risposta: senza la sua domanda il modello la rileggerebbe
+ * come un'uscita sua fuori contesto.
+ */
+export function trimHistory(turns: StoredTurn[]): StoredTurn[] {
+  const kept = turns.slice(-MAX_STORED_TURNS);
+  const sizes = kept.map((turn) => Buffer.byteLength(JSON.stringify(turn), 'utf8'));
+  let total = sizes.reduce((sum, size) => sum + size, 0);
+
+  let start = 0;
+  while (start < kept.length && (total > MAX_STORED_BYTES || kept[start].role === 'model')) {
+    total -= sizes[start];
+    start++;
+  }
+
+  return kept.slice(start);
+}
 
 type DeleteRequest = { conversationId: string };
 

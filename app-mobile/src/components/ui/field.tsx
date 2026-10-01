@@ -103,6 +103,23 @@ export function FieldNote({ children, tone = 'quiet' }: { children: string; tone
   );
 }
 
+/**
+ * Quanti caratteri restano, sotto un campo con un limite.
+ *
+ * Compare solo vicino al limite: prima sarebbe un numero che corre sotto ogni frase
+ * senza dire niente. Al limite diventa rosso, perché il campo smette di accettare
+ * testo e senza un perché sembrerebbe rotto.
+ */
+export function CharCount({ length, max }: { length: number; max: number }) {
+  if (length < max * 0.9) return null;
+
+  return (
+    <Text variant="tab" color={length >= max ? Danger.text : Ink.faint} style={styles.count}>
+      {`${length} / ${max}`}
+    </Text>
+  );
+}
+
 const styles = StyleSheet.create({
   wrap: { alignSelf: 'stretch' },
   row: { flexDirection: 'row', alignItems: 'center', paddingRight: Spacing.lg },
@@ -117,5 +134,6 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 104, textAlignVertical: 'top', paddingTop: Spacing.md },
   reveal: { fontFamily: Family.sansSemibold, fontSize: 11.5 },
+  count: { alignSelf: 'flex-end' },
 });
 

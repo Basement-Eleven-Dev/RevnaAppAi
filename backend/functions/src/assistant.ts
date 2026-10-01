@@ -1,9 +1,15 @@
+import type { DocumentReference } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { db } from './admin';
 import type { Source } from './agent';
-import { conversationsOf, MAX_STORED_TURNS, type StoredTurn } from './conversations';
+import {
+  conversationsOf,
+  MAX_MESSAGE_CHARS,
+  trimHistory,
+  type StoredTurn,
+} from './conversations';
 import { loadMemory, updateMemory, type MemoryEntry } from './memory';
 import { complete, decide, respond } from './model';
 import { sanitizeProfile } from './profile';
@@ -45,9 +51,15 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
       throw new HttpsError('unauthenticated', 'Accesso riservato ai clienti Revna.');
     }
 
-    const message = request.data.message?.trim();
+    const message = typeof request.data.message === 'string' ? request.data.message.trim() : '';
     if (!message) {
       throw new HttpsError('invalid-argument', 'Messaggio vuoto.');
+    }
+    if (message.length > MAX_MESSAGE_CHARS) {
+      throw new HttpsError(
+        'invalid-argument',
+        `Il messaggio è troppo lungo: al massimo ${MAX_MESSAGE_CHARS} caratteri.`,
+      );
     }
 
     // Conversazione esistente o nuova. Lo storico viene dal documento, non dal
@@ -83,8 +95,7 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
     // Domanda e risposta portano l'ora del turno: `updatedAt` dice solo quando la
     // conversazione è stata toccata l'ultima volta, e chi la rilegge dal backoffice
     // deve poter vedere quando è stata detta ogni cosa.
-    const messages = [
-      ...stored,
+    const turn: StoredTurn[] = [
       { role: 'user', text: message, at: now },
       // `sources` solo se ci sono: Firestore non accetta `undefined` nei documenti.
       {
@@ -94,20 +105,12 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
         ...(answer.sources.length ? { sources: answer.sources } : {}),
         ...(answer.proposal ? { proposal: answer.proposal } : {}),
       },
-    ].slice(-MAX_STORED_TURNS);
+    ];
 
     // Il salvataggio e l'aggiornamento della memoria insieme: la conversazione è
     // salva appena la scrittura passa, e la memoria non la fa aspettare.
     const [, annotati] = await Promise.all([
-      conversationRef.set(
-        {
-          title,
-          messages,
-          updatedAt: now,
-          ...(conversation.exists ? {} : { createdAt: now }),
-        },
-        { merge: true },
-      ),
+      save(conversationRef, { existed: conversation.exists, turn, title, now }),
       learn({
         uid,
         entries: memory,
@@ -136,6 +139,47 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
     };
   },
 );
+
+/**
+ * Aggiunge il turno allo storico com'è adesso, non com'era a inizio richiesta.
+ *
+ * Fra la lettura per il prompt e questo punto passano i secondi della risposta: due
+ * domande ravvicinate dallo stesso cliente, scritte ognuna sullo storico che aveva
+ * letto, si cancellerebbero a vicenda. La transazione rilegge e riprova se qualcuno
+ * ha scritto nel frattempo.
+ *
+ * Una conversazione che esisteva e non c'è più l'ha cancellata il cliente mentre il
+ * modello rispondeva: non la si fa rinascere, e non è un errore — la risposta è già
+ * a schermo.
+ */
+async function save(
+  ref: DocumentReference,
+  input: { existed: boolean; turn: StoredTurn[]; title: string; now: string },
+): Promise<void> {
+  const saved = await db.runTransaction(async (tx) => {
+    const current = await tx.get(ref);
+    if (input.existed && !current.exists) return false;
+
+    const stored = (current.data()?.['messages'] as StoredTurn[] | undefined) ?? [];
+    tx.set(
+      ref,
+      {
+        title: (current.data()?.['title'] as string | undefined) ?? input.title,
+        messages: trimHistory([...stored, ...input.turn]),
+        updatedAt: input.now,
+        ...(current.exists ? {} : { createdAt: input.now }),
+      },
+      { merge: true },
+    );
+    return true;
+  });
+
+  if (!saved) {
+    logger.info('Conversazione cancellata durante la risposta: turno non salvato', {
+      conversationId: ref.id,
+    });
+  }
+}
 
 /**
  * Titolo breve per l'elenco delle conversazioni, ricavato dalla prima domanda.

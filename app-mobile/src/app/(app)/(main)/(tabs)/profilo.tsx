@@ -9,6 +9,7 @@ import {
   BlockLabel,
   Button,
   Card,
+  CharCount,
   DataRow,
   ErrorNote,
   Field,
@@ -26,7 +27,7 @@ import { useClientProfile } from '@/hooks/use-client-profile';
 import { useT } from '@/hooks/use-language';
 import { getFirebaseAuth } from '@/lib/firebase';
 import { labelOf, labelsOf, type Dictionary } from '@/lib/i18n';
-import { type ClientProfile } from '@/lib/profile';
+import { MAX_NOTE_CHARS, type ClientProfile } from '@/lib/profile';
 import { unregisterPushToken } from '@/lib/push';
 import { Brand, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
@@ -152,10 +153,12 @@ export default function ProfileScreen() {
               </Text>
               <Field
                 multiline
+                maxLength={MAX_NOTE_CHARS}
                 value={note}
                 onChangeText={setDrafted}
                 placeholder={t.profilo.note.placeholder}
               />
+              <CharCount length={note.length} max={MAX_NOTE_CHARS} />
               {noteError !== '' && <ErrorNote>{noteError}</ErrorNote>}
               <Button
                 label={t.profilo.note.salva}

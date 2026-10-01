@@ -46,6 +46,9 @@ export type ConversationSummary = {
   messages: StoredTurn[];
 };
 
+/** Come sul server (`backend/functions/src/conversations.ts`): oltre, la domanda è rifiutata. */
+export const MAX_MESSAGE_CHARS = 4000;
+
 /** Quante conversazioni tenere nell'elenco laterale. */
 const MAX_LISTED = 50;
 

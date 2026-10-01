@@ -18,6 +18,7 @@ import {
   Appear,
   AssistantSignature,
   Bevel,
+  CharCount,
   ErrorNote,
   GlassPanel,
   IconButton,
@@ -35,6 +36,7 @@ import {
 import { useAssistant } from '@/hooks/use-assistant';
 import { useClientProfile } from '@/hooks/use-client-profile';
 import { createContactRequest } from '@/hooks/use-contact-requests';
+import { MAX_MESSAGE_CHARS } from '@/hooks/use-conversations';
 import { useT } from '@/hooks/use-language';
 import { useStarters } from '@/hooks/use-starters';
 import { Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
@@ -219,6 +221,7 @@ export default function ChatScreen() {
               placeholder={t.chat.scrivi}
               placeholderTextColor={Ink.ghost}
               multiline
+              maxLength={MAX_MESSAGE_CHARS}
               value={draft}
               onChangeText={edit}
               editable={!busy}
@@ -232,6 +235,7 @@ export default function ChatScreen() {
               <SendIcon color={canSend ? Ink.onAccent : Ink.muted} />
             </IconButton>
           </GlassPanel>
+          <CharCount length={draft.length} max={MAX_MESSAGE_CHARS} />
 
           {/* Solo a conversazione vuota: da lì in poi la trasparenza la porta la
               firma «Generata da AI», che sta su ogni singola risposta. */}
