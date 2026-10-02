@@ -1,8 +1,11 @@
 import { Image } from 'expo-image';
+import * as WebBrowser from 'expo-web-browser';
 import { Fragment, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, Text as RNText, StyleSheet, View } from 'react-native';
 
-import { Bevel, SourceMarker, Text } from '@/components/ui';
+import { Bevel, ErrorNote, SourceMarker, Text } from '@/components/ui';
+import { useT } from '@/hooks/use-language';
+import { errorMessage } from '@/lib/i18n/errors';
 import { Brand, Corner, Family, Ink, Line, Spacing, Surface } from '@/theme';
 
 /**
@@ -22,7 +25,43 @@ import { Brand, Corner, Family, Ink, Line, Spacing, Surface } from '@/theme';
  * stesso markdown vorrebbero dire due modi in cui un titolo può apparire nell'app.
  */
 export function Markdown({ text }: { text: string }) {
-  return <>{parseBlocks(text).map((block, index) => renderBlock(block, index))}</>;
+  const t = useT();
+  const [linkError, setLinkError] = useState<{ block: number; cause: unknown } | null>(null);
+
+  // L'errore compare sotto il blocco del link toccato: in fondo a un avviso lungo
+  // nessuno lo vedrebbe.
+  return (
+    <>
+      {parseBlocks(text).map((block, index) => (
+        <Fragment key={index}>
+          {renderBlock(block, (href) => {
+            setLinkError(null);
+            openLink(href).catch((cause: unknown) => setLinkError({ block: index, cause }));
+          })}
+          {linkError?.block === index && (
+            <View style={styles.linkError}>
+              <ErrorNote>{errorMessage(t, linkError.cause, t.comune.linkNonApribile)}</ErrorNote>
+            </View>
+          )}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+type OnLink = (href: string) => void;
+
+/** Gli unici schemi che un link può aprire: il testo arriva dal modello e dal backoffice. */
+const SAFE_LINK = /^(https|mailto|tel):/i;
+
+function safeLink(href: string): string | undefined {
+  const url = href.trim();
+  return SAFE_LINK.test(url) ? url : undefined;
+}
+
+/** Le pagine web nel browser interno all'app; email e telefono nell'app che li gestisce. */
+function openLink(href: string): Promise<unknown> {
+  return /^https:/i.test(href) ? WebBrowser.openBrowserAsync(href) : Linking.openURL(href);
 }
 
 type Block =
@@ -130,28 +169,28 @@ function parseBlocks(source: string): Block[] {
   return blocks;
 }
 
-function renderBlock(block: Block, key: number) {
+function renderBlock(block: Block, onLink: OnLink) {
   switch (block.kind) {
     case 'heading':
-      return <Heading key={key} level={block.level} text={block.text} />;
+      return <Heading level={block.level} text={block.text} onLink={onLink} />;
     case 'paragraph':
       return (
-        <Text key={key} variant="body" style={styles.paragraph}>
-          <Inline text={block.text} />
+        <Text variant="body" style={styles.paragraph}>
+          <Inline text={block.text} onLink={onLink} />
         </Text>
       );
     case 'bullet':
-      return <List key={key} items={block.items} />;
+      return <List items={block.items} onLink={onLink} />;
     case 'ordered':
-      return <List key={key} items={block.items} ordered />;
+      return <List items={block.items} onLink={onLink} ordered />;
     case 'quote':
-      return <Quote key={key} text={block.text} />;
+      return <Quote text={block.text} onLink={onLink} />;
     case 'code':
-      return <CodeBlock key={key} text={block.text} />;
+      return <CodeBlock text={block.text} />;
     case 'image':
-      return <MarkdownImage key={key} url={block.url} alt={block.alt} />;
+      return <MarkdownImage url={block.url} alt={block.alt} />;
     case 'rule':
-      return <Rule key={key} />;
+      return <Rule />;
   }
 }
 
@@ -160,15 +199,23 @@ function renderBlock(block: Block, key: number) {
  * primo livello, `rowTitle` per quelli sotto. Non c'è una scala di sei misure —
  * dentro un avviso non servono sei livelli di gerarchia.
  */
-function Heading({ level, text }: { level: number; text: string }) {
+function Heading({ level, text, onLink }: { level: number; text: string; onLink: OnLink }) {
   return (
     <Text variant={level <= 2 ? 'section' : 'rowTitle'} style={styles.heading}>
-      <Inline text={text} />
+      <Inline text={text} onLink={onLink} />
     </Text>
   );
 }
 
-function List({ items, ordered = false }: { items: string[]; ordered?: boolean }) {
+function List({
+  items,
+  onLink,
+  ordered = false,
+}: {
+  items: string[];
+  onLink: OnLink;
+  ordered?: boolean;
+}) {
   return (
     <View style={styles.list}>
       {items.map((item, index) => (
@@ -177,7 +224,7 @@ function List({ items, ordered = false }: { items: string[]; ordered?: boolean }
             {ordered ? `${index + 1}.` : '•'}
           </Text>
           <Text variant="body" style={styles.listText}>
-            <Inline text={item} />
+            <Inline text={item} onLink={onLink} />
           </Text>
         </View>
       ))}
@@ -185,11 +232,11 @@ function List({ items, ordered = false }: { items: string[]; ordered?: boolean }
   );
 }
 
-function Quote({ text }: { text: string }) {
+function Quote({ text, onLink }: { text: string; onLink: OnLink }) {
   return (
     <View style={styles.quote}>
       <Text variant="body" color={Ink.secondary}>
-        <Inline text={text} />
+        <Inline text={text} onLink={onLink} />
       </Text>
     </View>
   );
@@ -275,7 +322,7 @@ function parseInline(text: string): Span[] {
     } else if (token.startsWith('[')) {
       const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
       if (link) {
-        spans.push({ text: link[1], href: link[2] });
+        spans.push({ text: link[1], href: safeLink(link[2]) });
       } else {
         spans.push({ text: token, source: Number(token.slice(1, -1)) });
       }
@@ -290,14 +337,20 @@ function parseInline(text: string): Span[] {
 }
 
 /**
+ * I pezzi sono `Text` di React Native senza ruolo: misura, interlinea e colore li
+ * prendono dal blocco che li contiene, titolo o citazione che sia. Qui si aggiunge
+ * solo quello che il marcatore cambia.
+ *
  * Il peso e il corsivo stanno nel nome della famiglia e non in `fontWeight`: su una
  * famiglia già del peso giusto il sistema metterebbe sopra un finto grassetto.
+ *
+ * Un link con uno schema non ammesso resta testo semplice: si legge, non si tocca.
  *
  * I marcatori `[1]` che il modello mette accanto a un'affermazione diventano il
  * numero della fonte in accento — gli stessi numeri dei chip in fondo alla
  * risposta, così si risale dalla singola frase al materiale che la sostiene.
  */
-function Inline({ text }: { text: string }) {
+function Inline({ text, onLink }: { text: string; onLink: OnLink }) {
   return (
     <>
       {parseInline(text).map((span, index) => (
@@ -305,18 +358,18 @@ function Inline({ text }: { text: string }) {
           {span.source !== undefined ? (
             <SourceMarker n={span.source} />
           ) : (
-            <Text
-              variant="body"
-              color={span.code || span.href !== undefined ? Brand.accentSoft : undefined}
+            <RNText
               style={[
                 span.bold && styles.bold,
                 span.italic && styles.italic,
                 span.code && styles.mono,
+                (span.code || span.href !== undefined) && styles.accent,
                 span.href !== undefined && styles.link,
               ]}
-              onPress={span.href ? () => Linking.openURL(span.href as string) : undefined}>
+              accessibilityRole={span.href !== undefined ? 'link' : undefined}
+              onPress={span.href !== undefined ? () => onLink(span.href as string) : undefined}>
               {span.text}
-            </Text>
+            </RNText>
           )}
         </Fragment>
       ))}
@@ -346,5 +399,7 @@ const styles = StyleSheet.create({
   mono: { fontFamily: Family.mono, fontSize: 13 },
   bold: { fontFamily: Family.sansBold },
   italic: { fontFamily: Family.sansItalic },
+  accent: { color: Brand.accentSoft },
   link: { textDecorationLine: 'underline' },
+  linkError: { marginBottom: Spacing.sm },
 });

@@ -24,6 +24,8 @@ export const it = {
     email: 'Email',
     ieri: 'Ieri',
     indietro: 'Indietro',
+    /** Ripiego di `errorMessage` quando un link in una risposta o in un avviso non si apre. */
+    linkNonApribile: 'Non è stato possibile aprire il link.',
     password: 'Password',
     /** Sul campo password: dice cosa fa il tocco, non che cosa sta accadendo ora. */
     mostra: 'Mostra',

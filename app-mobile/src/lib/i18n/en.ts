@@ -19,6 +19,7 @@ export const en: Dictionary = {
     email: 'Email',
     ieri: 'Yesterday',
     indietro: 'Back',
+    linkNonApribile: 'Couldn’t open the link.',
     password: 'Password',
     mostra: 'Show',
     nascondi: 'Hide',
