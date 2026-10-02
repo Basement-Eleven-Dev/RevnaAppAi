@@ -223,6 +223,7 @@ export const en: Dictionary = {
     titolo: 'Documents',
     sottotitolo: 'Reports, presentations and material Revna has shared with you.',
     vuoto: "Nothing here yet. Documents your Revna contact shares will appear here.",
+    formatoGenerico: 'FILE',
     apri: 'Open document',
     apertura: 'Opening…',
     nonApribile: 'The document could not be opened.',

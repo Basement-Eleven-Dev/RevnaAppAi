@@ -12,7 +12,7 @@
  * lingue allineate anche sulle liste.
  */
 export const it = {
-  /** Tag per `toLocaleDateString`: la nostra `Language` non è un locale valido. */
+  /** Tag per date e numeri (`lib/i18n/format.ts`): la nostra `Language` non è un locale valido. */
   dateLocale: 'it-IT',
 
   comune: {
@@ -246,6 +246,8 @@ export const it = {
     titolo: 'Documenti',
     sottotitolo: 'Report, presentazioni e materiali che Revna ha condiviso con te.',
     vuoto: "Non c'è ancora nulla. I documenti che il tuo referente Revna condivide compaiono qui.",
+    /** Nel blocco del formato, per un file senza estensione. */
+    formatoGenerico: 'FILE',
     apri: 'Apri documento',
     apertura: 'Apertura…',
     nonApribile: 'Non è stato possibile aprire il documento.',

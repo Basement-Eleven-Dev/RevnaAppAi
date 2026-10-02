@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useScrollToTop } from 'expo-router';
+import { useRef } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
@@ -21,7 +22,7 @@ import { useAnnouncements } from '@/hooks/use-announcements';
 import { useT } from '@/hooks/use-language';
 import { isUnread } from '@/lib/announcements';
 import { Gutter, Ink, Spacing } from '@/theme';
-import { errorMessage, type Dictionary } from '@/lib/i18n';
+import { errorMessage, formatDate } from '@/lib/i18n';
 
 /**
  * Gli avvisi di Revna a questa struttura.
@@ -45,6 +46,8 @@ export default function AnnouncementsScreen() {
   const t = useT();
   const router = useRouter();
   const { announcements, unread, loading, error, notifiche } = useAnnouncements();
+  const scroller = useRef<ScrollView>(null);
+  useScrollToTop(scroller);
 
   const daLeggere = announcements.filter(isUnread);
   const letti = announcements.filter((announcement) => !isUnread(announcement));
@@ -53,7 +56,7 @@ export default function AnnouncementsScreen() {
     <Screen>
       <ScreenBar left={<MenuButton />} />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scroller} contentContainerStyle={styles.scroll}>
         <PageHeading
           title={t.avvisi.titolo}
           subtitle={unread > 0 ? t.avvisi.daLeggere(unread) : t.avvisi.sottotitolo}
@@ -78,7 +81,7 @@ export default function AnnouncementsScreen() {
                 <AccentRow
                   title={announcement.titolo}
                   body={announcement.estratto || undefined}
-                  meta={longDate(announcement.inviatoAt, t)}
+                  meta={formatDate(announcement.inviatoAt, t, 'lunga')}
                   onPress={() => router.push(`/avvisi/${announcement.id}`)}
                 />
               </Appear>
@@ -93,7 +96,7 @@ export default function AnnouncementsScreen() {
               <QuietRow
                 key={announcement.id}
                 title={announcement.titolo}
-                meta={longDate(announcement.inviatoAt, t)}
+                meta={formatDate(announcement.inviatoAt, t, 'lunga')}
                 onPress={() => router.push(`/avvisi/${announcement.id}`)}
               />
             ))}
@@ -110,16 +113,6 @@ export default function AnnouncementsScreen() {
       </ScrollView>
     </Screen>
   );
-}
-
-function longDate(iso: string, t: Dictionary): string {
-  return iso
-    ? new Date(iso).toLocaleDateString(t.dateLocale, {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '';
 }
 
 const styles = StyleSheet.create({

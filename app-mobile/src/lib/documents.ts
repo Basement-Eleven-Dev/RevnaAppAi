@@ -23,13 +23,6 @@ export type ClientDocument = {
   uploadedBy: string;
 };
 
-/** Dimensione leggibile, senza decimali inutili sui file piccoli. */
-export function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 /** Quanti giorni un documento resta «nuovo» in elenco. */
 const RECENT_DAYS = 7;
 
@@ -39,11 +32,12 @@ const RECENT_DAYS = 7;
  *
  * Si ricava dall'estensione del nome e non dal `contentType`, che per gli allegati
  * di Office è una stringa lunga e piena di sinonimi: l'estensione è quello che il
- * cliente vede anche fuori dall'app.
+ * cliente vede anche fuori dall'app. Senza estensione `null`: l'etichetta generica
+ * sta nel dizionario.
  */
-export function formatOf(document: ClientDocument): string {
+export function formatOf(document: ClientDocument): string | null {
   const extension = /\.([a-zA-Z0-9]{1,5})$/.exec(document.name)?.[1]?.toUpperCase();
-  if (!extension) return 'FILE';
+  if (!extension) return null;
 
   // Le due estensioni di Office sono lo stesso formato per chi legge.
   if (extension === 'XLSX') return 'XLS';

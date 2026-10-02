@@ -24,3 +24,9 @@ export const Gutter = 20;
  * su tablet il testo non deve stendersi per tutto lo schermo.
  */
 export const MaxContentWidth = 560;
+
+/**
+ * Il lato minimo di ciò che si tocca: 44pt, la misura delle linee guida di Apple.
+ * Sotto, un link di una riga si sbaglia col pollice.
+ */
+export const TouchTarget = 44;

@@ -1,7 +1,7 @@
 import { Link, Redirect } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, View, type TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Monogram } from '@/components/brand/monogram';
@@ -18,6 +18,7 @@ import {
   PasswordField,
   stagger,
   Text,
+  TextAction,
 } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useT } from '@/hooks/use-language';
@@ -53,6 +54,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const passwordField = useRef<TextInput>(null);
 
   if (loading) return <Loading fill />;
 
@@ -103,16 +105,21 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
+          enterKeyHint="next"
+          submitBehavior="submit"
           value={email}
           onChangeText={setEmail}
+          onSubmitEditing={() => passwordField.current?.focus()}
         />
         <PasswordField
+          ref={passwordField}
           placeholder={t.comune.password}
           autoComplete="current-password"
           showLabel={t.comune.mostra}
           hideLabel={t.comune.nascondi}
           value={password}
           onChangeText={setPassword}
+          enterKeyHint="go"
           onSubmitEditing={submit}
         />
 
@@ -131,15 +138,19 @@ export default function LoginScreen() {
         />
 
         <View style={styles.links}>
-          <Link href="/recupera">
-            <Text variant="service" color={Ink.secondary} style={styles.link}>
-              {t.login.passwordDimenticata}
-            </Text>
+          <Link href="/recupera" asChild>
+            <TextAction accessibilityRole="link">
+              <Text variant="service" color={Ink.secondary} style={styles.link}>
+                {t.login.passwordDimenticata}
+              </Text>
+            </TextAction>
           </Link>
-          <Link href="/attiva">
-            <Text variant="service" color={Brand.accent} style={styles.linkStrong}>
-              {t.login.hoUnCodice}
-            </Text>
+          <Link href="/attiva" asChild>
+            <TextAction accessibilityRole="link">
+              <Text variant="service" color={Brand.accent} style={styles.linkStrong}>
+                {t.login.hoUnCodice}
+              </Text>
+            </TextAction>
           </Link>
         </View>
 

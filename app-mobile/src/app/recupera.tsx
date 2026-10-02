@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Wordmark } from '@/components/brand/wordmark';
 import { LegalLinks } from '@/components/legal-links';
-import { Button, Field, FieldNote, FormScreen, ScreenBar, Text } from '@/components/ui';
+import { Button, Field, FieldNote, FormScreen, ScreenBar, Text, TextAction } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
 import { requestPasswordReset } from '@/lib/auth';
 import { errorMessage } from '@/lib/i18n';
@@ -81,6 +81,7 @@ export default function RecoverScreen() {
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}
+              enterKeyHint="go"
               onSubmitEditing={submit}
             />
 
@@ -116,11 +117,15 @@ export default function RecoverScreen() {
 
         {/* `dismissTo` e non un push: si torna alla schermata di accesso che c'è
             già nello stack, non se ne impila una seconda. */}
-        <Link href="/login" dismissTo style={styles.back}>
-          <Text variant="service" color={Ink.secondary} style={styles.backLabel}>
-            {t.comune.tornaAllAccesso}
-          </Text>
-        </Link>
+        <View style={styles.back}>
+          <Link href="/login" dismissTo asChild>
+            <TextAction accessibilityRole="link">
+              <Text variant="service" color={Ink.secondary} style={styles.backLabel}>
+                {t.comune.tornaAllAccesso}
+              </Text>
+            </TextAction>
+          </Link>
+        </View>
 
         <LegalLinks />
       </View>

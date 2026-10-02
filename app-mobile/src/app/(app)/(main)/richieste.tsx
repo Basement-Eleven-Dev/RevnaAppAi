@@ -23,7 +23,7 @@ import {
 import { createContactRequest, useContactRequests } from '@/hooks/use-contact-requests';
 import { useT } from '@/hooks/use-language';
 import type { ContactRequest, Stato } from '@/lib/contact-requests';
-import { errorMessage, type Dictionary } from '@/lib/i18n';
+import { errorMessage, formatDate, type Dictionary } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 import { Gutter, Ink, Line, Spacing } from '@/theme';
 
@@ -110,7 +110,7 @@ function RequestCard({ request, t }: { request: ContactRequest; t: Dictionary })
       <View style={styles.head}>
         <StatusChip label={t.richieste.stati[request.stato]} tone={toneOf(request.stato)} />
         <Text variant="tab" color={Ink.faint}>
-          {t.richieste.aperta(shortDate(request.createdAt, t))}
+          {t.richieste.aperta(formatDate(request.createdAt, t, 'breve'))}
         </Text>
       </View>
 
@@ -141,16 +141,6 @@ function toneOf(stato: Stato): ChipTone {
   if (stato === 'inviata') return 'accent';
   if (stato === 'visualizzata') return 'neutral';
   return 'quiet';
-}
-
-function shortDate(iso: string, t: Dictionary): string {
-  return iso
-    ? new Date(iso).toLocaleDateString(t.dateLocale, {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      })
-    : '';
 }
 
 const styles = StyleSheet.create({

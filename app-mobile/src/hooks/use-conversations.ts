@@ -10,7 +10,7 @@ import { httpsCallable } from 'firebase/functions';
 
 import { useLiveData, type Subscribe } from '@/hooks/use-live-data';
 import { getFirebaseDb, getFirebaseFunctions } from '@/lib/firebase';
-import type { Dictionary } from '@/lib/i18n';
+import { formatDate, formatTime, type Dictionary } from '@/lib/i18n';
 
 /**
  * Fonte Revna citata in una risposta. I numeri corrispondono ai marcatori `[1]`
@@ -108,13 +108,11 @@ export function whenLabel(iso: string, t: Dictionary): string {
   const today = new Date();
   const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
-  if (sameDay(date, today)) {
-    return date.toLocaleTimeString(t.dateLocale, { hour: '2-digit', minute: '2-digit' });
-  }
+  if (sameDay(date, today)) return formatTime(iso, t);
 
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
   if (sameDay(date, yesterday)) return t.comune.ieri;
 
-  return date.toLocaleDateString(t.dateLocale, { day: 'numeric', month: 'short' });
+  return formatDate(iso, t, 'breve');
 }

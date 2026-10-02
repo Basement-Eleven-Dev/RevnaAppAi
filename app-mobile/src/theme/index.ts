@@ -18,6 +18,6 @@ export {
   Rise,
   Stagger,
 } from './motion';
-export { Gutter, MaxContentWidth, Spacing } from './spacing';
+export { Gutter, MaxContentWidth, Spacing, TouchTarget } from './spacing';
 export { Brand, Danger, Glass, Ink, Line, smoke, Surface } from './palette';
 export { Family, FontAssets, Type, type TypeRole } from './typography';

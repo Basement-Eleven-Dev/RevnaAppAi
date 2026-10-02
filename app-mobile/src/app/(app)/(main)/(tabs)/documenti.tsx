@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useScrollToTop } from 'expo-router';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
@@ -20,8 +21,8 @@ import {
 } from '@/components/ui';
 import { documentUrl, useDocuments } from '@/hooks/use-documents';
 import { useT } from '@/hooks/use-language';
-import { formatOf, formatSize, isRecent, type ClientDocument } from '@/lib/documents';
-import { errorMessage, labelOf, type Dictionary } from '@/lib/i18n';
+import { formatOf, isRecent, type ClientDocument } from '@/lib/documents';
+import { errorMessage, formatDate, formatSize, labelOf } from '@/lib/i18n';
 import { openExternal } from '@/lib/open-external';
 import { Brand, Corner, Gutter, Ink, Spacing, Surface } from '@/theme';
 
@@ -42,6 +43,8 @@ export default function DocumentsScreen() {
   const { documents, loading, error } = useDocuments();
   const [opening, setOpening] = useState('');
   const [openError, setOpenError] = useState('');
+  const scroller = useRef<ScrollView>(null);
+  useScrollToTop(scroller);
 
   async function open(document: ClientDocument) {
     setOpening(document.id);
@@ -61,7 +64,7 @@ export default function DocumentsScreen() {
     <Screen>
       <ScreenBar left={<MenuButton />} />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scroller} contentContainerStyle={styles.scroll}>
         <PageHeading title={t.documenti.titolo} subtitle={t.documenti.sottotitolo} />
 
         {loading && <Loading />}
@@ -88,7 +91,10 @@ export default function DocumentsScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={document.name}>
                   <Bevel radius={Corner.card} fill={Surface.element} style={styles.row}>
-                    <FormatBlock label={formatOf(document)} highlight={isRecent(document)} />
+                    <FormatBlock
+                      label={formatOf(document) ?? t.documenti.formatoGenerico}
+                      highlight={isRecent(document)}
+                    />
 
                     <View style={styles.grow}>
                       <Text variant="rowTitle" numberOfLines={2}>
@@ -106,8 +112,8 @@ export default function DocumentsScreen() {
                       <Text variant="tab" color={Ink.faint} style={styles.meta}>
                         {[
                           labelOf(t.documenti.categorie, document.categoria),
-                          formatSize(document.size),
-                          shortDate(document.uploadedAt, t),
+                          formatSize(document.size, t),
+                          formatDate(document.uploadedAt, t, 'breve'),
                         ]
                           .filter(Boolean)
                           .join(' · ')}
@@ -132,12 +138,6 @@ export default function DocumentsScreen() {
       </ScrollView>
     </Screen>
   );
-}
-
-function shortDate(iso: string, t: Dictionary): string {
-  return iso
-    ? new Date(iso).toLocaleDateString(t.dateLocale, { day: 'numeric', month: 'long' })
-    : '';
 }
 
 const styles = StyleSheet.create({

@@ -38,7 +38,7 @@ export function Screen({ style, children, ...rest }: ViewProps) {
  * scorre. `handled` lascia arrivare il tocco al bottone anche a tastiera aperta,
  * invece di spenderlo per chiuderla.
  */
-export function KeyboardScroll(props: ScrollViewProps) {
+export function KeyboardScroll(props: ScrollViewProps & { ref?: React.Ref<ScrollView> }) {
   return (
     <KeyboardAvoidingView
       style={styles.grow}

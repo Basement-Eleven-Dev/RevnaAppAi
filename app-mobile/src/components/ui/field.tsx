@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, type TextInputProps } from 'react-native';
 
 import { Bevel } from '@/components/ui/bevel';
-import { Tap } from '@/components/ui/motion';
+import { TextAction } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Brand, Corner, Danger, Family, Ink, Line, smoke, Spacing } from '@/theme';
 
 type Props = TextInputProps & {
   /** Il campo lungo di una nota: cresce in altezza e allinea il testo in alto. */
   multiline?: boolean;
+  /** Per passare il fuoco al campo con «Avanti» dalla tastiera. */
+  ref?: React.Ref<TextInput>;
 };
 
 /**
@@ -60,7 +62,7 @@ export function PasswordField({
   onFocus,
   onBlur,
   ...rest
-}: TextInputProps & { showLabel: string; hideLabel: string }) {
+}: Omit<Props, 'multiline'> & { showLabel: string; hideLabel: string }) {
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -85,11 +87,11 @@ export function PasswordField({
         }}
         {...rest}
       />
-      <Tap onPress={() => setVisible((was) => !was)} hitSlop={10} accessibilityRole="button">
+      <TextAction onPress={() => setVisible((was) => !was)}>
         <Text variant="tab" color={Ink.muted} style={styles.reveal}>
           {visible ? hideLabel : showLabel}
         </Text>
-      </Tap>
+      </TextAction>
     </Bevel>
   );
 }

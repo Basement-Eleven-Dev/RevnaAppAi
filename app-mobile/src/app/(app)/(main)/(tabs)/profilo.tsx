@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRouter, useScrollToTop } from 'expo-router';
+import { useRef, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
 import {
@@ -21,8 +21,8 @@ import {
   ScreenBar,
   SettingsIcon,
   stagger,
-  Tap,
   Text,
+  TextAction,
 } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useClientProfile } from '@/hooks/use-client-profile';
@@ -66,6 +66,8 @@ export default function ProfileScreen() {
   const [askingDiscard, setAskingDiscard] = useState(false);
   const [askingSignOut, setAskingSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const scroller = useRef<ScrollView>(null);
+  useScrollToTop(scroller);
 
   const note = drafted ?? profile?.noteCliente ?? '';
 
@@ -134,7 +136,7 @@ export default function ProfileScreen() {
     <Screen>
       {bar}
 
-      <KeyboardScroll contentContainerStyle={styles.scroll}>
+      <KeyboardScroll ref={scroller} contentContainerStyle={styles.scroll}>
         <Appear>
           <PageHeading
             title={profile?.struttura.nome || t.profilo.titolo}
@@ -157,14 +159,11 @@ export default function ProfileScreen() {
         <Card>
           <View style={styles.noteHead}>
             <BlockLabel>{t.profilo.note.titolo}</BlockLabel>
-            <Tap
-              onPress={toggleNote}
-              hitSlop={8}
-              accessibilityRole="button">
+            <TextAction onPress={toggleNote}>
               <Text variant="service" color={Brand.accent} style={styles.noteAction}>
                 {editingNote ? t.comune.chiudi : t.profilo.note.modifica}
               </Text>
-            </Tap>
+            </TextAction>
           </View>
 
           {editingNote ? (

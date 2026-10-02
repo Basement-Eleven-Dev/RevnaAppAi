@@ -17,6 +17,7 @@ import { it, type Dictionary } from './it';
 
 export type { Dictionary };
 export { errorMessage } from './errors';
+export { formatDate, formatSize, formatTime } from './format';
 
 /** Prima lingua = quella di riferimento, usata anche come ripiego. */
 export const LANGUAGES = ['it', 'en'] as const;

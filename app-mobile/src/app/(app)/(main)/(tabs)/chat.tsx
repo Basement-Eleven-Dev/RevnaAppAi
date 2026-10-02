@@ -32,8 +32,8 @@ import {
   SendIcon,
   stagger,
   StreamCaret,
-  Tap,
   Text,
+  TextAction,
   Tile,
   TypingDots,
 } from '@/components/ui';
@@ -310,11 +310,11 @@ export default function ChatScreen() {
                 })}
               </ErrorNote>
               {canSend && (
-                <Tap onPress={() => submit(draft)} accessibilityRole="button">
+                <TextAction onPress={() => submit(draft)}>
                   <Text variant="service" color={Brand.accent} style={styles.retry}>
                     {t.chat.riprova}
                   </Text>
-                </Tap>
+                </TextAction>
               )}
             </View>
           )}

@@ -16,12 +16,13 @@ import {
   ScreenBar,
   Tap,
   Text,
+  TextAction,
 } from '@/components/ui';
 import { useAnnouncements } from '@/hooks/use-announcements';
 import { useAssistant } from '@/hooks/use-assistant';
 import { useT } from '@/hooks/use-language';
 import { Brand, Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
-import { errorMessage, type Dictionary } from '@/lib/i18n';
+import { errorMessage, formatDate } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 
 /**
@@ -90,18 +91,18 @@ export default function AnnouncementScreen() {
 
         {!announcement && !loading && error === null && (
           <EmptyState text={t.avvisi.ritirato}>
-            <Tap onPress={() => router.replace('/avvisi')} accessibilityRole="button">
+            <TextAction onPress={() => router.replace('/avvisi')}>
               <Text variant="service" color={Brand.accent} style={styles.link}>
                 {t.avvisi.tuttiGliAvvisi}
               </Text>
-            </Tap>
+            </TextAction>
           </EmptyState>
         )}
 
         {announcement && (
           <Appear>
             <Text variant="micro" color={Brand.accent}>
-              {longDate(announcement.inviatoAt, t)}
+              {formatDate(announcement.inviatoAt, t, 'lunga')}
             </Text>
             <Text variant="display" style={styles.title}>
               {announcement.titolo}
@@ -127,16 +128,6 @@ export default function AnnouncementScreen() {
       )}
     </Screen>
   );
-}
-
-function longDate(iso: string, t: Dictionary): string {
-  return iso
-    ? new Date(iso).toLocaleDateString(t.dateLocale, {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '';
 }
 
 const styles = StyleSheet.create({

@@ -27,6 +27,9 @@ const ICONS: Record<string, (props: { color: string }) => React.ReactNode> = {
   profilo: ProfileIcon,
 };
 
+/** Oltre, il contatore allargherebbe la pastiglia fino a coprire l'icona. */
+const MAX_BADGE = 99;
+
 /**
  * La barra delle sezioni, in vetro sul fondo dello schermo.
  *
@@ -71,7 +74,14 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             <Tap
               key={route.key}
               onPress={() => {
-                if (!active) navigation.navigate(route.name);
+                // Il comportamento delle tab di serie: l'evento lo ascolta
+                // `useScrollToTop`, che sulla tab già aperta torna in cima.
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+                if (!active && !event.defaultPrevented) navigation.navigate(route.name);
               }}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
@@ -87,7 +97,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                     <Appear rise={0} style={styles.badge}>
                       <Bevel radius={Corner.badge} fill={Brand.accent} style={styles.badgeFill}>
                         <Text variant="tab" color={Ink.onAccent} style={styles.badgeLabel}>
-                          {badge}
+                          {badge > MAX_BADGE ? `${MAX_BADGE}+` : badge}
                         </Text>
                       </Bevel>
                     </Appear>

@@ -1,4 +1,4 @@
-import type { Dictionary } from '@/lib/i18n';
+import { formatDate, type Dictionary } from '@/lib/i18n';
 
 /**
  * La memoria dell'assistente, dal lato dell'app.
@@ -39,10 +39,7 @@ export const MAX_ENTRY_CHARS = 280;
  * alla conversazione c'è solo se la riga se lo porta dietro.
  */
 export function entryMeta(entry: MemoryEntry, t: Dictionary): string {
-  const date = new Date(entry.at);
-  const quando = Number.isNaN(date.getTime())
-    ? ''
-    : date.toLocaleDateString(t.dateLocale, { day: 'numeric', month: 'long', year: 'numeric' });
+  const quando = formatDate(entry.at, t, 'lunga');
 
   const parts = [t.impostazioni.memoria.imparato(quando)];
 

@@ -6,8 +6,8 @@ import {
   verifyBeforeUpdateEmail,
   type User,
 } from 'firebase/auth';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, View, type TextInput } from 'react-native';
 
 import {
   BackIcon,
@@ -172,6 +172,8 @@ function PasswordCard({ user }: { user: User }) {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
+  const nextField = useRef<TextInput>(null);
+  const repeatField = useRef<TextInput>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState('');
@@ -221,22 +223,31 @@ function PasswordCard({ user }: { user: User }) {
           hideLabel={t.comune.nascondi}
           value={current}
           onChangeText={setCurrent}
+          enterKeyHint="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => nextField.current?.focus()}
         />
         <PasswordField
+          ref={nextField}
           placeholder={t.impostazioni.password.nuova(MIN_PASSWORD)}
           autoComplete="new-password"
           showLabel={t.comune.mostra}
           hideLabel={t.comune.nascondi}
           value={next}
           onChangeText={setNext}
+          enterKeyHint="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => repeatField.current?.focus()}
         />
         <PasswordField
+          ref={repeatField}
           placeholder={t.impostazioni.password.ripeti}
           autoComplete="new-password"
           showLabel={t.comune.mostra}
           hideLabel={t.comune.nascondi}
           value={repeat}
           onChangeText={setRepeat}
+          enterKeyHint="go"
           onSubmitEditing={submit}
         />
 
@@ -267,6 +278,7 @@ function EmailCard({ user }: { user: User }) {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const passwordField = useRef<TextInput>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState('');
@@ -316,14 +328,19 @@ function EmailCard({ user }: { user: User }) {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          enterKeyHint="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => passwordField.current?.focus()}
         />
         <PasswordField
+          ref={passwordField}
           placeholder={t.impostazioni.emailAccesso.conferma}
           autoComplete="current-password"
           showLabel={t.comune.mostra}
           hideLabel={t.comune.nascondi}
           value={password}
           onChangeText={setPassword}
+          enterKeyHint="go"
           onSubmitEditing={submit}
         />
 

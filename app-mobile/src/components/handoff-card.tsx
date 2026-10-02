@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { AccentCard, Appear, BlockLabel, Button, Text } from '@/components/ui';
+import { AccentCard, Appear, BlockLabel, Button, Text, TextAction } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
 import { Brand, Ink, Spacing } from '@/theme';
 
@@ -66,9 +66,13 @@ export function HandoffSent({ onGoToRequests }: { onGoToRequests: () => void }) 
     <Appear>
       <AccentCard style={styles.card}>
         <BlockLabel color={Brand.accent}>{t.richieste.inviata}</BlockLabel>
-        <Text variant="service" color={Ink.body} onPress={onGoToRequests} style={styles.link}>
-          {t.richieste.trovaInSezione}
-        </Text>
+        <View style={styles.link}>
+          <TextAction onPress={onGoToRequests} accessibilityRole="link">
+            <Text variant="service" color={Ink.body} style={styles.linkLabel}>
+              {t.richieste.trovaInSezione}
+            </Text>
+          </TextAction>
+        </View>
       </AccentCard>
     </Appear>
   );
@@ -80,5 +84,6 @@ const styles = StyleSheet.create({
   quote: { fontSize: 13.5, lineHeight: 21, marginTop: Spacing.xs + 1 },
   actions: { flexDirection: 'row', gap: Spacing.sm + 1, marginTop: Spacing.md + 2 },
   note: { lineHeight: 16, marginTop: Spacing.md - 1 },
-  link: { textDecorationLine: 'underline', marginTop: Spacing.xs + 1 },
+  link: { marginTop: Spacing.xs + 1 },
+  linkLabel: { textDecorationLine: 'underline' },
 });

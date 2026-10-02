@@ -4,8 +4,8 @@ import {
   signInWithEmailAndPassword,
   verifyPasswordResetCode,
 } from 'firebase/auth';
-import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, View, type TextInput } from 'react-native';
 
 import { Wordmark } from '@/components/brand/wordmark';
 import { LegalLinks } from '@/components/legal-links';
@@ -18,6 +18,7 @@ import {
   PasswordField,
   ScreenBar,
   Text,
+  TextAction,
 } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
 import { MIN_PASSWORD } from '@/lib/auth';
@@ -66,6 +67,7 @@ function ActivationForm({ linkCode, linkReset }: { linkCode: string; linkReset: 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const confirmationField = useRef<TextInput>(null);
   const [verifying, setVerifying] = useState(linkCode !== '');
   const [busy, setBusy] = useState(false);
   const [passwordSet, setPasswordSet] = useState(false);
@@ -188,6 +190,7 @@ function ActivationForm({ linkCode, linkReset }: { linkCode: string; linkReset: 
                   autoCorrect={false}
                   value={pasted}
                   onChangeText={setPasted}
+                  enterKeyHint="go"
                   onSubmitEditing={verifyPastedCode}
                 />
                 <Button
@@ -207,14 +210,19 @@ function ActivationForm({ linkCode, linkReset }: { linkCode: string; linkReset: 
                   hideLabel={t.comune.nascondi}
                   value={password}
                   onChangeText={setPassword}
+                  enterKeyHint="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => confirmationField.current?.focus()}
                 />
                 <PasswordField
+                  ref={confirmationField}
                   placeholder={t.attivazione.ripetiPassword}
                   autoComplete="new-password"
                   showLabel={t.comune.mostra}
                   hideLabel={t.comune.nascondi}
                   value={confirmation}
                   onChangeText={setConfirmation}
+                  enterKeyHint="go"
                   onSubmitEditing={activate}
                 />
                 <Button
@@ -234,18 +242,26 @@ function ActivationForm({ linkCode, linkReset }: { linkCode: string; linkReset: 
         {/* Un link di recupero che non vale più si rimedia da soli, chiedendone
             un altro: quello di attivazione no, lo rimanda il referente. */}
         {isReset && !email && !verifying && !passwordSet && (
-          <Link href="/recupera" style={styles.back}>
-            <Text variant="service" color={Brand.accent} style={styles.backLabel}>
-              {t.attivazione.reset.chiediNuovo}
-            </Text>
-          </Link>
+          <View style={styles.back}>
+            <Link href="/recupera" asChild>
+              <TextAction accessibilityRole="link">
+                <Text variant="service" color={Brand.accent} style={styles.backLabel}>
+                  {t.attivazione.reset.chiediNuovo}
+                </Text>
+              </TextAction>
+            </Link>
+          </View>
         )}
 
-        <Link href="/login" dismissTo style={styles.back}>
-          <Text variant="service" color={Ink.secondary} style={styles.backLabel}>
-            {t.comune.tornaAllAccesso}
-          </Text>
-        </Link>
+        <View style={styles.back}>
+          <Link href="/login" dismissTo asChild>
+            <TextAction accessibilityRole="link">
+              <Text variant="service" color={Ink.secondary} style={styles.backLabel}>
+                {t.comune.tornaAllAccesso}
+              </Text>
+            </TextAction>
+          </Link>
+        </View>
 
         <LegalLinks nota={!isReset} />
       </View>

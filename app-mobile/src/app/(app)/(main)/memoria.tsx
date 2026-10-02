@@ -14,8 +14,8 @@ import {
   Loading,
   Screen,
   ScreenBar,
-  Tap,
   Text,
+  TextAction,
 } from '@/components/ui';
 import { useLanguage } from '@/hooks/use-language';
 import { useMemory } from '@/hooks/use-memory';
@@ -221,11 +221,11 @@ function EntryAction({
   onPress: () => void;
 }) {
   return (
-    <Tap onPress={onPress} hitSlop={8} accessibilityRole="button">
+    <TextAction onPress={onPress}>
       <Text variant="tab" color={tone ?? Ink.muted} style={styles.entryActionLabel}>
         {label}
       </Text>
-    </Tap>
+    </TextAction>
   );
 }
 

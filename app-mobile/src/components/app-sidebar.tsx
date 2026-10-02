@@ -24,7 +24,7 @@ import { useAssistant } from '@/hooks/use-assistant';
 import { useAuth } from '@/hooks/use-auth';
 import { useConversations, whenLabel, type ConversationSummary } from '@/hooks/use-conversations';
 import { useT } from '@/hooks/use-language';
-import { Brand, Corner, Gutter, Ink, Line, Spacing, Surface } from '@/theme';
+import { Brand, Corner, Gutter, Ink, Line, Spacing, Surface, TouchTarget } from '@/theme';
 import { errorMessage, type Dictionary } from '@/lib/i18n';
 
 /** Larghezza massima del pannello; su schermi stretti si adatta (vedi il layout). */
@@ -274,12 +274,11 @@ const styles = StyleSheet.create({
   note: { padding: Spacing.md },
   hint: { padding: Spacing.md, lineHeight: 16 },
   footer: {
-    gap: Spacing.md,
     paddingHorizontal: Gutter,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: Line.hairline,
   },
-  footerLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  account: { paddingTop: Spacing.xs },
+  footerLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, minHeight: TouchTarget },
+  account: { paddingTop: Spacing.sm },
 });

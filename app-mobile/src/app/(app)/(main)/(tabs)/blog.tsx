@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useScrollToTop } from 'expo-router';
+import { useRef, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
@@ -15,12 +16,13 @@ import {
   ScreenBar,
   Tap,
   Text,
+  TextAction,
 } from '@/components/ui';
 import { useBlog } from '@/hooks/use-blog';
 import { useT } from '@/hooks/use-language';
 import { BLOG_WEB_URL, type BlogPost } from '@/lib/blog';
 import { Brand, Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
-import { errorMessage, type Dictionary } from '@/lib/i18n';
+import { errorMessage, formatDate, type Dictionary } from '@/lib/i18n';
 import { openExternal } from '@/lib/open-external';
 
 /**
@@ -38,6 +40,8 @@ export default function BlogScreen() {
   const { posts, loading, refreshing, loadingMore, error, refresh, loadMore, retry } = useBlog();
   const [opening, setOpening] = useState(0);
   const [openError, setOpenError] = useState('');
+  const list = useRef<FlatList<BlogPost>>(null);
+  useScrollToTop(list);
 
   async function open(url: string, id: number) {
     setOpening(id);
@@ -69,13 +73,13 @@ export default function BlogScreen() {
     <EmptyState
       icon={<BlogIcon color={Ink.faint} size={32} />}
       text={error !== null ? t.blog.errore : t.blog.vuoto}>
-      <Tap
+      <TextAction
         onPress={() => (error !== null ? retry() : void openExternal(BLOG_WEB_URL))}
-        accessibilityRole="button">
+        accessibilityRole={error !== null ? 'button' : 'link'}>
         <Text variant="service" color={Brand.accent} style={styles.strong}>
           {error !== null ? t.blog.riprova : t.blog.archivio}
         </Text>
-      </Tap>
+      </TextAction>
     </EmptyState>
   );
 
@@ -84,6 +88,7 @@ export default function BlogScreen() {
       <ScreenBar left={<MenuButton />} />
 
       <FlatList
+        ref={list}
         data={posts}
         keyExtractor={(post) => String(post.id)}
         contentContainerStyle={styles.list}
@@ -159,7 +164,7 @@ function PostCard({
           )}
 
           <View style={styles.body}>
-            <Text variant="micro">{longDate(post.date, t)}</Text>
+            <Text variant="micro">{formatDate(post.date, t, 'lunga')}</Text>
             <Text variant="section" numberOfLines={3} style={styles.title}>
               {post.title}
             </Text>
@@ -176,16 +181,6 @@ function PostCard({
       </Tap>
     </Appear>
   );
-}
-
-function longDate(iso: string, t: Dictionary): string {
-  return iso
-    ? new Date(iso).toLocaleDateString(t.dateLocale, {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      })
-    : '';
 }
 
 const styles = StyleSheet.create({

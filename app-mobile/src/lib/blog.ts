@@ -31,7 +31,7 @@ export type BlogPost = {
   title: string;
   /** Estratto ripulito dall'HTML. Vuoto se il post non ne ha uno. */
   excerpt: string;
-  /** Data di pubblicazione in ISO, per `toLocaleDateString`. */
+  /** Data di pubblicazione in ISO, per `formatDate`. */
   date: string;
   /** Permalink sul sito: è quello che si apre nel browser. */
   url: string;
