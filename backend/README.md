@@ -45,6 +45,7 @@ Le function callable, tutte in `europe-west1`:
 | `updateClient` | Rinomina, disattiva/riattiva e revoca le sessioni | deployata |
 | `saveClientProfile` | Salva il profilo struttura redatto da Revna | deployata |
 | `deleteConversation` | Elimina una conversazione del cliente | deployata |
+| `dismissProposal` | «No grazie» sulla proposta di contatto di un turno | da deployare |
 | `clearMemory` | Cancella tutta la memoria dell'assistente su chi chiama | da deployare |
 | `createContactRequest` | Apre una richiesta di contatto del cliente | da deployare |
 | `updateContactRequest` | Cambia lo stato di una richiesta (solo referenti Revna) | da deployare |
@@ -481,9 +482,24 @@ che spetta a una persona, chiude la risposta con un marcatore
 marcatore non arriva mai al cliente, e la proposta torna nel campo `proposal` della
 risposta e sul turno salvato. Nell'app diventa un bottone sotto quella risposta, e il
 testo passa da un campo modificabile e da una conferma esplicita — l'assistente propone
-le parole, chi firma la richiesta è il cliente. Il marcatore aperto e non chiuso vale
-come chiuso: succede quando la risposta viene troncata, e buttare via la proposta per
-tre segni maggiore costerebbe al cliente l'unica cosa utile di quella risposta.
+le parole, chi firma la richiesta è il cliente. Il marcatore si riconosce anche con
+spazi e maiuscole diverse; ogni blocco `<<<…` sparisce dal testo e, se sono più d'uno,
+vale la prima proposta. Il marcatore aperto e non chiuso vale come chiuso: succede
+quando la risposta viene troncata, e buttare via la proposta per tre segni maggiore
+costerebbe al cliente l'unica cosa utile di quella risposta.
+
+In streaming (`askAssistant` e `previewAssistant`) i pezzi si fermano prima di `<<<`:
+quello che segue non parte mai, e un `<` o `<<` in fondo a un pezzo aspetta il pezzo
+dopo (`visibleSoFar`). La prova dal backoffice riceve `proposal` come l'app.
+
+Cosa il cliente ne ha fatto sta sul turno, in `proposalStato`: `inviata` o `scartata`.
+Il turno si indica con la sua ora (`at`, restituita da `askAssistant`), non con la
+posizione, che fra app e server può non coincidere. `createContactRequest` riceve
+`turnAt` e segna `inviata` nella stessa transazione in cui crea la richiesta: una
+proposta già inviata risponde `already-exists`, e la stessa richiesta non parte due
+volte. «No grazie» passa da `dismissProposal`, perché le regole non sanno aprire in
+scrittura un solo campo di un elemento di `messages`; una proposta scartata si può
+ancora inviare, una inviata resta inviata.
 
 Le richieste stanno in `contactRequests`, collezione di **primo livello** e non
 sottocollezione dell'utente come documenti e conversazioni: quelle si guardano un

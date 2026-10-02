@@ -41,17 +41,3 @@ export const MAX_MESSAGE_CHARS = 2000;
 export function toStato(value: unknown): Stato {
   return STATI.includes(value as Stato) ? (value as Stato) : 'inviata';
 }
-
-/**
- * Toglie dal testo in arrivo il marcatore con cui l'assistente propone una richiesta.
- *
- * Serve solo durante lo streaming: la risposta finale arriva dal server già pulita
- * (vedi `extractContactProposal` in `backend/functions/src/agent.ts`), ma i pezzi
- * mentre il modello scrive no, e il marcatore non deve comparire nemmeno per un
- * istante. Si taglia al primo `<<` invece di cercare il marcatore intero perché
- * mentre arriva è incompleto — e `<<` in una risposta di consulenza non capita.
- */
-export function stripHandoff(text: string): string {
-  const cut = text.indexOf('<<');
-  return (cut === -1 ? text : text.slice(0, cut)).trimEnd();
-}

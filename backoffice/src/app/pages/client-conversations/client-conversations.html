@@ -84,6 +84,13 @@
                   }
                 </ul>
               }
+
+              @if (turn.proposal) {
+                <div class="proposta">
+                  <span class="etichetta">Proposta di ricontatto · {{ esitoProposta(turn) }}</span>
+                  <p>«{{ turn.proposal }}»</p>
+                </div>
+              }
             </article>
           }
         </section>

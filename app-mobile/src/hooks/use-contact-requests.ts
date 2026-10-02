@@ -77,13 +77,24 @@ export function useContactRequests() {
 export async function createContactRequest(input: {
   messaggio: string;
   conversationId?: string;
+  /** L'ora del turno che l'ha proposta: il server la segna come inviata. */
+  turnAt?: string;
 }): Promise<string> {
-  const call = httpsCallable<{ messaggio: string; conversationId?: string }, { id: string }>(
+  const call = httpsCallable<typeof input, { id: string }>(
     getFirebaseFunctions(),
     'createContactRequest'
   );
   const { data } = await call(input);
   return data.id;
+}
+
+/** «No grazie» sulla proposta del turno scritto in `at`: resta chiusa anche riaprendo la chat. */
+export async function dismissProposal(input: { conversationId: string; at: string }) {
+  const call = httpsCallable<typeof input, { ok: true }>(
+    getFirebaseFunctions(),
+    'dismissProposal'
+  );
+  await call(input);
 }
 
 function toRequest(id: string, data: DocumentData): ContactRequest {

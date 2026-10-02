@@ -375,6 +375,12 @@ td.buttons > div {
   color: var(--text-muted);
 }
 
+.proposta {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 .fonte {
   display: flex;
   gap: 8px;

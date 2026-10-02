@@ -214,6 +214,25 @@ h2 {
   font-size: 13px;
 }
 
+.proposta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.proposta p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.proposta .etichetta {
+  color: var(--brand);
+  font-weight: 600;
+}
+
 .error {
   margin: 0;
   color: var(--danger);

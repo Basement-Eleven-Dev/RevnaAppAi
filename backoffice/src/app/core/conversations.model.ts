@@ -20,9 +20,25 @@ export type Turn = {
   role: 'user' | 'model';
   text: string;
   sources?: Source[];
+  /** La richiesta di contatto che l'assistente ha proposto in questo turno. */
+  proposal?: string;
+  /** Cosa ne ha fatto il cliente; manca finché non ha né inviato né scartato. */
+  proposalStato?: 'inviata' | 'scartata';
   /** Ora del turno, in ISO. Manca sui turni salvati prima che il campo esistesse. */
   at?: string;
 };
+
+/** L'esito di una proposta di contatto, detto come lo legge un consulente. */
+export function esitoProposta(turn: Turn): string {
+  switch (turn.proposalStato) {
+    case 'inviata':
+      return "il cliente l'ha inviata";
+    case 'scartata':
+      return 'il cliente ha risposto «No grazie»';
+    default:
+      return 'il cliente non ha ancora risposto';
+  }
+}
 
 export type Conversation = {
   id: string;

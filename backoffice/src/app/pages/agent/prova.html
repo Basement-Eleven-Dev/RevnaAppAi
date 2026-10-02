@@ -73,6 +73,15 @@
                 }
               </div>
             }
+            @if (turn.proposal) {
+              <div class="fonti">
+                <span class="etichetta">Proposta di ricontatto</span>
+                <p class="proposta">«{{ turn.proposal }}»</p>
+                <p class="hint">
+                  Nell'app il cliente la legge in un riquadro con «Rivedi e invia» e «No grazie».
+                </p>
+              </div>
+            }
           </div>
         }
       }
@@ -109,6 +118,14 @@
         <p class="hint">
           È la parte che conta più della risposta: qui si vede se la voce giusta è entrata in
           contesto, e se l'assistente l'ha usata o l'ha ignorata.
+        </p>
+
+        <p class="hint">
+          @if (ultimaProposta(); as proposta) {
+            <strong>Ha proposto di far ricontattare il cliente:</strong> «{{ proposta }}»
+          } @else {
+            Non ha proposto di far ricontattare il cliente.
+          }
         </p>
 
         @if (!d.conoscenza.length) {

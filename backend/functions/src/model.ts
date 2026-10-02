@@ -10,6 +10,7 @@ import {
   selectKnowledge,
   type KnowledgeEntry,
   type Source,
+  visibleSoFar,
 } from './agent';
 import type { StoredTurn } from './conversations';
 import type { MemoryEntry, ToolCall, ToolDeclaration } from './memory';
@@ -221,23 +222,30 @@ export async function respond({
       throw new HttpsError('internal', "L'assistente non è al momento raggiungibile.");
     });
 
+  // Ai pezzi arriva solo il testo prima del marcatore di contatto: la proposta
+  // diventa un bottone a risposta finita, e il marcatore non si vede mai.
   let full = '';
+  let shown = 0;
   for await (const piece of stream) {
     const chunk = piece.text;
     if (!chunk) continue;
     full += chunk;
-    await onChunk?.(chunk);
-  }
-
-  if (!full.trim()) {
-    logger.error('Risposta vuota dal modello');
-    throw new HttpsError('internal', 'Il modello non ha prodotto una risposta.');
+    const visible = visibleSoFar(full);
+    if (visible.length > shown) {
+      await onChunk?.(visible.slice(shown));
+      shown = visible.length;
+    }
   }
 
   // Prima la proposta di contatto, poi le citazioni: il marcatore va tolto dal testo
   // prima di rinumerare, altrimenti le citazioni che stanno dentro la proposta
   // finirebbero nell'elenco delle fonti di una risposta in cui non compaiono.
   const { text: spoken, proposal } = extractContactProposal(full);
+
+  if (!spoken && !proposal) {
+    logger.error('Risposta vuota dal modello');
+    throw new HttpsError('internal', 'Il modello non ha prodotto una risposta.');
+  }
   const { text, sources } = resolveCitations(spoken, selected);
 
   return {

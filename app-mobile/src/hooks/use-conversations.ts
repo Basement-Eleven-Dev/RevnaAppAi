@@ -36,7 +36,13 @@ export type StoredTurn = {
    * la conversazione l'offerta di essere ricontattati deve essere ancora lì.
    */
   proposal?: string;
+  /** Cosa ne ha fatto il cliente: la scrive il server, e la card resta chiusa. */
+  proposalStato?: ProposalStato;
+  /** Quando il turno è stato scritto, in ISO: è con questa che si indica la proposta. */
+  at?: string;
 };
+
+export type ProposalStato = 'inviata' | 'scartata';
 
 export type ConversationSummary = {
   id: string;

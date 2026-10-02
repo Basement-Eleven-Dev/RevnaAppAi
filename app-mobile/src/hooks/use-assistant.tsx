@@ -1,8 +1,12 @@
 import { httpsCallable } from 'firebase/functions';
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 
-import type { ConversationSummary, Source, StoredTurn } from '@/hooks/use-conversations';
-import { stripHandoff } from '@/lib/contact-requests';
+import type {
+  ConversationSummary,
+  ProposalStato,
+  Source,
+  StoredTurn,
+} from '@/hooks/use-conversations';
 import { getFirebaseFunctions, supportsStreaming } from '@/lib/firebase';
 
 export type Turn = StoredTurn;
@@ -15,6 +19,8 @@ type Response = {
   sources: Source[];
   /** Il testo della richiesta di contatto proposta, quando l'assistente passa la mano. */
   proposal?: string;
+  /** L'ora del turno salvato. */
+  at: string;
 };
 type Chunk = { text: string };
 
@@ -111,18 +117,19 @@ function useAssistantState() {
       const payload: Request = { message: text, conversationId };
       // Durante lo streaming le fonti non ci sono ancora: arrivano con la risposta
       // finale, insieme al testo con i marcatori rinumerati. La proposta di contatto
-      // nemmeno: mentre il modello scrive il suo marcatore viene tagliato via
-      // (`stripHandoff`), e la proposta compare come bottone solo alla fine.
-      const show = (answer: string, sources?: Source[], proposal?: string) => {
+      // nemmeno: il server trattiene il suo marcatore, e la proposta compare come
+      // bottone solo alla fine.
+      const show = (answer: string, final?: Response) => {
         if (!current()) return;
         setTurns([
           ...history,
-          { role: 'user', text },
+          { role: 'user', text, ...(final ? { at: final.at } : {}) },
           {
             role: 'model',
             text: answer,
-            ...(sources?.length ? { sources } : {}),
-            ...(proposal ? { proposal } : {}),
+            ...(final?.sources.length ? { sources: final.sources } : {}),
+            ...(final?.proposal ? { proposal: final.proposal } : {}),
+            ...(final ? { at: final.at } : {}),
           },
         ]);
       };
@@ -145,7 +152,7 @@ function useAssistantState() {
             if (!chunk.text || !current()) continue;
             answer += chunk.text;
             setWaiting(false);
-            show(stripHandoff(answer));
+            show(answer);
           }
 
           // `data` porta il testo completo e l'id: è la fonte autorevole se lo
@@ -156,7 +163,7 @@ function useAssistantState() {
         }
 
         if (!current()) return true;
-        show(final.text, final.sources, final.proposal);
+        show(final.text, final);
         setConversationId(final.conversationId);
         if (final.title) setTitle(final.title);
         return true;
@@ -176,6 +183,18 @@ function useAssistantState() {
     },
     [busy, conversationId, turns]
   );
+
+  /**
+   * Segna a schermo cosa il cliente ha fatto della proposta del turno scritto in
+   * `at`. Il server l'ha già salvato: qui si evita solo di aspettare l'elenco live.
+   */
+  const settleProposal = useCallback((at: string, stato: ProposalStato | undefined) => {
+    setTurns((now) =>
+      now.map((turn) =>
+        turn.role === 'model' && turn.at === at ? { ...turn, proposalStato: stato } : turn
+      )
+    );
+  }, []);
 
   /** Lascia andare la risposta in arrivo, se ce n'è una: la schermata cambia chat. */
   const leave = useCallback(() => {
@@ -238,5 +257,6 @@ function useAssistantState() {
     startNew,
     prefill,
     takePending,
+    settleProposal,
   };
 }

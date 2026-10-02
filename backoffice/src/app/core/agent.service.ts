@@ -314,7 +314,13 @@ function hydrate(id: string, data: Record<string, unknown>): KnowledgeEntry {
 
 export type PreviewSource = { n: number; titolo: string };
 
-export type PreviewTurn = { role: 'user' | 'model'; text: string; sources?: PreviewSource[] };
+export type PreviewTurn = {
+  role: 'user' | 'model';
+  text: string;
+  sources?: PreviewSource[];
+  /** La richiesta di contatto che il cliente vedrebbe proporsi nell'app. */
+  proposal?: string;
+};
 
 export type PreviewRequest = { uid: string; message: string; history?: PreviewTurn[] };
 
@@ -329,5 +335,6 @@ export type PreviewDiagnostics = {
 export type PreviewResponse = {
   text: string;
   sources: PreviewSource[];
+  proposal?: string;
   diagnostics: PreviewDiagnostics;
 };

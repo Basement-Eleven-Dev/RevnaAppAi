@@ -6,6 +6,7 @@ import {
   FULL_CONTEXT_BUDGET_CHARS,
   resolveCitations,
   selectKnowledge,
+  visibleSoFar,
   type KnowledgeEntry,
 } from './agent';
 
@@ -108,4 +109,59 @@ test('la proposta di contatto perde anche le citazioni a tre cifre', () => {
 
   assert.equal(text, 'Serve un consulente [104].');
   assert.equal(proposal, 'Vorrei un parere sul contratto');
+});
+
+test('il marcatore si riconosce con spazi e maiuscole diverse', () => {
+  for (const marker of ['<<<CONTATTO:', '<<< contatto :', '<<<Contatto', '<<<CONTACT:']) {
+    const { text, proposal } = extractContactProposal(
+      `Non è il mio campo.\n${marker} Vorrei un consulente. >>>`,
+    );
+    assert.equal(text, 'Non è il mio campo.', marker);
+    assert.equal(proposal, 'Vorrei un consulente.', marker);
+  }
+});
+
+test('con più marcatori vale la prima proposta e vanno via tutti', () => {
+  const { text, proposal } = extractContactProposal(
+    'Prima.\n<<<CONTATTO: Uno >>>\nIn mezzo.\n<<<CONTATTO: Due >>>',
+  );
+
+  assert.equal(text, 'Prima.\n\nIn mezzo.');
+  assert.equal(proposal, 'Uno');
+});
+
+test('il marcatore troncato vale come chiuso', () => {
+  const { text, proposal } = extractContactProposal(
+    'Ti faccio richiamare.\n<<<CONTATTO: Vorrei un parere sul',
+  );
+
+  assert.equal(text, 'Ti faccio richiamare.');
+  assert.equal(proposal, 'Vorrei un parere sul');
+});
+
+test('una risposta fatta solo di marcatore lascia il testo vuoto', () => {
+  assert.deepEqual(extractContactProposal('<<<CONTATTO: Richiamatemi >>>'), {
+    text: '',
+    proposal: 'Richiamatemi',
+  });
+});
+
+test('un blocco <<< che non è una proposta sparisce senza proporre niente', () => {
+  assert.deepEqual(extractContactProposal('Risposta. <<<qualcosa>>>'), { text: 'Risposta.' });
+});
+
+test('la proposta non tiene lo spazio lasciato da una citazione prima del punto', () => {
+  const { proposal } = extractContactProposal(
+    'Ok.\n<<<CONTATTO: «Vorrei rivedere il contratto [3].» >>>',
+  );
+  assert.equal(proposal, 'Vorrei rivedere il contratto.');
+});
+
+test('in streaming il marcatore non esce nemmeno spezzato fra due pezzi', () => {
+  assert.equal(visibleSoFar('Risposta.'), 'Risposta.');
+  assert.equal(visibleSoFar('Risposta.\n<'), 'Risposta.\n');
+  assert.equal(visibleSoFar('Risposta.\n<<'), 'Risposta.\n');
+  assert.equal(visibleSoFar('Risposta.\n<<<CONT'), 'Risposta.\n');
+  assert.equal(visibleSoFar('Risposta.\n<<<CONTATTO: x >>> dopo'), 'Risposta.\n');
+  assert.equal(visibleSoFar('a < b'), 'a < b');
 });

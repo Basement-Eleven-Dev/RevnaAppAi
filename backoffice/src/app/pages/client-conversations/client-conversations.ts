@@ -5,6 +5,7 @@ import { ClientsService } from '../../core/clients.service';
 import {
   byDay,
   domande,
+  esitoProposta,
   formatDate,
   formatDateTime,
   formatTime,
@@ -37,6 +38,7 @@ export class ClientConversations {
   protected readonly formatDateTime = formatDateTime;
   protected readonly formatTime = formatTime;
   protected readonly domande = domande;
+  protected readonly esitoProposta = esitoProposta;
 
   protected readonly list = signal<Conversation[]>([]);
   protected readonly loading = signal(true);

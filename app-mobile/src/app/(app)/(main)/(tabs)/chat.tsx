@@ -36,7 +36,7 @@ import {
 } from '@/components/ui';
 import { useAssistant } from '@/hooks/use-assistant';
 import { useClientProfile } from '@/hooks/use-client-profile';
-import { createContactRequest } from '@/hooks/use-contact-requests';
+import { createContactRequest, dismissProposal } from '@/hooks/use-contact-requests';
 import { MAX_MESSAGE_CHARS } from '@/hooks/use-conversations';
 import { useT } from '@/hooks/use-language';
 import { useStarters } from '@/hooks/use-starters';
@@ -62,21 +62,29 @@ export default function ChatScreen() {
   const t = useT();
   const { profile } = useClientProfile();
   const router = useRouter();
-  const { conversationId, title, turns, busy, waiting, error, pending, send, startNew, takePending } =
-    useAssistant();
+  const {
+    conversationId,
+    title,
+    turns,
+    busy,
+    waiting,
+    error,
+    pending,
+    send,
+    startNew,
+    takePending,
+    settleProposal,
+  } = useAssistant();
   // Gli spunti arrivano dal backoffice: sono parte della personalità dell'assistente,
   // non una costante dell'app.
   const spunti = useStarters();
   const [typed, setTyped] = useState('');
-  /** Il turno di cui si sta confermando la richiesta di contatto, se ce n'è uno. */
-  const [proposing, setProposing] = useState<{ key: string; text: string } | null>(null);
   /**
-   * I turni da cui una richiesta è già partita, o che sono stati messi da parte con
-   * «No grazie». Vive quanto la schermata: a richiesta inviata la traccia sta nella
-   * sezione «Richieste», che è il posto dove ha senso cercarla.
+   * Il turno di cui si sta confermando la richiesta di contatto, se ce n'è uno,
+   * indicato dalla sua ora. Cosa ne è stato di ogni proposta invece sta sul turno
+   * (`proposalStato`): la salva il server, e la card resta chiusa riaprendo la chat.
    */
-  const [sent, setSent] = useState<Record<string, boolean>>({});
-  const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
+  const [proposing, setProposing] = useState<{ at: string; text: string } | null>(null);
   const scroller = useRef<ScrollView>(null);
 
   const struttura = profile?.struttura.nome ?? t.chat.strutturaSconosciuta;
@@ -97,6 +105,17 @@ export default function ChatScreen() {
   function edit(next: string) {
     if (pending !== '') takePending();
     setTyped(next);
+  }
+
+  /**
+   * «No grazie» chiude subito la card: è una risposta che non si aspetta. Se il
+   * server non l'ha salvata la card torna, invece di ricomparire a sorpresa
+   * riaprendo la conversazione.
+   */
+  function dismiss(at: string) {
+    if (!conversationId) return;
+    settleProposal(at, 'scartata');
+    dismissProposal({ conversationId, at }).catch(() => settleProposal(at, undefined));
   }
 
   function submit(text: string) {
@@ -185,7 +204,7 @@ export default function ChatScreen() {
             }
 
             const streaming = busy && index === turns.length - 1;
-            const key = proposalKey(conversationId, index);
+            const at = turn.at;
 
             return (
               <Appear key={index} style={styles.answer}>
@@ -195,14 +214,15 @@ export default function ChatScreen() {
                 {turn.sources !== undefined && <Sources sources={turn.sources} />}
 
                 {turn.proposal !== undefined &&
+                  at !== undefined &&
                   !streaming &&
-                  (sent[key] === true ? (
+                  (turn.proposalStato === 'inviata' ? (
                     <HandoffSent onGoToRequests={() => router.navigate('/richieste')} />
-                  ) : dismissed[key] === true ? null : (
+                  ) : turn.proposalStato === 'scartata' ? null : (
                     <HandoffCard
                       proposal={turn.proposal}
-                      onReview={() => setProposing({ key, text: turn.proposal ?? '' })}
-                      onDismiss={() => setDismissed((already) => ({ ...already, [key]: true }))}
+                      onReview={() => setProposing({ at, text: turn.proposal ?? '' })}
+                      onDismiss={() => dismiss(at)}
                     />
                   ))}
               </Appear>
@@ -265,32 +285,30 @@ export default function ChatScreen() {
       <ContactRequestModal
         // La modale riparte dalla proposta di questo turno e non da quella di prima:
         // la `key` la rimonta quando il turno cambia (vedi `ContactRequestModal`).
-        key={proposing?.key ?? 'nessuna'}
+        key={proposing?.at ?? 'nessuna'}
         visible={proposing !== null}
         draft={proposing?.text}
         onClose={() => setProposing(null)}
         onConfirm={async (messaggio) => {
+          if (!proposing) return;
           // La conversazione viaggia con la richiesta: chi la prende in mano dal
           // backoffice deve poter leggere come si è arrivati fin qui.
-          await createContactRequest({
-            messaggio,
-            ...(conversationId ? { conversationId } : {}),
-          });
-          if (proposing) setSent((already) => ({ ...already, [proposing.key]: true }));
+          try {
+            await createContactRequest({
+              messaggio,
+              ...(conversationId ? { conversationId, turnAt: proposing.at } : {}),
+            });
+          } catch (cause) {
+            // Già partita, da qui o da un altro telefono: non è un errore da mostrare,
+            // è la card che era rimasta indietro.
+            if ((cause as { code?: string }).code !== 'functions/already-exists') throw cause;
+          }
+          settleProposal(proposing.at, 'inviata');
           setProposing(null);
         }}
       />
     </Screen>
   );
-}
-
-/**
- * La chiave con cui ricordare cosa è già stato fatto con la proposta di un turno.
- * Porta dentro la conversazione: cambiando chat gli indici ripartono, e senza
- * l'id il turno 3 di una sarebbe il turno 3 dell'altra.
- */
-function proposalKey(conversationId: string | undefined, index: number): string {
-  return `${conversationId ?? 'nuova'}:${index}`;
 }
 
 const styles = StyleSheet.create({

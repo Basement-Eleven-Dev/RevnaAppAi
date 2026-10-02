@@ -431,12 +431,16 @@ Sotto quella risposta nasce la card «Ti faccio richiamare» (`components/handof
 che mostra **già lì** il testo proposto: chi sta per firmare una richiesta deve sapere cosa
 c'è scritto. «Rivedi e invia» apre il foglio in cui correggerlo e chiede conferma
 esplicita; «No grazie» mette la card da parte. L'assistente propone le parole, quelle che
-partono sono quelle che il cliente ha letto e voluto. Insieme alla richiesta viaggia l'id
-della conversazione, così dal backoffice si legge come si è arrivati fin lì.
+partono sono quelle che il cliente ha letto e voluto. Insieme alla richiesta viaggiano
+l'id della conversazione, così dal backoffice si legge come si è arrivati fin lì, e
+l'ora del turno, con cui il server segna la proposta.
 
-Il marcatore con cui il modello segnala la proposta non deve comparire mai, nemmeno per
-un istante: la risposta finale arriva dal server già pulita, e durante lo streaming
-`stripHandoff` taglia il testo al primo `<<`.
+Inviata o scartata, l'esito lo salva il server sul turno (`proposalStato`): riaprendo la
+conversazione la card resta chiusa, o mostra che la richiesta è partita, e la stessa
+proposta non si invia due volte.
+
+Il marcatore con cui il modello segnala la proposta non arriva mai all'app, nemmeno
+durante lo streaming: lo trattiene il server.
 
 **Dalla sezione «Richieste».** Non tutto nasce da una domanda all'assistente: a volte si
 vuole parlare con una persona e basta, e quella strada non deve passare per una chat.

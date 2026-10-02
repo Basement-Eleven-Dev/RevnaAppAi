@@ -36,7 +36,13 @@ type Request = {
   history?: StoredTurn[];
 };
 
-type Response = { text: string; sources: Source[]; diagnostics: Diagnostics };
+type Response = {
+  text: string;
+  sources: Source[];
+  /** La richiesta di contatto che il cliente vedrebbe proporsi nell'app. */
+  proposal?: string;
+  diagnostics: Diagnostics;
+};
 type Chunk = { text: string };
 
 /**
@@ -113,6 +119,7 @@ export const previewAssistant = onCall<Request, Promise<Response>, Chunk>(
     return {
       text: answer.text,
       sources: answer.sources,
+      ...(answer.proposal ? { proposal: answer.proposal } : {}),
       diagnostics: {
         conoscenza: answer.selected.map((entry) => ({
           titolo: entry.titolo,

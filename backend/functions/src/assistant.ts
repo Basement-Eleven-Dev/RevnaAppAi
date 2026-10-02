@@ -24,6 +24,8 @@ type Response = {
   sources: Source[];
   /** Il testo della richiesta di contatto proposta, quando l'assistente passa la mano. */
   proposal?: string;
+  /** L'ora del turno salvato: è con questa che l'app indica la proposta che invia o scarta. */
+  at: string;
 };
 /** Pezzo di risposta inviato man mano che il modello la produce. */
 type Chunk = { text: string };
@@ -138,6 +140,7 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
       title,
       sources: answer.sources,
       ...(answer.proposal ? { proposal: answer.proposal } : {}),
+      at: now,
     };
   },
 );

@@ -323,10 +323,9 @@ Come usi il materiale Revna
 /**
  * Il marcatore con cui l'assistente propone una richiesta di contatto.
  *
- * `extractContactProposal` si aspetta esattamente questa forma, quindi le regole che
- * la spiegano al modello stanno nel codice come quelle di citazione e non fra le
- * sezioni modificabili dal backoffice: chi scrive il tono dell'assistente deve poter
- * dire *quando* passare la mano, non *come* dirlo alla macchina.
+ * Le regole che lo spiegano al modello stanno nel codice come quelle di citazione e
+ * non fra le sezioni modificabili dal backoffice: chi scrive il tono dell'assistente
+ * deve poter dire *quando* passare la mano, non *come* dirlo alla macchina.
  */
 const HANDOFF_OPEN = '<<<CONTATTO:';
 const HANDOFF_CLOSE = '>>>';
@@ -349,33 +348,61 @@ Quando devi passare la mano
 `.trim();
 
 /**
+ * Un marcatore com'è scritto davvero, non come lo chiedono le regole: il modello a
+ * volte aggiunge spazi, sbaglia le maiuscole o ne scrive due. Senza `>>>` arriva fino
+ * in fondo: succede quando la risposta viene troncata.
+ */
+const HANDOFF_BLOCK = /<<<([\s\S]*?)(?:>>>|$)/g;
+const HANDOFF_LABEL = /^\s*(?:contatt[oi]|contact)\s*:?/i;
+
+/**
  * Stacca dalla risposta la richiesta di contatto proposta dal modello.
  *
  * Il marcatore non deve arrivare al cliente in nessun caso: quello che il cliente
- * vede è la risposta, e la proposta diventa un bottone. Il caso del marcatore aperto
- * e non chiuso è previsto — succede quando la risposta viene troncata — e vale come
- * se fosse chiuso: buttare via la proposta perché mancano tre segni maggiore
- * costerebbe al cliente l'unica cosa utile di quella risposta.
+ * vede è la risposta, e la proposta diventa un bottone. Per questo va via ogni blocco
+ * `<<<…`, anche quelli che non sono una proposta riconoscibile, e se il modello ne ha
+ * scritte due vale la prima. Il marcatore aperto e non chiuso vale come chiuso:
+ * buttare via la proposta perché mancano tre segni maggiore costerebbe al cliente
+ * l'unica cosa utile di quella risposta.
  */
 export function extractContactProposal(answer: string): { text: string; proposal?: string } {
-  const start = answer.indexOf(HANDOFF_OPEN);
-  if (start === -1) return { text: answer };
+  let proposal = '';
 
-  const rest = answer.slice(start + HANDOFF_OPEN.length);
-  const end = rest.indexOf(HANDOFF_CLOSE);
-
-  const text = (answer.slice(0, start) + (end === -1 ? '' : rest.slice(end + HANDOFF_CLOSE.length)))
-    .trim();
-
-  // Le citazioni dentro la proposta vanno via: là fuori quei numeri non vogliono
-  // dire niente, e il testo lo leggerà un consulente, non l'app.
-  const proposal = (end === -1 ? rest : rest.slice(0, end))
-    .replace(/\[\d+\]/g, '')
-    .replace(/^["'«»]|["'«»]$/g, '')
-    .replace(/\s+/g, ' ')
+  const text = answer
+    .replace(HANDOFF_BLOCK, (_, inner: string) => {
+      const label = HANDOFF_LABEL.exec(inner);
+      if (label && !proposal) proposal = cleanProposal(inner.slice(label[0].length));
+      return '';
+    })
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
   return { text, ...(proposal ? { proposal } : {}) };
+}
+
+/**
+ * Le citazioni dentro la proposta vanno via: là fuori quei numeri non vogliono dire
+ * niente, e il testo lo leggerà un consulente, non l'app. Con loro lo spazio che le
+ * precedeva, se dopo veniva la punteggiatura.
+ */
+function cleanProposal(raw: string): string {
+  return raw
+    .replace(/\[\d+\]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/ ([.,;:!?])/g, '$1')
+    .trim()
+    .replace(/^["'«»]|["'«»]$/g, '')
+    .trim();
+}
+
+/**
+ * Quanto di una risposta ancora in arrivo si può già mostrare: tutto quello che viene
+ * prima del marcatore. Un `<` o `<<` in fondo resta indietro finché il pezzo dopo non
+ * dice se era l'inizio di `<<<`.
+ */
+export function visibleSoFar(partial: string): string {
+  const start = partial.indexOf('<<<');
+  return start === -1 ? partial.replace(/<{1,2}$/, '') : partial.slice(0, start);
 }
 
 /**

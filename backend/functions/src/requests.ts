@@ -2,6 +2,7 @@ import { logger } from 'firebase-functions';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 
 import { db } from './admin';
+import { conversationsOf, settleProposal, type StoredTurn } from './conversations';
 import { idDoc, idDocFacoltativo, requireAdmin, requireClient, stringa } from './guards';
 import { sanitizeProfile } from './profile';
 
@@ -87,6 +88,8 @@ type CreateRequest = {
   messaggio: string;
   /** Presente se la richiesta nasce dalla chat. */
   conversationId?: string;
+  /** L'ora del turno che l'ha proposta, quando nasce da una proposta dell'assistente. */
+  turnAt?: string;
 };
 
 type CreateResponse = { id: string };
@@ -102,6 +105,10 @@ type CreateResponse = { id: string };
  * Il recapito in particolare non si prende dalla richiesta anche se il client lo
  * conosce: sarebbe l'unico dato della coda del backoffice a poter essere scritto da
  * fuori, e un consulente che richiama un numero deve poter fidarsi di quel numero.
+ *
+ * Una richiesta nata da una proposta dell'assistente segna il turno come `inviata`
+ * nella stessa transazione in cui nasce: la seconda volta la proposta risulta già
+ * inviata e la richiesta non parte, anche da due telefoni insieme.
  */
 export const createContactRequest = onCall<CreateRequest, Promise<CreateResponse>>(
   { region: 'europe-west1' },
@@ -110,6 +117,7 @@ export const createContactRequest = onCall<CreateRequest, Promise<CreateResponse
 
     const messaggio = stringa(request.data, 'messaggio');
     const conversationIdChiesto = idDocFacoltativo(request.data, 'conversationId');
+    const turnAt = stringa(request.data, 'turnAt');
     if (!messaggio) {
       throw new HttpsError('invalid-argument', 'La richiesta è vuota.');
     }
@@ -127,25 +135,46 @@ export const createContactRequest = onCall<CreateRequest, Promise<CreateResponse
     // resta «dalla chat» anche se il cliente ha cancellato la conversazione — quello
     // che si perde è il contesto, non la sua provenienza.
     const origine: Origine = conversationIdChiesto ? 'assistente' : 'richieste';
-    const conversationId = await resolveConversation(uid, conversationIdChiesto);
+    const conversationRef = conversationIdChiesto
+      ? conversationsOf(uid).doc(conversationIdChiesto)
+      : undefined;
 
     const document = collectionRef().doc();
 
-    // Conteggio e creazione nella stessa transazione: due richieste partite insieme
-    // vedrebbero altrimenti lo stesso numero di aperte, e il tetto si supererebbe.
+    // Conteggio, proposta e creazione nella stessa transazione: due richieste partite
+    // insieme vedrebbero altrimenti lo stesso numero di aperte, e la stessa proposta
+    // ancora da inviare.
     await db.runTransaction(async (transaction) => {
-      const aperte = await transaction.get(
-        collectionRef()
-          .where('uid', '==', uid)
-          .where('stato', 'in', ['inviata', 'visualizzata'])
-          .limit(MAX_OPEN)
-      );
+      const [aperte, conversation] = await Promise.all([
+        transaction.get(
+          collectionRef()
+            .where('uid', '==', uid)
+            .where('stato', 'in', ['inviata', 'visualizzata'])
+            .limit(MAX_OPEN)
+        ),
+        conversationRef ? transaction.get(conversationRef) : undefined,
+      ]);
 
       if (aperte.size >= MAX_OPEN) {
         throw new HttpsError(
           'resource-exhausted',
           'Hai già diverse richieste aperte: il tuo referente Revna le sta guardando.'
         );
+      }
+
+      const conversationId = conversation?.exists ? conversation.id : undefined;
+
+      // Un turno che non si trova più — conversazione accorciata, proposta sparita —
+      // non ferma la richiesta: il cliente ha chiesto una persona, e la avrà.
+      if (conversation?.exists && turnAt) {
+        const messages = (conversation.data()?.['messages'] as StoredTurn[] | undefined) ?? [];
+        const settled = settleProposal(messages, turnAt, 'inviata');
+        if ('error' in settled && settled.error === 'inviata') {
+          throw new HttpsError('already-exists', 'Questa richiesta è già stata inviata.');
+        }
+        if ('messages' in settled) {
+          transaction.update(conversation.ref, { messages: settled.messages });
+        }
       }
 
       transaction.create(document, {
@@ -211,20 +240,3 @@ export const updateContactRequest = onCall<UpdateRequest, Promise<{ ok: true }>>
     return { ok: true };
   }
 );
-
-/** L'id della conversazione se esiste ed è di questo cliente, altrimenti niente. */
-async function resolveConversation(
-  uid: string,
-  conversationId: string | undefined
-): Promise<string | undefined> {
-  if (!conversationId) return undefined;
-
-  const snapshot = await db
-    .collection('users')
-    .doc(uid)
-    .collection('conversations')
-    .doc(conversationId)
-    .get();
-
-  return snapshot.exists ? conversationId : undefined;
-}

@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   MAX_STORED_BYTES,
   MAX_STORED_TURNS,
+  settleProposal,
   trimHistory,
   type StoredTurn,
 } from './conversations';
@@ -55,4 +56,39 @@ test('lo storico non comincia mai con una risposta', () => {
   const kept = trimHistory(pesanti);
   assert.equal(kept[0].role, 'user');
   assert.ok(bytes(kept) <= MAX_STORED_BYTES);
+});
+
+const withProposal = (proposalStato?: StoredTurn['proposalStato']): StoredTurn[] => [
+  { role: 'user', text: 'domanda', at: 't1' },
+  {
+    role: 'model',
+    text: 'risposta',
+    at: 't1',
+    proposal: 'Richiamatemi',
+    ...(proposalStato ? { proposalStato } : {}),
+  },
+];
+
+test('la proposta si segna sul turno del modello con quell’ora', () => {
+  const settled = settleProposal(withProposal(), 't1', 'inviata');
+
+  assert.ok('messages' in settled);
+  assert.equal(settled.messages[1].proposalStato, 'inviata');
+  assert.equal(settled.messages[0].proposalStato, undefined);
+});
+
+test('una proposta inviata non si invia né si scarta una seconda volta', () => {
+  assert.deepEqual(settleProposal(withProposal('inviata'), 't1', 'inviata'), { error: 'inviata' });
+  assert.deepEqual(settleProposal(withProposal('inviata'), 't1', 'scartata'), { error: 'inviata' });
+});
+
+test('una proposta scartata si può ancora inviare', () => {
+  const settled = settleProposal(withProposal('scartata'), 't1', 'inviata');
+  assert.ok('messages' in settled);
+  assert.equal(settled.messages[1].proposalStato, 'inviata');
+});
+
+test('un turno che non c’è o non propone niente è assente', () => {
+  assert.deepEqual(settleProposal(withProposal(), 't2', 'inviata'), { error: 'assente' });
+  assert.deepEqual(settleProposal(pair('x'), 't1', 'scartata'), { error: 'assente' });
 });

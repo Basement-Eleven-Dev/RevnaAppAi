@@ -1,6 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 
-import { AgentService, type PreviewDiagnostics, type PreviewTurn } from '../../core/agent.service';
+import {
+  AgentService,
+  type PreviewDiagnostics,
+  type PreviewResponse,
+  type PreviewTurn,
+} from '../../core/agent.service';
 import { ClientsService, type Client } from '../../core/clients.service';
 import { renderMarkdown } from './markdown';
 
@@ -44,6 +49,8 @@ export class AgentProva {
   protected readonly loading = signal(true);
 
   protected readonly diagnostics = signal<PreviewDiagnostics | null>(null);
+  /** La proposta di contatto dell'ultima risposta: la diagnostica parla di quella. */
+  protected readonly ultimaProposta = computed(() => this.turns().at(-1)?.proposal);
   protected readonly mostraPrompt = signal(false);
 
   constructor() {
@@ -108,11 +115,16 @@ export class AgentProva {
     this.busy.set(true);
     this.error.set('');
 
-    const show = (answer: string, sources?: PreviewTurn['sources']) =>
+    const show = (answer: string, final?: PreviewResponse) =>
       this.turns.set([
         ...history,
         { role: 'user', text: question },
-        { role: 'model', text: answer, ...(sources?.length ? { sources } : {}) },
+        {
+          role: 'model',
+          text: answer,
+          ...(final?.sources.length ? { sources: final.sources } : {}),
+          ...(final?.proposal ? { proposal: final.proposal } : {}),
+        },
       ]);
 
     try {
@@ -124,7 +136,7 @@ export class AgentProva {
           show(streamed);
         },
       );
-      show(answer.text, answer.sources);
+      show(answer.text, answer);
       this.diagnostics.set(answer.diagnostics);
     } catch (cause) {
       this.error.set(message(cause));
