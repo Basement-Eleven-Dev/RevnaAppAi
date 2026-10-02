@@ -276,7 +276,18 @@ C'è un dettaglio non ovvio dietro: il `fetch` di React Native non espone
 In `src/lib/firebase/index.ts` sostituiamo il `fetchImpl` interno del SDK con quello di
 `expo/fetch`, che espone un vero `ReadableStream`. Non è API pubblica, perciò è protetto:
 se dovesse sparire, `supportsStreaming()` torna false e la chat ripiega sulla risposta
-unica. Stesso ripiego se lo streaming fallisce prima di aver prodotto qualcosa.
+unica. Uno streaming fallito invece non si ritenta: l'SDK dà lo stesso `internal` a un
+errore del server e a una connessione caduta, e la domanda potrebbe essere già arrivata —
+rifarla salverebbe due volte lo stesso turno.
+
+Ogni invio ha un suo numero (`generation` in `hooks/use-assistant.tsx`). Aprire un'altra
+conversazione, iniziarne una nuova o cancellare quella in corso mentre il modello scrive
+non ferma la richiesta: il server finisce e salva il turno nella sua conversazione (una
+conversazione cancellata non rinasce), ma la schermata scarta i pezzi che arrivano e
+mostra la chat nuova pulita. Il composer resta scrivibile, si blocca solo l'invio.
+
+Se la risposta non arriva, il turno sparisce, la domanda torna nel composer (a meno che
+nel frattempo il cliente non abbia scritto altro) e sotto l'errore compare «Riprova».
 
 A conversazione vuota il monogramma fa da segno d'attesa — grande e con l'alone — e gli
 spunti sono **tessere a piena larghezza**: si leggono con una mano, invece di essere tre

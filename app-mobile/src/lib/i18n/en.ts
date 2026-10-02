@@ -110,6 +110,7 @@ export const en: Dictionary = {
     invia: 'Send',
     disclaimer: 'Revna AI can make mistakes. Check important information.',
     fallita: 'No answer received.',
+    riprova: 'Try again',
     spuntiDiScorta: [
       'Analyse my seasonality',
       'How do I improve my ADR',

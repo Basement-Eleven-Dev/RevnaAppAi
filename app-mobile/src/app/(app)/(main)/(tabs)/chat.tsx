@@ -29,6 +29,7 @@ import {
   SendIcon,
   stagger,
   StreamCaret,
+  Tap,
   Text,
   Tile,
   TypingDots,
@@ -40,7 +41,7 @@ import { MAX_MESSAGE_CHARS } from '@/hooks/use-conversations';
 import { useT } from '@/hooks/use-language';
 import { useStarters } from '@/hooks/use-starters';
 import { errorMessage } from '@/lib/i18n';
-import { Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
+import { Brand, Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
 /**
  * La chat con l'assistente: la prima schermata dell'app.
@@ -102,7 +103,10 @@ export default function ChatScreen() {
     if (busy || text.trim() === '') return;
     if (pending !== '') takePending();
     setTyped('');
-    void send(text);
+    void send(text).then((ok) => {
+      // Se nel frattempo il cliente ha già scritto altro, quello che ha scritto vince.
+      if (!ok) setTyped((now) => (now === '' ? text : now));
+    });
   }
 
   return (
@@ -212,7 +216,18 @@ export default function ChatScreen() {
             </Appear>
           )}
 
-          {error !== null && <ErrorNote>{errorMessage(t, error, t.chat.fallita)}</ErrorNote>}
+          {error !== null && (
+            <View style={styles.failed}>
+              <ErrorNote>{errorMessage(t, error, t.chat.fallita)}</ErrorNote>
+              {canSend && (
+                <Tap onPress={() => submit(draft)} accessibilityRole="button">
+                  <Text variant="service" color={Brand.accent} style={styles.retry}>
+                    {t.chat.riprova}
+                  </Text>
+                </Tap>
+              )}
+            </View>
+          )}
         </ScrollView>
 
         <View style={styles.composerWrap}>
@@ -225,7 +240,6 @@ export default function ChatScreen() {
               maxLength={MAX_MESSAGE_CHARS}
               value={draft}
               onChangeText={edit}
-              editable={!busy}
             />
             <IconButton
               tone={canSend ? 'accent' : 'ghost'}
@@ -291,6 +305,8 @@ const styles = StyleSheet.create({
   spuntoLabel: { fontSize: 13.5, lineHeight: 19.5 },
   bubble: { alignSelf: 'flex-end', maxWidth: '82%', paddingHorizontal: Spacing.md + 2, paddingVertical: Spacing.md },
   answer: { alignSelf: 'stretch' },
+  failed: { gap: Spacing.sm },
+  retry: { fontFamily: Family.sansSemibold },
   composerWrap: { paddingHorizontal: Gutter, paddingTop: Spacing.md, paddingBottom: Spacing.sm + 2 },
   composer: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
 
 import type { ConversationSummary, Source, StoredTurn } from '@/hooks/use-conversations';
 import { stripHandoff } from '@/lib/contact-requests';
@@ -74,10 +74,29 @@ function useAssistantState() {
   /** Una domanda pronta da scrivere nel composer, in arrivo da un'altra schermata. */
   const [pending, setPending] = useState('');
 
+  /**
+   * Il numero dell'invio di cui la schermata aspetta la risposta.
+   *
+   * Aprire un'altra conversazione, iniziarne una nuova o cancellare quella in corso
+   * non ferma la richiesta: il server finisce di rispondere e salva il turno nella
+   * conversazione giusta. Qui lo si scarta soltanto, perché la schermata nel
+   * frattempo mostra un'altra chat. Bloccare la navigazione finché il modello
+   * scrive avrebbe tenuto il cliente fermo ad aspettare una risposta che non legge.
+   */
+  const generation = useRef(0);
+
+  /**
+   * Manda un messaggio e risolve `false` solo se la risposta non è arrivata ed è
+   * ancora quella che la schermata aspetta: è il segnale per rimettere il testo nel
+   * composer.
+   */
   const send = useCallback(
-    async (message: string) => {
+    async (message: string): Promise<boolean> => {
       const text = message.trim();
-      if (!text || busy) return;
+      if (!text || busy) return true;
+
+      const mine = ++generation.current;
+      const current = () => generation.current === mine;
 
       const history = turns;
       setTurns([...history, { role: 'user', text }]);
@@ -94,7 +113,8 @@ function useAssistantState() {
       // finale, insieme al testo con i marcatori rinumerati. La proposta di contatto
       // nemmeno: mentre il modello scrive il suo marcatore viene tagliato via
       // (`stripHandoff`), e la proposta compare come bottone solo alla fine.
-      const show = (answer: string, sources?: Source[], proposal?: string) =>
+      const show = (answer: string, sources?: Source[], proposal?: string) => {
+        if (!current()) return;
         setTurns([
           ...history,
           { role: 'user', text },
@@ -105,69 +125,84 @@ function useAssistantState() {
             ...(proposal ? { proposal } : {}),
           },
         ]);
+      };
 
       try {
-        let streamed = 0;
-
+        // Il ripiego sulla chiamata unica vale solo quando lo streaming manca in
+        // partenza. Uno streaming fallito non si ritenta: l'SDK dà lo stesso
+        // `internal` a un errore del server e a una connessione caduta, e in quel
+        // caso la domanda può essere già arrivata — rifarla salverebbe due volte
+        // lo stesso turno.
+        let final: Response;
         if (supportsStreaming()) {
-          try {
-            const { stream, data } = await ask.stream(payload);
+          const { stream, data } = await ask.stream(payload);
+          // Se lo stream salta, lo stesso errore arriva anche qui: senza un
+          // gestore resterebbe una promessa respinta che nessuno ascolta.
+          data.catch(() => undefined);
 
-            let answer = '';
-            for await (const chunk of stream) {
-              if (!chunk.text) continue;
-              answer += chunk.text;
-              streamed++;
-              setWaiting(false);
-              show(stripHandoff(answer));
-            }
-
-            // `data` porta il testo completo e l'id: è la fonte autorevole se lo
-            // stream si è interrotto o non ha prodotto nulla.
-            const final = await data;
-            show(final.text, final.sources, final.proposal);
-            setConversationId(final.conversationId);
-            if (final.title) setTitle(final.title);
-            return;
-          } catch (cause) {
-            // Se qualcosa era già arrivato l'errore è reale e va mostrato.
-            // Se invece è saltato subito, può essere il trasporto in streaming:
-            // ritentiamo con la chiamata normale prima di dare buca all'utente.
-            if (streamed > 0) throw cause;
+          let answer = '';
+          for await (const chunk of stream) {
+            if (!chunk.text || !current()) continue;
+            answer += chunk.text;
+            setWaiting(false);
+            show(stripHandoff(answer));
           }
+
+          // `data` porta il testo completo e l'id: è la fonte autorevole se lo
+          // stream si è interrotto o non ha prodotto nulla.
+          final = await data;
+        } else {
+          final = (await ask(payload)).data;
         }
 
-        const { data } = await ask(payload);
-        show(data.text, data.sources, data.proposal);
-        setConversationId(data.conversationId);
-        if (data.title) setTitle(data.title);
+        if (!current()) return true;
+        show(final.text, final.sources, final.proposal);
+        setConversationId(final.conversationId);
+        if (final.title) setTitle(final.title);
+        return true;
       } catch (cause) {
+        if (!current()) return true;
         setError(cause);
-        // La domanda resta a schermo: l'utente può ritentare senza riscriverla.
-        setTurns([...history, { role: 'user', text }]);
+        // Il turno non è stato salvato: la domanda torna nel composer (vedi la
+        // chat), da dove si può correggere o rimandare.
+        setTurns(history);
+        return false;
       } finally {
-        setBusy(false);
-        setWaiting(false);
+        if (current()) {
+          setBusy(false);
+          setWaiting(false);
+        }
       }
     },
     [busy, conversationId, turns]
   );
 
-  /** Apre una conversazione dall'elenco laterale. */
-  const open = useCallback((conversation: ConversationSummary) => {
-    setConversationId(conversation.id);
-    setTitle(conversation.title);
-    setTurns(conversation.messages);
+  /** Lascia andare la risposta in arrivo, se ce n'è una: la schermata cambia chat. */
+  const leave = useCallback(() => {
+    generation.current++;
+    setBusy(false);
+    setWaiting(false);
     setError(null);
   }, []);
 
+  /** Apre una conversazione dall'elenco laterale. */
+  const open = useCallback(
+    (conversation: ConversationSummary) => {
+      leave();
+      setConversationId(conversation.id);
+      setTitle(conversation.title);
+      setTurns(conversation.messages);
+    },
+    [leave]
+  );
+
   /** Foglio bianco: la conversazione nasce sul server al primo messaggio. */
   const startNew = useCallback(() => {
+    leave();
     setConversationId(undefined);
     setTitle('');
     setTurns([]);
-    setError(null);
-  }, []);
+  }, [leave]);
 
   /**
    * Apre una conversazione nuova con una domanda già scritta nel composer, senza
@@ -177,13 +212,13 @@ function useAssistantState() {
    * cambia per me», e da lì la domanda deve poter essere corretta prima di
    * partire: è il cliente a chiedere, non l'app a chiedere per lui.
    */
-  const prefill = useCallback((text: string) => {
-    setConversationId(undefined);
-    setTitle('');
-    setTurns([]);
-    setError(null);
-    setPending(text);
-  }, []);
+  const prefill = useCallback(
+    (text: string) => {
+      startNew();
+      setPending(text);
+    },
+    [startNew]
+  );
 
   /** Il composer si prende la domanda pronta una volta sola (vedi la chat). */
   const takePending = useCallback(() => {

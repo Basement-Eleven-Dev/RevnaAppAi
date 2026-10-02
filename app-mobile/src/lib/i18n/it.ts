@@ -126,6 +126,7 @@ export const it = {
     invia: 'Invia',
     disclaimer: 'Revna AI può sbagliare. Verifica le informazioni importanti.',
     fallita: 'Risposta non riuscita.',
+    riprova: 'Riprova',
     /** Spunti mostrati finché il backoffice non ne ha impostati di suoi. */
     spuntiDiScorta: [
       'Analizza la mia stagionalità',
