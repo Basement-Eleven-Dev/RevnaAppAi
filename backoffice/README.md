@@ -47,6 +47,12 @@ A distinguere i due accessi è un **custom claim**, `revnaAdmin`:
 
 Il claim non è assegnabile dal client: lo mette solo l'Admin SDK, dentro le Cloud Functions.
 
+Il claim si rilegge a ogni rinnovo del token (circa ogni ora): se viene tolto, se l'account
+è disattivato o se la sessione si chiude, il telaio riporta al login da qualunque pagina.
+Il login (`/login?da=<pagina>`) riporta poi alla pagina da cui si era partiti. Se all'avvio
+il claim non si può verificare (rete assente con token scaduto) compare il login, non una
+pagina bianca.
+
 ## Creazione delle utenze
 
 `/utenti` chiama la callable `createInvite`, che crea l'account con l'Admin SDK, manda

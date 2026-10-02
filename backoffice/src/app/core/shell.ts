@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { AuthService } from './auth.service';
@@ -29,8 +29,20 @@ export class Shell {
 
   protected readonly operatore = this.auth.user;
 
+  private uscitaVolontaria = false;
+
+  constructor() {
+    // Sessione chiusa, account disattivato o claim tolto: si torna al login da
+    // qualunque pagina, ricordando dove si era per rientrare lì.
+    effect(() => {
+      if (this.auth.isAdmin()) return;
+      const da = this.uscitaVolontaria ? {} : { da: this.router.url };
+      void this.router.navigate(['/login'], { queryParams: da });
+    });
+  }
+
   protected async logout(): Promise<void> {
+    this.uscitaVolontaria = true;
     await this.auth.signOut();
-    await this.router.navigate(['/login']);
   }
 }

@@ -1,10 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  type User,
-} from 'firebase/auth';
+import { onIdTokenChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth';
 
 import { getFirebaseAuth } from './firebase';
 
@@ -17,14 +12,22 @@ export class AuthService {
 
   readonly user = signal<User | null>(null);
   readonly isAdmin = signal(false);
-  /** false finché Firebase non ha detto se c'è una sessione attiva. */
-  readonly ready = signal(false);
 
+  // `onIdTokenChanged` e non `onAuthStateChanged`: scatta anche a ogni rinnovo del
+  // token, ed è lì che si scopre un claim tolto o un account disattivato.
   private readonly firstAnswer = new Promise<void>((resolve) => {
-    onAuthStateChanged(this.auth, async (user) => {
-      this.user.set(user);
-      this.isAdmin.set(user ? await this.hasAdminClaim(user) : false);
-      this.ready.set(true);
+    onIdTokenChanged(this.auth, async (user) => {
+      let admin = false;
+      try {
+        admin = user ? await this.hasAdminClaim(user) : false;
+      } catch {
+        // Senza rete il claim non si verifica: meglio il login di una pagina bianca.
+      }
+      // Nel frattempo la sessione può essere cambiata: vale solo l'ultima risposta.
+      if (this.auth.currentUser === user) {
+        this.user.set(user);
+        this.isAdmin.set(admin);
+      }
       resolve();
     });
   });
@@ -43,6 +46,10 @@ export class AuthService {
       await this.signOut();
       throw new Error(NOT_ADMIN);
     }
+
+    // Senza aspettare l'ascoltatore: la guardia della pagina successiva legge subito questi.
+    this.user.set(credential.user);
+    this.isAdmin.set(true);
   }
 
   signOut(): Promise<void> {
@@ -50,8 +57,9 @@ export class AuthService {
   }
 
   private async hasAdminClaim(user: User): Promise<boolean> {
-    // forza il refresh: il claim può essere stato assegnato dopo il login.
-    const token = await user.getIdTokenResult(true);
+    // Senza forzare il rinnovo: dentro `onIdTokenChanged` lo farebbe riscattare
+    // all'infinito, e dopo il login il token è già nuovo.
+    const token = await user.getIdTokenResult();
     return token.claims['revnaAdmin'] === true;
   }
 }
