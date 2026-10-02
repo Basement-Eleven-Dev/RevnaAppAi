@@ -24,7 +24,8 @@ export type Usage = {
   nelGiorno: number;
 };
 
-const giornoItaliano = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' });
+/** Il giorno di calendario italiano, come `2026-10-01`. */
+export const giornoItaliano = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Rome' });
 
 /**
  * Il contatore dopo un messaggio in più, o quale limite lo impedisce.

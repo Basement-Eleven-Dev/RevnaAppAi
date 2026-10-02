@@ -242,14 +242,25 @@ lo sta attivando, e leggere «Attiva il tuo accesso» lo farebbe dubitare di ave
 cliccato il link giusto.
 
 È l'unica function chiamabile **senza autenticazione**: chi ha perso la password non è
-dentro. Da lì le due cautele:
+dentro. Da lì le cautele:
 
-- **Risposta cieca.** Email sconosciuta, invio in pausa o invio riuscito danno la stessa
-  risposta. Altrimenti la function diventerebbe un modo per sapere chi è cliente Revna.
-- **Un invio al minuto per email** (`passwordResets/{email}`, scritta in transazione).
-  Non è solo contro lo spam nella casella: ogni nuovo `oobCode` invalida il precedente,
-  quindi senza freno si può tenere un cliente fuori dal suo account rigenerandogli il
-  codice mentre prova a usarlo.
+- **Risposta cieca.** Email sconosciuta, invio frenato o invio riuscito danno la stessa
+  risposta, e nello stesso tempo. Altrimenti la function diventerebbe un modo per sapere
+  chi è cliente Revna. Ogni risposta dura almeno 2,5 s (`TEMPO_MINIMO_MS`), più di un
+  invio vero; il lavoro si finisce prima di rispondere, perché su Cloud Functions quello
+  che resta in corso dopo la risposta non è garantito.
+- **Freno per email** (`passwordResets/{email}`, scritta in transazione, solo per le
+  email registrate). Dopo ogni invio si aspetta 1, 5, 15 e poi 60 minuti, con al massimo
+  5 invii per giorno di calendario italiano. Non è solo contro lo spam nella casella:
+  ogni nuovo `oobCode` invalida il precedente, quindi senza freno si può tenere un
+  cliente fuori dal suo account rigenerandogli il codice mentre prova a usarlo. Arrivati
+  al tetto non si genera più niente, e l'ultimo codice mandato resta valido.
+- **Scadenza.** Ogni documento ha `scadeAt`, 24 ore dopo l'ultimo invio, e una policy
+  TTL di Firestore lo cancella da sola. La policy non sta nel repo; si imposta una volta:
+
+  ```
+  gcloud firestore fields ttls update scadeAt --collection-group=passwordResets --enable-ttl --project=revnaappai
+  ```
 
 La collezione `passwordResets` non compare fra quelle aperte nelle regole: la scrive
 solo l'Admin SDK, e il `deny` finale la tiene chiusa a tutti gli altri.
