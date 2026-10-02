@@ -129,6 +129,8 @@ export const en: Dictionary = {
     senzaTitolo: 'Conversation',
     confermaTitolo: 'Delete this conversation?',
     confermaTesto: (titolo: string) => `“${titolo}” will be deleted permanently.`,
+    eliminaUna: (titolo: string) => `Delete “${titolo}”`,
+    nonEliminata: "The conversation couldn't be deleted. Please try again.",
   },
 
   richieste: {

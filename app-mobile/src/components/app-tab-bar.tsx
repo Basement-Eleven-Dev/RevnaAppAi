@@ -16,7 +16,7 @@ import {
   Text,
 } from '@/components/ui';
 import { useAnnouncements } from '@/hooks/use-announcements';
-import { Brand, Corner, Family, Ink, Spacing, Surface } from '@/theme';
+import { Brand, Corner, Family, Ink, MaxContentWidth, Spacing, Surface } from '@/theme';
 
 /** L'icona di ogni tab, nell'ordine in cui la tab bar le mostra. */
 const ICONS: Record<string, (props: { color: string }) => React.ReactNode> = {
@@ -46,6 +46,9 @@ const ICONS: Record<string, (props: { color: string }) => React.ReactNode> = {
  * Su Android con la tastiera aperta la barra sparisce: la finestra si accorcia e
  * la barra salirebbe sopra la tastiera, togliendo spazio alla chat. L'opzione
  * `tabBarHideOnKeyboard` la applica solo la barra di serie.
+ *
+ * Il vetro va da bordo a bordo, le sezioni no: su uno schermo largo stanno nella
+ * stessa colonna del contenuto, invece di disperdersi ai due lati.
  */
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -56,46 +59,48 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
 
   return (
     <GlassBar style={[styles.bar, { paddingBottom: insets.bottom + Spacing.sm + 2 }]}>
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const label = options.title ?? route.name;
-        const Icon = ICONS[route.name];
-        const active = state.index === index;
-        const badge = route.name === 'avvisi' && unread > 0 ? unread : 0;
+      <View style={styles.slots}>
+        {state.routes.map((route, index) => {
+          const { options } = descriptors[route.key];
+          const label = options.title ?? route.name;
+          const Icon = ICONS[route.name];
+          const active = state.index === index;
+          const badge = route.name === 'avvisi' && unread > 0 ? unread : 0;
 
-        return (
-          <Tap
-            key={route.key}
-            onPress={() => {
-              if (!active) navigation.navigate(route.name);
-            }}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={badge > 0 ? `${label}, ${badge}` : label}
-            style={styles.slot}>
-            <Bevel
-              radius={Corner.control}
-              fill={active ? Surface.accentTint : undefined}
-              style={styles.item}>
-              <View>
-                {Icon ? <Icon color={active ? Brand.accent : Ink.muted} /> : null}
-                {badge > 0 && (
-                  <Appear rise={0} style={styles.badge}>
-                    <Bevel radius={Corner.badge} fill={Brand.accent} style={styles.badgeFill}>
-                      <Text variant="tab" color={Ink.onAccent} style={styles.badgeLabel}>
-                        {badge}
-                      </Text>
-                    </Bevel>
-                  </Appear>
-                )}
-              </View>
-              <Text variant="tab" color={active ? Brand.accent : Ink.muted} style={styles.label}>
-                {label}
-              </Text>
-            </Bevel>
-          </Tap>
-        );
-      })}
+          return (
+            <Tap
+              key={route.key}
+              onPress={() => {
+                if (!active) navigation.navigate(route.name);
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={badge > 0 ? `${label}, ${badge}` : label}
+              style={styles.slot}>
+              <Bevel
+                radius={Corner.control}
+                fill={active ? Surface.accentTint : undefined}
+                style={styles.item}>
+                <View>
+                  {Icon ? <Icon color={active ? Brand.accent : Ink.muted} /> : null}
+                  {badge > 0 && (
+                    <Appear rise={0} style={styles.badge}>
+                      <Bevel radius={Corner.badge} fill={Brand.accent} style={styles.badgeFill}>
+                        <Text variant="tab" color={Ink.onAccent} style={styles.badgeLabel}>
+                          {badge}
+                        </Text>
+                      </Bevel>
+                    </Appear>
+                  )}
+                </View>
+                <Text variant="tab" color={active ? Brand.accent : Ink.muted} style={styles.label}>
+                  {label}
+                </Text>
+              </Bevel>
+            </Tap>
+          );
+        })}
+      </View>
     </GlassBar>
   );
 }
@@ -117,7 +122,8 @@ function useAndroidKeyboard() {
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', paddingTop: Spacing.sm + 2, paddingHorizontal: Spacing.md },
+  bar: { alignItems: 'center', paddingTop: Spacing.sm + 2, paddingHorizontal: Spacing.md },
+  slots: { flexDirection: 'row', width: '100%', maxWidth: MaxContentWidth },
   slot: { flex: 1 },
   item: { alignItems: 'center', gap: Spacing.xs + 2, paddingVertical: Spacing.sm },
   label: { fontFamily: Family.sansSemibold },

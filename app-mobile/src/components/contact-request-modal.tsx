@@ -13,7 +13,7 @@ import { Appear, Bevel, Button, Field, FieldNote, Text } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
 import { MAX_MESSAGE_CHARS } from '@/lib/contact-requests';
 import { errorMessage } from '@/lib/i18n';
-import { Corner, Duration, Glass, Ink, Line, Spacing, Surface } from '@/theme';
+import { Corner, Duration, Glass, Ink, Line, MaxContentWidth, Spacing, Surface } from '@/theme';
 
 type Props = {
   visible: boolean;
@@ -136,7 +136,8 @@ export function ContactRequestModal({ visible, draft, onClose, onConfirm }: Prop
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: Glass.scrim },
-  sheet: { maxHeight: '86%' },
+  // Su uno schermo largo il foglio resta nella colonna del contenuto.
+  sheet: { maxHeight: '86%', width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   // Il foglio sta dentro la sua entrata, che è quella con l'altezza massima: senza
   // questo, un messaggio lungo lo farebbe uscire dal contenitore invece di
   // rendere scorrevole il contenuto.

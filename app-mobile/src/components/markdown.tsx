@@ -1,11 +1,11 @@
 import { Image } from 'expo-image';
-import * as WebBrowser from 'expo-web-browser';
 import { Fragment, useState } from 'react';
 import { Linking, Text as RNText, StyleSheet, View } from 'react-native';
 
 import { Bevel, ErrorNote, SourceMarker, Text } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
 import { errorMessage } from '@/lib/i18n/errors';
+import { openExternal } from '@/lib/open-external';
 import { Brand, Corner, Family, Ink, Line, Spacing, Surface } from '@/theme';
 
 /**
@@ -61,7 +61,7 @@ function safeLink(href: string): string | undefined {
 
 /** Le pagine web nel browser interno all'app; email e telefono nell'app che li gestisce. */
 function openLink(href: string): Promise<unknown> {
-  return /^https:/i.test(href) ? WebBrowser.openBrowserAsync(href) : Linking.openURL(href);
+  return /^https:/i.test(href) ? openExternal(href) : Linking.openURL(href);
 }
 
 type Block =

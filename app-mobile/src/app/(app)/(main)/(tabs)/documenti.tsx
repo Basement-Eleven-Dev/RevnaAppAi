@@ -1,4 +1,3 @@
-import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -22,6 +21,7 @@ import { documentUrl, useDocuments } from '@/hooks/use-documents';
 import { useT } from '@/hooks/use-language';
 import { formatOf, formatSize, isRecent, type ClientDocument } from '@/lib/documents';
 import { errorMessage, labelOf, type Dictionary } from '@/lib/i18n';
+import { openExternal } from '@/lib/open-external';
 import { Brand, Corner, Gutter, Ink, Spacing, Surface } from '@/theme';
 
 /**
@@ -48,7 +48,7 @@ export default function DocumentsScreen() {
     try {
       // L'URL si chiede solo ora e non in elenco: dura pochi minuti, e uno per
       // documento sarebbe una richiesta di rete per un link quasi sempre inutile.
-      await WebBrowser.openBrowserAsync(await documentUrl(document.id));
+      await openExternal(() => documentUrl(document.id));
     } catch (cause) {
       setOpenError(errorMessage(t, cause, t.documenti.nonApribile));
     } finally {
@@ -81,6 +81,9 @@ export default function DocumentsScreen() {
               <Appear key={document.id} delay={stagger(index)}>
                 <Tap
                   onPress={() => open(document)}
+                  // Mentre un documento si apre le righe non rispondono: un solo
+                  // browser alla volta (vedi `openExternal`).
+                  disabled={opening !== ''}
                   accessibilityRole="button"
                   accessibilityLabel={document.name}>
                   <Bevel radius={Corner.card} fill={Surface.element} style={styles.row}>

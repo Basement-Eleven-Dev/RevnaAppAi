@@ -20,6 +20,7 @@ import { useAssistant } from '@/hooks/use-assistant';
 import { useT } from '@/hooks/use-language';
 import { Brand, Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 import type { Dictionary } from '@/lib/i18n';
+import { goBack } from '@/lib/navigation';
 
 /**
  * Un avviso, per esteso.
@@ -60,7 +61,7 @@ export default function AnnouncementScreen() {
     <Screen>
       <ScreenBar
         left={
-          <IconButton onPress={() => router.back()} accessibilityLabel={t.comune.indietro}>
+          <IconButton onPress={() => goBack('/avvisi')} accessibilityLabel={t.comune.indietro}>
             <BackIcon color={Ink.secondary} />
           </IconButton>
         }>

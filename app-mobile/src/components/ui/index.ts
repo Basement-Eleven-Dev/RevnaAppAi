@@ -18,6 +18,7 @@ export {
   BlogIcon,
   ChatIcon,
   CheckIcon,
+  CloseIcon,
   DocumentsIcon,
   ForwardIcon,
   MenuIcon,

@@ -4,7 +4,7 @@ import { Bevel } from '@/components/ui/bevel';
 import { Button } from '@/components/ui/button';
 import { Appear } from '@/components/ui/motion';
 import { Text } from '@/components/ui/text';
-import { Corner, Duration, Glass, Ink, Line, Spacing, Surface } from '@/theme';
+import { Corner, Duration, Glass, Ink, Line, MaxContentWidth, Spacing, Surface } from '@/theme';
 
 /**
  * «Sei sicuro?», nel sistema Revna.
@@ -55,7 +55,7 @@ export function ConfirmSheet({
         {/* Il tocco fuori annulla: su una conferma è la risposta prudente. */}
         <Pressable style={styles.flex} onPress={onCancel} accessibilityLabel={annulla} />
 
-        <Appear rise={40} duration={Duration.sheet}>
+        <Appear rise={40} duration={Duration.sheet} style={styles.sheet}>
           <Bevel radius={Corner.surface} fill={Surface.raised} highlight={Line.glass}>
             <View style={styles.content}>
               <Text variant="section">{titolo}</Text>
@@ -81,6 +81,8 @@ export function ConfirmSheet({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: Glass.scrim },
+  // Su uno schermo largo il foglio resta nella colonna del contenuto.
+  sheet: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
   content: {
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.xl,

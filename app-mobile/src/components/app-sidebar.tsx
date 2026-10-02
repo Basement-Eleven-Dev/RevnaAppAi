@@ -1,7 +1,7 @@
 import { usePathname, useRouter } from 'expo-router';
 import type { DrawerContentComponentProps } from 'expo-router/drawer';
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Wordmark } from '@/components/brand/wordmark';
@@ -9,7 +9,10 @@ import {
   Appear,
   Bevel,
   Button,
+  CloseIcon,
   ConfirmSheet,
+  ErrorNote,
+  IconButton,
   RequestsIcon,
   SettingsIcon,
   stagger,
@@ -21,7 +24,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useConversations, whenLabel, type ConversationSummary } from '@/hooks/use-conversations';
 import { useT } from '@/hooks/use-language';
 import { Brand, Corner, Gutter, Ink, Line, Spacing, Surface } from '@/theme';
-import type { Dictionary } from '@/lib/i18n';
+import { errorMessage, type Dictionary } from '@/lib/i18n';
 
 /** Larghezza massima del pannello; su schermi stretti si adatta (vedi il layout). */
 export const SIDEBAR_MAX_WIDTH = 320;
@@ -46,6 +49,7 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
   const longPressedConversation = useRef<string | null>(null);
   /** La conversazione di cui si sta chiedendo conferma dell'eliminazione. */
   const [asking, setAsking] = useState<ConversationSummary | null>(null);
+  const [removeError, setRemoveError] = useState<unknown>(null);
 
   /**
    * Il Drawer si chiude da sé quando si naviga altrove, ma non quando la voce
@@ -62,14 +66,19 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
   }
 
   function confirmRemove(conversation: ConversationSummary) {
+    setRemoveError(null);
     setAsking(conversation);
   }
 
-  function removeAsked() {
+  async function removeAsked() {
     if (!asking) return;
     setAsking(null);
-    void remove(asking.id);
-    if (asking.id === conversationId) startNew();
+    try {
+      await remove(asking.id);
+      if (asking.id === conversationId) startNew();
+    } catch (cause) {
+      setRemoveError(cause);
+    }
   }
 
   return (
@@ -99,6 +108,12 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
           </Text>
         )}
 
+        {removeError !== null && (
+          <View style={styles.note}>
+            <ErrorNote>{errorMessage(t, removeError, t.conversazioni.nonEliminata)}</ErrorNote>
+          </View>
+        )}
+
         {!loading && conversations.length === 0 && (
           <Text variant="service" color={Ink.faint} style={styles.note}>
             {t.conversazioni.vuoto}
@@ -114,48 +129,62 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
             // Lo storico arriva da Firestore mentre il pannello è già aperto: le
             // righe entrano a scaletta invece di riempire il vuoto di colpo.
             <Appear key={conversation.id} delay={stagger(index)}>
-              <Tap
-                onPressIn={() => {
-                  longPressedConversation.current = null;
-                }}
-                onPress={() => {
-                  // Dopo una pressione lunga, il rilascio non deve anche aprire
-                  // la chat e chiudere il drawer sopra alla conferma.
-                  if (longPressedConversation.current === conversation.id) return;
-                  openConversation(conversation);
-                }}
-                onLongPress={() => {
-                  longPressedConversation.current = conversation.id;
-                  confirmRemove(conversation);
-                }}
-                delayLongPress={350}
-                accessibilityRole="button"
-                accessibilityActions={[{ name: 'delete', label: t.comune.elimina }]}
-                onAccessibilityAction={(event) => {
-                  if (event.nativeEvent.actionName === 'delete') confirmRemove(conversation);
-                }}
-                accessibilityState={{ selected: active }}>
-                <Bevel
-                  radius={Corner.control}
-                  fill={active ? Surface.accentTint : undefined}
-                  style={styles.item}>
-                  <Text
-                    variant="service"
-                    color={active ? Brand.accent : Ink.body}
-                    numberOfLines={2}
-                    style={styles.flex}>
-                    {titleOf(conversation, t)}
-                  </Text>
-                  <Text variant="tab" color={Ink.ghost}>
-                    {whenLabel(conversation.updatedAt, t)}
-                  </Text>
-                </Bevel>
-              </Tap>
+              <Bevel
+                radius={Corner.control}
+                fill={active ? Surface.accentTint : undefined}
+                style={styles.row}>
+                <Tap
+                  style={styles.flex}
+                  onPressIn={() => {
+                    longPressedConversation.current = null;
+                  }}
+                  onPress={() => {
+                    // Dopo una pressione lunga, il rilascio non deve anche aprire
+                    // la chat e chiudere il drawer sopra alla conferma.
+                    if (longPressedConversation.current === conversation.id) return;
+                    openConversation(conversation);
+                  }}
+                  onLongPress={() => {
+                    longPressedConversation.current = conversation.id;
+                    confirmRemove(conversation);
+                  }}
+                  delayLongPress={350}
+                  accessibilityRole="button"
+                  accessibilityActions={[{ name: 'delete', label: t.comune.elimina }]}
+                  onAccessibilityAction={(event) => {
+                    if (event.nativeEvent.actionName === 'delete') confirmRemove(conversation);
+                  }}
+                  accessibilityState={{ selected: active }}>
+                  <View style={styles.item}>
+                    <Text
+                      variant="service"
+                      color={active ? Brand.accent : Ink.body}
+                      numberOfLines={2}
+                      style={styles.flex}>
+                      {titleOf(conversation, t)}
+                    </Text>
+                    <Text variant="tab" color={Ink.ghost}>
+                      {whenLabel(conversation.updatedAt, t)}
+                    </Text>
+                  </View>
+                </Tap>
+                {/* Col mouse una pressione lunga non la cerca nessuno: sul web
+                    l'eliminazione ha un bottone suo, sempre visibile perché anche
+                    il web da telefono non ha il passaggio del mouse. */}
+                {Platform.OS === 'web' && (
+                  <IconButton
+                    size={26}
+                    onPress={() => confirmRemove(conversation)}
+                    accessibilityLabel={t.conversazioni.eliminaUna(titleOf(conversation, t))}>
+                    <CloseIcon color={Ink.faint} size={12} />
+                  </IconButton>
+                )}
+              </Bevel>
             </Appear>
           );
         })}
 
-        {conversations.length > 0 && (
+        {conversations.length > 0 && Platform.OS !== 'web' && (
           <Text variant="tab" color={Ink.ghost} style={styles.hint}>
             {t.conversazioni.suggerimentoElimina}
           </Text>
@@ -185,7 +214,7 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
         conferma={t.comune.elimina}
         annulla={t.comune.annulla}
         onCancel={() => setAsking(null)}
-        onConfirm={removeAsked}
+        onConfirm={() => void removeAsked()}
       />
     </SafeAreaView>
   );
@@ -227,6 +256,11 @@ const styles = StyleSheet.create({
   newChat: { paddingHorizontal: Gutter, paddingBottom: Spacing.xl },
   listLabel: { paddingHorizontal: Gutter, paddingBottom: Spacing.md },
   list: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.lg, gap: Spacing.hair },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: Platform.OS === 'web' ? Spacing.xs : 0,
+  },
   item: {
     flexDirection: 'row',
     alignItems: 'flex-start',

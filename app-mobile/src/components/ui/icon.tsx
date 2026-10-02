@@ -121,6 +121,11 @@ export const ForwardIcon = (props: Props) => (
   <Line {...props} size={props.size ?? 14} width={2.2} d={['M9 5l7 7-7 7']} />
 );
 
+/** Chiudi, o togli una voce da un elenco. */
+export const CloseIcon = (props: Props) => (
+  <Line {...props} size={props.size ?? 14} width={2} d={['M6 6l12 12M18 6L6 18']} />
+);
+
 /** Spunta: l'opzione attiva. */
 export const CheckIcon = (props: Props) => (
   <Line {...props} size={props.size ?? 18} width={2.2} d={['M5 13l4 4L19 7']} />

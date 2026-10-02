@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -24,6 +23,7 @@ import { createContactRequest, useContactRequests } from '@/hooks/use-contact-re
 import { useT } from '@/hooks/use-language';
 import type { ContactRequest, Stato } from '@/lib/contact-requests';
 import { errorMessage, type Dictionary } from '@/lib/i18n';
+import { goBack } from '@/lib/navigation';
 import { Gutter, Ink, Line, Spacing } from '@/theme';
 
 /**
@@ -41,7 +41,6 @@ import { Gutter, Ink, Line, Spacing } from '@/theme';
  */
 export default function RequestsScreen() {
   const t = useT();
-  const router = useRouter();
   const { requests, loading, error } = useContactRequests();
   const [composing, setComposing] = useState(false);
   /**
@@ -54,7 +53,7 @@ export default function RequestsScreen() {
     <Screen>
       <ScreenBar
         left={
-          <IconButton onPress={() => router.back()} accessibilityLabel={t.comune.indietro}>
+          <IconButton onPress={() => goBack('/chat')} accessibilityLabel={t.comune.indietro}>
             <BackIcon color={Ink.secondary} />
           </IconButton>
         }

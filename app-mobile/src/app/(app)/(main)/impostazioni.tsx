@@ -30,6 +30,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useMemory } from '@/hooks/use-memory';
 import { MIN_PASSWORD } from '@/lib/auth';
 import { errorMessage, LANGUAGES, LANGUAGE_NAMES } from '@/lib/i18n';
+import { goBack } from '@/lib/navigation';
 import { Brand, Corner, Danger, Gutter, Ink, Line, Spacing, Surface } from '@/theme';
 
 /**
@@ -48,7 +49,6 @@ import { Brand, Corner, Danger, Gutter, Ink, Line, Spacing, Surface } from '@/th
  * telefono sbloccato di qualcun altro non basta a prendersi l'accesso.
  */
 export default function SettingsScreen() {
-  const router = useRouter();
   const { t } = useLanguage();
   const { user } = useAuth();
 
@@ -56,7 +56,7 @@ export default function SettingsScreen() {
     <Screen>
       <ScreenBar
         left={
-          <IconButton onPress={() => router.back()} accessibilityLabel={t.comune.indietro}>
+          <IconButton onPress={() => goBack('/chat')} accessibilityLabel={t.comune.indietro}>
             <BackIcon color={Ink.secondary} />
           </IconButton>
         }>

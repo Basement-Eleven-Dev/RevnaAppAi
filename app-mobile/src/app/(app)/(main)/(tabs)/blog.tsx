@@ -1,5 +1,4 @@
 import { Image } from 'expo-image';
-import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
@@ -21,6 +20,7 @@ import { useT } from '@/hooks/use-language';
 import { BLOG_WEB_URL, type BlogPost } from '@/lib/blog';
 import { Brand, Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 import { errorMessage, type Dictionary } from '@/lib/i18n';
+import { openExternal } from '@/lib/open-external';
 
 /**
  * Il blog di Revenue su Misura dentro l'app.
@@ -42,7 +42,7 @@ export default function BlogScreen() {
     setOpening(id);
     setOpenError('');
     try {
-      await WebBrowser.openBrowserAsync(url);
+      await openExternal(url);
     } catch (cause) {
       setOpenError(errorMessage(t, cause, t.blog.nonApribile));
     } finally {
@@ -69,7 +69,7 @@ export default function BlogScreen() {
       icon={<BlogIcon color={Ink.faint} size={32} />}
       text={error !== null ? t.blog.errore : t.blog.vuoto}>
       <Tap
-        onPress={() => (error !== null ? retry() : void WebBrowser.openBrowserAsync(BLOG_WEB_URL))}
+        onPress={() => (error !== null ? retry() : void openExternal(BLOG_WEB_URL))}
         accessibilityRole="button">
         <Text variant="service" color={Brand.accent} style={styles.strong}>
           {error !== null ? t.blog.riprova : t.blog.archivio}
@@ -106,6 +106,7 @@ export default function BlogScreen() {
             post={item}
             t={t}
             opening={opening === item.id}
+            disabled={opening !== 0}
             onPress={() => open(item.url, item.id)}
           />
         )}
@@ -118,11 +119,14 @@ function PostCard({
   post,
   t,
   opening,
+  disabled,
   onPress,
 }: {
   post: BlogPost;
   t: Dictionary;
   opening: boolean;
+  /** Mentre un articolo si apre: un solo browser alla volta (vedi `openExternal`). */
+  disabled: boolean;
   onPress: () => void;
 }) {
   return (
@@ -130,7 +134,11 @@ function PostCard({
     // oltre duecento e si montano scorrendo, quindi ognuna entra quando arriva —
     // che è anche il momento in cui la copertina finisce di caricarsi.
     <Appear>
-      <Tap onPress={onPress} accessibilityRole="link" accessibilityLabel={post.title}>
+      <Tap
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityRole="link"
+        accessibilityLabel={post.title}>
         <Bevel
           radius={Corner.card}
           fill={Surface.element}

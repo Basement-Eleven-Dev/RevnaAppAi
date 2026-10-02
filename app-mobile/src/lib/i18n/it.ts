@@ -147,6 +147,8 @@ export const it = {
     senzaTitolo: 'Conversazione',
     confermaTitolo: 'Eliminare la conversazione?',
     confermaTesto: (titolo: string) => `«${titolo}» verrà eliminata definitivamente.`,
+    eliminaUna: (titolo: string) => `Elimina «${titolo}»`,
+    nonEliminata: 'Non è stato possibile eliminare la conversazione. Riprova.',
   },
 
   richieste: {

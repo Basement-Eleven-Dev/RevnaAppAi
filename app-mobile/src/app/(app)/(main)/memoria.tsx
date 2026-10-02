@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -20,11 +19,11 @@ import { useLanguage } from '@/hooks/use-language';
 import { useMemory } from '@/hooks/use-memory';
 import { errorMessage } from '@/lib/i18n';
 import { entryMeta, MAX_ENTRY_CHARS, type MemoryEntry } from '@/lib/memory';
+import { goBack } from '@/lib/navigation';
 import { Danger, Family, Gutter, Ink, Line, Spacing } from '@/theme';
 
 /** Elenco completo dei ricordi dell'assistente, separato dalle impostazioni. */
 export default function MemoryScreen() {
-  const router = useRouter();
   const { t } = useLanguage();
   const { entries, loading, error, save, remove, clear } = useMemory();
   const [editing, setEditing] = useState<string | null>(null);
@@ -80,7 +79,9 @@ export default function MemoryScreen() {
     <Screen>
       <ScreenBar
         left={
-          <IconButton onPress={() => router.back()} accessibilityLabel={t.comune.indietro}>
+          <IconButton
+            onPress={() => goBack('/impostazioni')}
+            accessibilityLabel={t.comune.indietro}>
             <BackIcon color={Ink.secondary} />
           </IconButton>
         }>

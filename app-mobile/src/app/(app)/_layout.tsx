@@ -54,21 +54,26 @@ export default function AppLayout() {
     // chi non ha mai avuto un avviso non aprirebbe mai.
     <AnnouncementsProvider>
       <AssistantProvider>
-        <Drawer
-          drawerContent={(props) => <AppSidebar {...props} />}
-          screenOptions={{
-            headerShown: false,
-            // `slide` su entrambe le piattaforme: vedere la schermata spinta via dice
-            // cosa sta succedendo meglio di un pannello che ci si sovrappone.
-            drawerType: 'slide',
-            drawerStyle: {
-              backgroundColor: Surface.raised,
-              width: Math.min(SIDEBAR_MAX_WIDTH, width * 0.84),
-            },
-            overlayColor: 'rgba(6,5,5,0.6)',
-            swipeEdgeWidth: 48,
-          }}
-        />
+        {/* Col pannello aperto la schermata scivola fuori a destra: sul web, senza
+            un contenitore che la tagli, la pagina si allarga e il telefono la
+            rimpicciolisce, fogli di conferma compresi. */}
+        <View style={styles.clip}>
+          <Drawer
+            drawerContent={(props) => <AppSidebar {...props} />}
+            screenOptions={{
+              headerShown: false,
+              // `slide` su entrambe le piattaforme: vedere la schermata spinta via dice
+              // cosa sta succedendo meglio di un pannello che ci si sovrappone.
+              drawerType: 'slide',
+              drawerStyle: {
+                backgroundColor: Surface.raised,
+                width: Math.min(SIDEBAR_MAX_WIDTH, width * 0.84),
+              },
+              overlayColor: 'rgba(6,5,5,0.6)',
+              swipeEdgeWidth: 48,
+            }}
+          />
+        </View>
       </AssistantProvider>
     </AnnouncementsProvider>
   );
@@ -113,6 +118,7 @@ function ClientsOnly() {
 }
 
 const styles = StyleSheet.create({
+  clip: { flex: 1, overflow: 'hidden' },
   hero: { paddingHorizontal: Gutter + 2 },
   spacer: { flex: 1 },
   title: { marginTop: Spacing.xl },
