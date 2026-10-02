@@ -18,6 +18,7 @@ import {
 } from '@/components/ui';
 import { useLanguage } from '@/hooks/use-language';
 import { useMemory } from '@/hooks/use-memory';
+import { errorMessage } from '@/lib/i18n';
 import { entryMeta, MAX_ENTRY_CHARS, type MemoryEntry } from '@/lib/memory';
 import { Danger, Family, Gutter, Ink, Line, Spacing } from '@/theme';
 
@@ -52,7 +53,7 @@ export default function MemoryScreen() {
       await save(entry.id, testo);
       setEditing(null);
     } catch (cause) {
-      setFailed(cause instanceof Error ? cause.message : t.impostazioni.memoria.fallito);
+      setFailed(errorMessage(t, cause, t.impostazioni.memoria.fallito));
     } finally {
       setBusy(false);
     }
@@ -100,12 +101,12 @@ export default function MemoryScreen() {
               {t.comune.caricamento}
             </Text>
           )}
-          {error !== '' && (
+          {error !== null && (
             <View style={styles.note}>
-              <ErrorNote>{error}</ErrorNote>
+              <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>
             </View>
           )}
-          {!loading && error === '' && entries.length === 0 && (
+          {!loading && error === null && entries.length === 0 && (
             <Text variant="service" color={Ink.ghost} style={styles.note}>
               {t.impostazioni.memoria.vuoto}
             </Text>

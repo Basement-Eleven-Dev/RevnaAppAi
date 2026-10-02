@@ -21,7 +21,7 @@ import {
 import { documentUrl, useDocuments } from '@/hooks/use-documents';
 import { useT } from '@/hooks/use-language';
 import { formatOf, formatSize, isRecent, type ClientDocument } from '@/lib/documents';
-import { labelOf, type Dictionary } from '@/lib/i18n';
+import { errorMessage, labelOf, type Dictionary } from '@/lib/i18n';
 import { Brand, Corner, Gutter, Ink, Spacing, Surface } from '@/theme';
 
 /**
@@ -50,7 +50,7 @@ export default function DocumentsScreen() {
       // documento sarebbe una richiesta di rete per un link quasi sempre inutile.
       await WebBrowser.openBrowserAsync(await documentUrl(document.id));
     } catch (cause) {
-      setOpenError(cause instanceof Error ? cause.message : t.documenti.nonApribile);
+      setOpenError(errorMessage(t, cause, t.documenti.nonApribile));
     } finally {
       setOpening('');
     }
@@ -65,7 +65,11 @@ export default function DocumentsScreen() {
 
         {loading && <ActivityIndicator color={Brand.accent} />}
 
-        {(error !== '' || openError !== '') && <ErrorNote>{openError || error}</ErrorNote>}
+        {openError !== '' ? (
+          <ErrorNote>{openError}</ErrorNote>
+        ) : (
+          error !== null && <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>
+        )}
 
         {!loading && documents.length === 0 && (
           <EmptyState icon={<DocumentsIcon color={Ink.faint} size={32} />} text={t.documenti.vuoto} />

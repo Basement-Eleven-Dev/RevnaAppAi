@@ -28,8 +28,8 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
 import { useMemory } from '@/hooks/use-memory';
-import { authErrorMessage, MIN_PASSWORD } from '@/lib/auth';
-import { LANGUAGES, LANGUAGE_NAMES } from '@/lib/i18n';
+import { MIN_PASSWORD } from '@/lib/auth';
+import { errorMessage, LANGUAGES, LANGUAGE_NAMES } from '@/lib/i18n';
 import { Brand, Corner, Danger, Gutter, Ink, Line, Spacing, Surface } from '@/theme';
 
 /**
@@ -106,9 +106,9 @@ function MemoryCard() {
       <Text variant="service" color={Ink.secondary}>
         {loading ? t.comune.caricamento : t.impostazioni.memoria.conteggio(entries.length)}
       </Text>
-      {error !== '' && (
+      {error !== null && (
         <Text variant="service" color={Danger.text} style={styles.memoryNote}>
-          {error}
+          {errorMessage(t, error, t.comune.nonCaricato)}
         </Text>
       )}
       <Button
@@ -196,7 +196,7 @@ function PasswordCard({ user }: { user: User }) {
       setRepeat('');
       setDone(t.impostazioni.password.fatto);
     } catch (cause) {
-      setError(authErrorMessage(t, cause, t.impostazioni.password.fallito));
+      setError(errorMessage(t, cause, t.impostazioni.password.fallito));
     } finally {
       setBusy(false);
     }
@@ -289,7 +289,7 @@ function EmailCard({ user }: { user: User }) {
       setPassword('');
       setDone(t.impostazioni.emailAccesso.fatto(wanted));
     } catch (cause) {
-      setError(authErrorMessage(t, cause, t.impostazioni.emailAccesso.fallito));
+      setError(errorMessage(t, cause, t.impostazioni.emailAccesso.fallito));
     } finally {
       setBusy(false);
     }

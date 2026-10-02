@@ -14,7 +14,7 @@ export function useDocuments() {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user) {
@@ -37,7 +37,7 @@ export function useDocuments() {
         setLoading(false);
       },
       (cause) => {
-        setError(cause.message);
+        setError(cause);
         setLoading(false);
       }
     );

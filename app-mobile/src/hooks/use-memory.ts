@@ -21,7 +21,7 @@ export function useMemory() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user) {
@@ -40,11 +40,11 @@ export function useMemory() {
       (snapshot) => {
         setEntries(snapshot.docs.map((document) => toEntry(document.id, document.data())));
         setLoading(false);
-        setError('');
+        setError(null);
       },
       (cause) => {
         setLoading(false);
-        setError(cause.message);
+        setError(cause);
       }
     );
   }, [user]);

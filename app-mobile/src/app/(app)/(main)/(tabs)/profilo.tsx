@@ -26,7 +26,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useClientProfile } from '@/hooks/use-client-profile';
 import { useT } from '@/hooks/use-language';
 import { signOutDevice } from '@/lib/auth';
-import { labelOf, labelsOf, type Dictionary } from '@/lib/i18n';
+import { errorMessage, labelOf, labelsOf, type Dictionary } from '@/lib/i18n';
 import { MAX_NOTE_CHARS, type ClientProfile } from '@/lib/profile';
 import { Brand, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
@@ -94,7 +94,7 @@ export default function ProfileScreen() {
       setDrafted(null);
       setEditingNote(false);
     } catch (cause) {
-      setNoteError(cause instanceof Error ? cause.message : t.profilo.note.fallito);
+      setNoteError(errorMessage(t, cause, t.profilo.note.fallito));
     } finally {
       setSavingNote(false);
     }
@@ -121,9 +121,9 @@ export default function ProfileScreen() {
           />
         </Appear>
 
-        {error !== '' && <ErrorNote>{error}</ErrorNote>}
+        {error !== null && <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>}
 
-        {!profile && error === '' && (
+        {!profile && error === null && (
           <Card>
             <Text variant="service" color={Ink.secondary}>
               {t.profilo.nonCompilato}

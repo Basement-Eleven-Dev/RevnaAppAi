@@ -12,6 +12,7 @@ import {
 import { Appear, Bevel, Button, Field, FieldNote, Text } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
 import { MAX_MESSAGE_CHARS } from '@/lib/contact-requests';
+import { errorMessage } from '@/lib/i18n';
 import { Corner, Duration, Glass, Ink, Line, Spacing, Surface } from '@/theme';
 
 type Props = {
@@ -64,7 +65,11 @@ export function ContactRequestModal({ visible, draft, onClose, onConfirm }: Prop
     try {
       await onConfirm(messaggio);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t.richieste.modale.fallita);
+      setError(
+        errorMessage(t, cause, t.richieste.modale.fallita, {
+          'resource-exhausted': t.richieste.modale.troppeAperte,
+        })
+      );
     } finally {
       setSending(false);
     }

@@ -19,7 +19,8 @@ import {
   Text,
 } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
-import { authErrorMessage, MIN_PASSWORD } from '@/lib/auth';
+import { MIN_PASSWORD } from '@/lib/auth';
+import { errorMessage } from '@/lib/i18n';
 import { getFirebaseAuth } from '@/lib/firebase';
 import { Brand, Family, Gutter, Ink, Spacing } from '@/theme';
 
@@ -136,10 +137,10 @@ function ActivationForm({ linkCode, linkReset }: { linkCode: string; linkReset: 
   }
 
   function describe(cause: unknown): string {
-    const errorCode = (cause as { code?: string }).code;
-    if (errorCode === 'auth/expired-action-code') return testi.scaduto;
-    if (errorCode === 'auth/invalid-action-code') return testi.nonValido;
-    return authErrorMessage(t, cause, testi.fallita);
+    return errorMessage(t, cause, testi.fallita, {
+      'expired-action-code': testi.scaduto,
+      'invalid-action-code': testi.nonValido,
+    });
   }
 
   const error =

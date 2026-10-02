@@ -8,7 +8,7 @@ import { EMPTY_PROFILE, type ClientProfile } from '@/lib/profile';
 type State = {
   profile: ClientProfile | null;
   loading: boolean;
-  error: string;
+  error: unknown;
 };
 
 /**
@@ -19,11 +19,11 @@ export function useClientProfile(): State & {
   saveNote: (note: string) => Promise<void>;
 } {
   const { user } = useAuth();
-  const [state, setState] = useState<State>({ profile: null, loading: true, error: '' });
+  const [state, setState] = useState<State>({ profile: null, loading: true, error: null });
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user) {
-      setState({ profile: null, loading: false, error: '' });
+      setState({ profile: null, loading: false, error: null });
       return;
     }
 
@@ -34,10 +34,10 @@ export function useClientProfile(): State & {
         setState({
           profile: stored ? { ...EMPTY_PROFILE, ...stored } : null,
           loading: false,
-          error: '',
+          error: null,
         });
       },
-      (cause) => setState({ profile: null, loading: false, error: cause.message })
+      (cause) => setState({ profile: null, loading: false, error: cause })
     );
   }, [user]);
 

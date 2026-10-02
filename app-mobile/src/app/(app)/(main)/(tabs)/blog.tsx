@@ -20,7 +20,7 @@ import { useBlog } from '@/hooks/use-blog';
 import { useT } from '@/hooks/use-language';
 import { BLOG_WEB_URL, type BlogPost } from '@/lib/blog';
 import { Brand, Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
-import type { Dictionary } from '@/lib/i18n';
+import { errorMessage, type Dictionary } from '@/lib/i18n';
 
 /**
  * Il blog di Revenue su Misura dentro l'app.
@@ -44,7 +44,7 @@ export default function BlogScreen() {
     try {
       await WebBrowser.openBrowserAsync(url);
     } catch (cause) {
-      setOpenError(cause instanceof Error ? cause.message : t.blog.nonApribile);
+      setOpenError(errorMessage(t, cause, t.blog.nonApribile));
     } finally {
       setOpening(0);
     }
@@ -58,7 +58,7 @@ export default function BlogScreen() {
 
       {/* L'errore di rete si mostra qui solo se qualcosa c'è già a schermo: a
           lista vuota lo dice il riquadro al centro, con il tasto per riprovare. */}
-      {error !== '' && posts.length > 0 && <ErrorNote>{t.blog.errore}</ErrorNote>}
+      {error !== null && posts.length > 0 && <ErrorNote>{t.blog.errore}</ErrorNote>}
     </View>
   );
 
@@ -67,12 +67,12 @@ export default function BlogScreen() {
   ) : (
     <EmptyState
       icon={<BlogIcon color={Ink.faint} size={32} />}
-      text={error !== '' ? t.blog.errore : t.blog.vuoto}>
+      text={error !== null ? t.blog.errore : t.blog.vuoto}>
       <Tap
-        onPress={() => (error !== '' ? retry() : void WebBrowser.openBrowserAsync(BLOG_WEB_URL))}
+        onPress={() => (error !== null ? retry() : void WebBrowser.openBrowserAsync(BLOG_WEB_URL))}
         accessibilityRole="button">
         <Text variant="service" color={Brand.accent} style={styles.strong}>
-          {error !== '' ? t.blog.riprova : t.blog.archivio}
+          {error !== null ? t.blog.riprova : t.blog.archivio}
         </Text>
       </Tap>
     </EmptyState>

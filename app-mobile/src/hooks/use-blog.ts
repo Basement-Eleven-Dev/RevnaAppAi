@@ -16,7 +16,7 @@ export function useBlog() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<unknown>(null);
 
   const page = useRef(0);
   /** Una richiesta per volta: onEndReached scatta più di una volta per scroll. */
@@ -43,13 +43,13 @@ export function useBlog() {
 
       page.current = nextPage;
       setHasMore(result.hasMore);
-      setError('');
+      setError(null);
       // Sostituire alla prima pagina e non accodare: è anche il caso del
       // pull-to-refresh, dove accodare duplicherebbe tutto l'elenco.
       setPosts((current) => (first ? result.posts : dedupe([...current, ...result.posts])));
     } catch (cause) {
       if (!alive.current) return;
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(cause);
     } finally {
       busy.current = false;
       if (alive.current) {

@@ -22,6 +22,7 @@ export const en: Dictionary = {
     password: 'Password',
     mostra: 'Show',
     nascondi: 'Hide',
+    nonCaricato: 'Couldn’t load the data. Try again shortly.',
     tornaAllAccesso: 'Back to sign-in',
   },
 
@@ -155,6 +156,7 @@ export const en: Dictionary = {
       inCorso: 'Sending…',
       vuota: 'Tell us what you need.',
       fallita: 'Request not sent.',
+      troppeAperte: 'You already have several open requests: your Revna contact is looking at them.',
     },
 
     stati: {
@@ -441,7 +443,7 @@ export const en: Dictionary = {
     trattamentoDati: 'Data processing',
   },
 
-  erroriAuth: {
+  errori: {
     'invalid-credential': 'Wrong email or password.',
     'wrong-password': 'Wrong email or password.',
     'user-not-found': 'Wrong email or password.',
@@ -454,5 +456,14 @@ export const en: Dictionary = {
     'network-request-failed': 'No connection. Try again.',
     'user-disabled': 'This account has been deactivated.',
     'operation-not-allowed': 'This operation is not allowed on this account.',
+    'permission-denied': 'You don’t have access to this content.',
+    unauthenticated: 'Your session has expired or your account is no longer active. Sign out and back in.',
+    'not-found': 'This content is no longer available.',
+    'invalid-argument': 'Invalid data. Check and try again.',
+    'resource-exhausted': 'Too many requests in a short time. Try again later.',
+    'failed-precondition': 'This can’t be done right now.',
+    unavailable: 'Service unreachable. Check your connection and try again.',
+    'deadline-exceeded': 'The service took too long to respond. Try again.',
+    internal: 'Something went wrong. Check your connection and try again.',
   },
 };

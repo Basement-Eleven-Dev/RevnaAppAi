@@ -2,7 +2,6 @@ import { httpsCallable } from 'firebase/functions';
 import { createContext, useCallback, useContext, useState } from 'react';
 
 import type { ConversationSummary, Source, StoredTurn } from '@/hooks/use-conversations';
-import { useT } from '@/hooks/use-language';
 import { stripHandoff } from '@/lib/contact-requests';
 import { getFirebaseFunctions, supportsStreaming } from '@/lib/firebase';
 
@@ -60,7 +59,6 @@ export function useAssistant(): AssistantState {
  * riscritto a ogni chunk.
  */
 function useAssistantState() {
-  const t = useT();
   const [conversationId, setConversationId] = useState<string | undefined>();
   /**
    * Il titolo che il modello ha dato alla conversazione. Serve alla barra della
@@ -72,7 +70,7 @@ function useAssistantState() {
   const [busy, setBusy] = useState(false);
   /** true tra l'invio e il primo pezzo di risposta. */
   const [waiting, setWaiting] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<unknown>(null);
   /** Una domanda pronta da scrivere nel composer, in arrivo da un'altra schermata. */
   const [pending, setPending] = useState('');
 
@@ -85,7 +83,7 @@ function useAssistantState() {
       setTurns([...history, { role: 'user', text }]);
       setBusy(true);
       setWaiting(true);
-      setError('');
+      setError(null);
 
       const ask = httpsCallable<Request, Response, Chunk>(
         getFirebaseFunctions(),
@@ -144,7 +142,7 @@ function useAssistantState() {
         setConversationId(data.conversationId);
         if (data.title) setTitle(data.title);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : t.chat.fallita);
+        setError(cause);
         // La domanda resta a schermo: l'utente può ritentare senza riscriverla.
         setTurns([...history, { role: 'user', text }]);
       } finally {
@@ -152,7 +150,7 @@ function useAssistantState() {
         setWaiting(false);
       }
     },
-    [busy, conversationId, t, turns]
+    [busy, conversationId, turns]
   );
 
   /** Apre una conversazione dall'elenco laterale. */
@@ -160,7 +158,7 @@ function useAssistantState() {
     setConversationId(conversation.id);
     setTitle(conversation.title);
     setTurns(conversation.messages);
-    setError('');
+    setError(null);
   }, []);
 
   /** Foglio bianco: la conversazione nasce sul server al primo messaggio. */
@@ -168,7 +166,7 @@ function useAssistantState() {
     setConversationId(undefined);
     setTitle('');
     setTurns([]);
-    setError('');
+    setError(null);
   }, []);
 
   /**
@@ -183,7 +181,7 @@ function useAssistantState() {
     setConversationId(undefined);
     setTitle('');
     setTurns([]);
-    setError('');
+    setError(null);
     setPending(text);
   }, []);
 

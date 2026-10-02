@@ -23,7 +23,7 @@ import {
 import { createContactRequest, useContactRequests } from '@/hooks/use-contact-requests';
 import { useT } from '@/hooks/use-language';
 import type { ContactRequest, Stato } from '@/lib/contact-requests';
-import type { Dictionary } from '@/lib/i18n';
+import { errorMessage, type Dictionary } from '@/lib/i18n';
 import { Gutter, Ink, Line, Spacing } from '@/theme';
 
 /**
@@ -67,7 +67,7 @@ export default function RequestsScreen() {
 
         {loading && <ActivityIndicator color={Ink.faint} />}
 
-        {error !== '' && <ErrorNote>{error}</ErrorNote>}
+        {error !== null && <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>}
 
         {!loading && requests.length === 0 && (
           <EmptyState icon={<RequestsIcon color={Ink.faint} size={32} />} text={t.richieste.vuoto} />

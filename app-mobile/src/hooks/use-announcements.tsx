@@ -56,7 +56,7 @@ function useAnnouncementsState() {
   const channelName = useT().avvisi.canaleNotifiche;
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<unknown>(null);
   const [notifiche, setNotifiche] = useState<PushState>('sconosciuto');
 
   /**
@@ -96,7 +96,7 @@ function useAnnouncementsState() {
         setLoading(false);
       },
       (cause) => {
-        setError(cause.message);
+        setError(cause);
         setLoading(false);
       }
     );

@@ -20,7 +20,7 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/hooks/use-auth';
 import { useT } from '@/hooks/use-language';
-import { authErrorMessage } from '@/lib/auth';
+import { errorMessage } from '@/lib/i18n';
 import { getFirebaseAuth, isFirebaseConfigured, missingFirebaseEnvKeys } from '@/lib/firebase';
 import { Brand, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
@@ -72,7 +72,7 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
     } catch (cause) {
-      setError(authErrorMessage(t, cause, t.login.fallito));
+      setError(errorMessage(t, cause, t.login.fallito));
     } finally {
       setBusy(false);
     }

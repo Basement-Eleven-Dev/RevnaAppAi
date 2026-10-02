@@ -7,6 +7,7 @@ import { LegalLinks } from '@/components/legal-links';
 import { Button, Field, FieldNote, FormScreen, ScreenBar, Text } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
 import { requestPasswordReset } from '@/lib/auth';
+import { errorMessage } from '@/lib/i18n';
 import { Brand, Family, Gutter, Ink, Spacing } from '@/theme';
 
 /**
@@ -40,8 +41,11 @@ export default function RecoverScreen() {
     } catch (cause) {
       // La function risponde uguale per ogni email: l'unico rifiuto che dice
       // qualcosa al cliente è l'indirizzo scritto male, il resto è «riprova».
-      const code = (cause as { code?: string }).code;
-      setError(code === 'functions/invalid-argument' ? t.recupero.emailNonValida : t.recupero.fallito);
+      setError(
+        errorMessage(t, cause, t.recupero.fallito, {
+          'invalid-argument': t.recupero.emailNonValida,
+        })
+      );
     } finally {
       setBusy(false);
     }

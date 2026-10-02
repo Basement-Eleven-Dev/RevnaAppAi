@@ -32,7 +32,7 @@ export function useContactRequests() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<ContactRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !user) {
@@ -55,7 +55,7 @@ export function useContactRequests() {
         setLoading(false);
       },
       (cause) => {
-        setError(cause.message);
+        setError(cause);
         setLoading(false);
       }
     );

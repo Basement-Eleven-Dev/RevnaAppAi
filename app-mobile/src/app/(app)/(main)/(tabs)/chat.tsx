@@ -39,6 +39,7 @@ import { createContactRequest } from '@/hooks/use-contact-requests';
 import { MAX_MESSAGE_CHARS } from '@/hooks/use-conversations';
 import { useT } from '@/hooks/use-language';
 import { useStarters } from '@/hooks/use-starters';
+import { errorMessage } from '@/lib/i18n';
 import { Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
 /**
@@ -211,7 +212,7 @@ export default function ChatScreen() {
             </Appear>
           )}
 
-          {error !== '' && <ErrorNote>{error}</ErrorNote>}
+          {error !== null && <ErrorNote>{errorMessage(t, error, t.chat.fallita)}</ErrorNote>}
         </ScrollView>
 
         <View style={styles.composerWrap}>

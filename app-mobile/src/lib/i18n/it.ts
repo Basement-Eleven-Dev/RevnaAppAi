@@ -28,6 +28,8 @@ export const it = {
     /** Sul campo password: dice cosa fa il tocco, non che cosa sta accadendo ora. */
     mostra: 'Mostra',
     nascondi: 'Nascondi',
+    /** Ripiego di `errorMessage` quando un elenco o un profilo non si carica. */
+    nonCaricato: 'Non è stato possibile caricare i dati. Riprova tra poco.',
     tornaAllAccesso: 'Torna all’accesso',
   },
 
@@ -173,6 +175,7 @@ export const it = {
       inCorso: 'Invio…',
       vuota: 'Scrivi cosa ti serve.',
       fallita: 'Richiesta non inviata.',
+      troppeAperte: 'Hai già diverse richieste aperte: il tuo referente Revna le sta guardando.',
     },
 
     stati: {
@@ -470,11 +473,14 @@ export const it = {
   },
 
   /**
-   * Messaggi per i codici d'errore di Firebase Auth, senza il prefisso `auth/`.
-   * Quelli non elencati ricadono sul messaggio generico della schermata, con il
-   * codice in coda: meglio un codice leggibile che una frase inventata.
+   * Una frase per ogni codice d'errore di Firebase (Auth, Functions, Firestore),
+   * senza il prefisso `auth/` o `functions/`: la usa `errorMessage`. I codici non
+   * elencati ricadono sul messaggio della singola schermata.
+   *
+   * `internal` parla anche di connessione perché è il codice con cui una function
+   * fallisce quando il telefono è offline: la richiesta non parte e non c'è altro.
    */
-  erroriAuth: {
+  errori: {
     'invalid-credential': 'Email o password non corretti.',
     'wrong-password': 'Email o password non corretti.',
     'user-not-found': 'Email o password non corretti.',
@@ -487,6 +493,15 @@ export const it = {
     'network-request-failed': 'Connessione assente. Riprova.',
     'user-disabled': 'Questa utenza è stata disattivata.',
     'operation-not-allowed': 'Operazione non consentita su questo account.',
+    'permission-denied': 'Non hai accesso a questo contenuto.',
+    unauthenticated: 'La sessione è scaduta o l’utenza non è più attiva. Esci e rientra.',
+    'not-found': 'Questo contenuto non è più disponibile.',
+    'invalid-argument': 'Dati non validi. Controlla e riprova.',
+    'resource-exhausted': 'Troppe richieste in poco tempo. Riprova più tardi.',
+    'failed-precondition': 'Non è possibile farlo in questo momento.',
+    unavailable: 'Servizio non raggiungibile. Controlla la connessione e riprova.',
+    'deadline-exceeded': 'Il servizio ha impiegato troppo a rispondere. Riprova.',
+    internal: 'Qualcosa non ha funzionato. Controlla la connessione e riprova.',
   },
 };
 

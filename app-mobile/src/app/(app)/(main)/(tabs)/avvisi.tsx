@@ -20,7 +20,7 @@ import { useAnnouncements } from '@/hooks/use-announcements';
 import { useT } from '@/hooks/use-language';
 import { isUnread } from '@/lib/announcements';
 import { Brand, Gutter, Ink, Spacing } from '@/theme';
-import type { Dictionary } from '@/lib/i18n';
+import { errorMessage, type Dictionary } from '@/lib/i18n';
 
 /**
  * Gli avvisi di Revna a questa struttura.
@@ -61,7 +61,7 @@ export default function AnnouncementsScreen() {
 
         {loading && <ActivityIndicator color={Brand.accent} />}
 
-        {error !== '' && <ErrorNote>{error}</ErrorNote>}
+        {error !== null && <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>}
 
         {!loading && announcements.length === 0 && (
           <EmptyState
