@@ -9,6 +9,7 @@ import {
   EmptyState,
   ErrorNote,
   FormatBlock,
+  Loading,
   PageHeading,
   Screen,
   ScreenBar,
@@ -63,7 +64,7 @@ export default function DocumentsScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <PageHeading title={t.documenti.titolo} subtitle={t.documenti.sottotitolo} />
 
-        {loading && <ActivityIndicator color={Brand.accent} />}
+        {loading && <Loading />}
 
         {openError !== '' ? (
           <ErrorNote>{openError}</ErrorNote>
@@ -71,7 +72,7 @@ export default function DocumentsScreen() {
           error !== null && <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>
         )}
 
-        {!loading && documents.length === 0 && (
+        {!loading && error === null && documents.length === 0 && (
           <EmptyState icon={<DocumentsIcon color={Ink.faint} size={32} />} text={t.documenti.vuoto} />
         )}
 

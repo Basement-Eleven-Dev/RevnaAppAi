@@ -7,10 +7,9 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { useEffect, useState } from 'react';
 
-import { useAuth } from '@/hooks/use-auth';
-import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from '@/lib/firebase';
+import { useLiveData, type Subscribe } from '@/hooks/use-live-data';
+import { getFirebaseDb, getFirebaseFunctions } from '@/lib/firebase';
 import type { Dictionary } from '@/lib/i18n';
 
 /**
@@ -58,6 +57,19 @@ export const MAX_MESSAGE_CHARS = 4000;
 /** Quante conversazioni tenere nell'elenco laterale. */
 const MAX_LISTED = 50;
 
+const NONE: ConversationSummary[] = [];
+
+const subscribe: Subscribe<ConversationSummary[]> = (uid, onData, onError) =>
+  onSnapshot(
+    query(
+      collection(getFirebaseDb(), 'users', uid, 'conversations'),
+      orderBy('updatedAt', 'desc'),
+      limit(MAX_LISTED)
+    ),
+    (snapshot) => onData(snapshot.docs.map((document) => toSummary(document.id, document.data()))),
+    onError
+  );
+
 /**
  * Elenco live delle conversazioni del cliente, dalla più recente.
  *
@@ -66,32 +78,7 @@ const MAX_LISTED = 50;
  * seconda lettura.
  */
 export function useConversations() {
-  const { user } = useAuth();
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!isFirebaseConfigured || !user) {
-      setConversations([]);
-      setLoading(false);
-      return;
-    }
-
-    const ref = query(
-      collection(getFirebaseDb(), 'users', user.uid, 'conversations'),
-      orderBy('updatedAt', 'desc'),
-      limit(MAX_LISTED)
-    );
-
-    return onSnapshot(
-      ref,
-      (snapshot) => {
-        setConversations(snapshot.docs.map((document) => toSummary(document.id, document.data())));
-        setLoading(false);
-      },
-      () => setLoading(false)
-    );
-  }, [user]);
+  const { data: conversations, loading, error } = useLiveData(subscribe, NONE);
 
   async function remove(conversationId: string) {
     const call = httpsCallable<{ conversationId: string }, { ok: true }>(
@@ -101,7 +88,7 @@ export function useConversations() {
     await call({ conversationId });
   }
 
-  return { conversations, loading, remove };
+  return { conversations, loading, error, remove };
 }
 
 function toSummary(id: string, data: DocumentData): ConversationSummary {

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Markdown } from '@/components/markdown';
 import {
@@ -8,7 +8,9 @@ import {
   BackIcon,
   Bevel,
   EmptyState,
+  ErrorNote,
   IconButton,
+  Loading,
   Mark,
   Screen,
   ScreenBar,
@@ -19,7 +21,7 @@ import { useAnnouncements } from '@/hooks/use-announcements';
 import { useAssistant } from '@/hooks/use-assistant';
 import { useT } from '@/hooks/use-language';
 import { Brand, Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
-import type { Dictionary } from '@/lib/i18n';
+import { errorMessage, type Dictionary } from '@/lib/i18n';
 import { goBack } from '@/lib/navigation';
 
 /**
@@ -42,13 +44,19 @@ export default function AnnouncementScreen() {
   const t = useT();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { announcements, loading, markRead } = useAnnouncements();
+  const { announcements, loading, error, markRead } = useAnnouncements();
   const { prefill } = useAssistant();
 
   const announcement = announcements.find((row) => row.id === id);
 
+  // Una volta per apertura: se la chiamata fallisce il pallino torna, e riprovare
+  // a ogni render lo rimanderebbe in un giro senza fine.
+  const marked = useRef('');
+
   useEffect(() => {
-    if (announcement && announcement.lettoAt === null) markRead(announcement.id);
+    if (!announcement || announcement.lettoAt !== null || marked.current === announcement.id) return;
+    marked.current = announcement.id;
+    markRead(announcement.id);
   }, [announcement, markRead]);
 
   function askAssistant() {
@@ -71,11 +79,16 @@ export default function AnnouncementScreen() {
       </ScreenBar>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Manca solo in due casi: l'elenco non è ancora arrivato — succede
-            aprendo l'app da una notifica — o l'avviso è stato ritirato. */}
-        {!announcement && loading && <ActivityIndicator color={Brand.accent} />}
+        {/* Manca in tre casi: l'elenco non è ancora arrivato — succede aprendo
+            l'app da una notifica —, non si è potuto leggere, o l'avviso è stato
+            ritirato. */}
+        {!announcement && loading && <Loading />}
 
-        {!announcement && !loading && (
+        {!announcement && !loading && error !== null && (
+          <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>
+        )}
+
+        {!announcement && !loading && error === null && (
           <EmptyState text={t.avvisi.ritirato}>
             <Tap onPress={() => router.replace('/avvisi')} accessibilityRole="button">
               <Text variant="service" color={Brand.accent} style={styles.link}>

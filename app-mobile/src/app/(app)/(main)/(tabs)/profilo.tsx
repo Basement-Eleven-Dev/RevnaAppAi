@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
 import {
@@ -14,6 +14,7 @@ import {
   ErrorNote,
   Field,
   IconButton,
+  Loading,
   PageHeading,
   Screen,
   ScreenBar,
@@ -28,7 +29,7 @@ import { useT } from '@/hooks/use-language';
 import { signOutDevice } from '@/lib/auth';
 import { errorMessage, labelOf, labelsOf, type Dictionary } from '@/lib/i18n';
 import { MAX_NOTE_CHARS, type ClientProfile } from '@/lib/profile';
-import { Brand, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
+import { Brand, Family, Gutter, Ink, Spacing } from '@/theme';
 
 /**
  * La scheda della struttura.
@@ -66,11 +67,25 @@ export default function ProfileScreen() {
 
   const note = drafted ?? profile?.noteCliente ?? '';
 
+  const bar = (
+    <ScreenBar
+      left={<MenuButton />}
+      right={
+        <IconButton
+          onPress={() => router.navigate('/impostazioni')}
+          accessibilityLabel={t.profilo.apriImpostazioni}>
+          <SettingsIcon color={Ink.secondary} size={15} />
+        </IconButton>
+      }
+    />
+  );
+
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={Brand.accent} />
-      </View>
+      <Screen>
+        {bar}
+        <Loading />
+      </Screen>
     );
   }
 
@@ -102,16 +117,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <ScreenBar
-        left={<MenuButton />}
-        right={
-          <IconButton
-            onPress={() => router.navigate('/impostazioni')}
-            accessibilityLabel={t.profilo.apriImpostazioni}>
-            <SettingsIcon color={Ink.secondary} size={15} />
-          </IconButton>
-        }
-      />
+      {bar}
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <Appear>
@@ -303,12 +309,6 @@ function Stat({ value, label, accent = false }: { value: number; label: string; 
 }
 
 const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Surface.base,
-  },
   scroll: { paddingHorizontal: Gutter, paddingBottom: Spacing.xxl, gap: Spacing.sm + 2 },
   stats: { flexDirection: 'row', gap: Spacing.sm + 2, marginTop: Spacing.md },
   // Le schede stanno in un contenitore loro (l'entrata), quindi lo spazio fra una

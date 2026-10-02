@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ContactRequestModal } from '@/components/contact-request-modal';
 import {
@@ -10,6 +10,7 @@ import {
   EmptyState,
   ErrorNote,
   IconButton,
+  Loading,
   PageHeading,
   RequestsIcon,
   Screen,
@@ -64,11 +65,11 @@ export default function RequestsScreen() {
 
         <Button label={t.richieste.nuova} onPress={() => setComposing(true)} />
 
-        {loading && <ActivityIndicator color={Ink.faint} />}
+        {loading && <Loading />}
 
         {error !== null && <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>}
 
-        {!loading && requests.length === 0 && (
+        {!loading && error === null && requests.length === 0 && (
           <EmptyState icon={<RequestsIcon color={Ink.faint} size={32} />} text={t.richieste.vuoto} />
         )}
 

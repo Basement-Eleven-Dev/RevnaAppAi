@@ -1,7 +1,7 @@
 import { Link, Redirect } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Monogram } from '@/components/brand/monogram';
@@ -14,6 +14,7 @@ import {
   Field,
   FieldNote,
   FormScreen,
+  Loading,
   PasswordField,
   stagger,
   Text,
@@ -53,13 +54,7 @@ export default function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={Brand.accent} />
-      </View>
-    );
-  }
+  if (loading) return <Loading fill />;
 
   if (user) return <Redirect href="/chat" />;
 

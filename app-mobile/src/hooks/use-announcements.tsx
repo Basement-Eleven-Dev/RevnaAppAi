@@ -1,12 +1,13 @@
 import { useRouter } from 'expo-router';
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useT } from '@/hooks/use-language';
+import { useLiveData, type Subscribe } from '@/hooks/use-live-data';
 import { isUnread, MAX_LISTED, type Announcement } from '@/lib/announcements';
-import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from '@/lib/firebase';
+import { getFirebaseDb, getFirebaseFunctions } from '@/lib/firebase';
 import {
   onAnnouncementOpened,
   registerPushToken,
@@ -17,6 +18,37 @@ import {
 type AnnouncementsState = ReturnType<typeof useAnnouncementsState>;
 
 const AnnouncementsContext = createContext<AnnouncementsState | null>(null);
+
+const NONE: Announcement[] = [];
+
+/**
+ * In ascolto live, come i documenti: un avviso che arriva mentre l'app è aperta deve
+ * comparire da sé. Vale anche per una correzione — il consulente riscrive il testo di
+ * una comunicazione già mandata e chi la sta leggendo vede la versione giusta.
+ */
+const subscribe: Subscribe<Announcement[]> = (uid, onData, onError) =>
+  onSnapshot(
+    query(
+      collection(getFirebaseDb(), 'users', uid, 'announcements'),
+      orderBy('inviatoAt', 'desc'),
+      limit(MAX_LISTED)
+    ),
+    (snapshot) =>
+      onData(
+        snapshot.docs.map((document) => {
+          const data = document.data();
+          return {
+            id: document.id,
+            titolo: (data['titolo'] as string) ?? '',
+            corpo: (data['corpo'] as string) ?? '',
+            estratto: (data['estratto'] as string) ?? '',
+            inviatoAt: (data['inviatoAt'] as string) ?? '',
+            lettoAt: (data['lettoAt'] as string | null) ?? null,
+          } satisfies Announcement;
+        })
+      ),
+    onError
+  );
 
 /**
  * Gli avvisi ricevuti da questo cliente, condivisi da tutta l'area riservata.
@@ -54,53 +86,20 @@ function useAnnouncementsState() {
   const { user } = useAuth();
   const router = useRouter();
   const channelName = useT().avvisi.canaleNotifiche;
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>(null);
+  const { data: received, loading, error } = useLiveData(subscribe, NONE);
+  /** Gli avvisi aperti da poco, con l'ora: letti per l'app finché il server non lo conferma. */
+  const [opened, setOpened] = useState<Record<string, string>>({});
   const [notifiche, setNotifiche] = useState<PushState>('sconosciuto');
 
-  /**
-   * In ascolto live, come i documenti: un avviso che arriva mentre l'app è aperta deve
-   * comparire da sé. Vale anche per una correzione — il consulente riscrive il testo di
-   * una comunicazione già mandata e chi la sta leggendo vede la versione giusta.
-   */
-  useEffect(() => {
-    if (!isFirebaseConfigured || !user) {
-      setAnnouncements([]);
-      setLoading(false);
-      return;
-    }
-
-    const ref = query(
-      collection(getFirebaseDb(), 'users', user.uid, 'announcements'),
-      orderBy('inviatoAt', 'desc'),
-      limit(MAX_LISTED)
-    );
-
-    return onSnapshot(
-      ref,
-      (snapshot) => {
-        setAnnouncements(
-          snapshot.docs.map((document) => {
-            const data = document.data();
-            return {
-              id: document.id,
-              titolo: (data['titolo'] as string) ?? '',
-              corpo: (data['corpo'] as string) ?? '',
-              estratto: (data['estratto'] as string) ?? '',
-              inviatoAt: (data['inviatoAt'] as string) ?? '',
-              lettoAt: (data['lettoAt'] as string | null) ?? null,
-            } satisfies Announcement;
-          })
-        );
-        setLoading(false);
-      },
-      (cause) => {
-        setError(cause);
-        setLoading(false);
-      }
-    );
-  }, [user]);
+  const announcements = useMemo(
+    () =>
+      received.map((announcement) =>
+        announcement.lettoAt === null && opened[announcement.id]
+          ? { ...announcement, lettoAt: opened[announcement.id] }
+          : announcement
+      ),
+    [received, opened]
+  );
 
   const unread = announcements.filter(isUnread).length;
 
@@ -136,29 +135,24 @@ function useAnnouncementsState() {
    *
    * Il pallino sparisce subito, senza attendere la risposta: chi ha appena aperto
    * l'avviso non deve vedere il proprio tocco arrivare con mezzo secondo di ritardo. Se
-   * la chiamata fallisce non si corregge niente a mano — l'ascolto live rimetterà il
-   * pallino da sé, e al prossimo tocco si riprova.
+   * la chiamata fallisce il pallino torna, e alla prossima apertura si riprova.
    */
-  const markRead = useCallback(
-    (id: string) => {
-      const now = new Date().toISOString();
-      setAnnouncements((current) =>
-        current.map((announcement) =>
-          announcement.id === id && announcement.lettoAt === null
-            ? { ...announcement, lettoAt: now }
-            : announcement
-        )
-      );
+  const markRead = useCallback((id: string) => {
+    setOpened((current) => ({ ...current, [id]: new Date().toISOString() }));
 
-      const call = httpsCallable<{ id: string }, { ok: true }>(
-        getFirebaseFunctions(),
-        'markAnnouncementRead'
-      );
+    const call = httpsCallable<{ id: string }, { ok: true }>(
+      getFirebaseFunctions(),
+      'markAnnouncementRead'
+    );
 
-      void call({ id }).catch(() => {});
-    },
-    []
-  );
+    void call({ id }).catch(() =>
+      setOpened((current) => {
+        const rest = { ...current };
+        delete rest[id];
+        return rest;
+      })
+    );
+  }, []);
 
   return { announcements, unread, loading, error, notifiche, markRead };
 }

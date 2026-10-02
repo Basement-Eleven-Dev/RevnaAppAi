@@ -17,7 +17,6 @@ export const it = {
 
   comune: {
     annulla: 'Annulla',
-    caricamento: 'Caricamento…',
     chiudi: 'Chiudi',
     continua: 'Continua',
     elimina: 'Elimina',

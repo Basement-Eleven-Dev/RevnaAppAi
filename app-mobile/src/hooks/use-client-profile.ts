@@ -1,45 +1,27 @@
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/hooks/use-auth';
-import { getFirebaseDb, isFirebaseConfigured } from '@/lib/firebase';
+import { useLiveData, type Subscribe } from '@/hooks/use-live-data';
+import { getFirebaseDb } from '@/lib/firebase';
 import { EMPTY_PROFILE, type ClientProfile } from '@/lib/profile';
 
-type State = {
-  profile: ClientProfile | null;
-  loading: boolean;
-  error: unknown;
-};
+const subscribe: Subscribe<ClientProfile | null> = (uid, onData, onError) =>
+  onSnapshot(
+    doc(getFirebaseDb(), 'users', uid),
+    (snapshot) => {
+      const stored = snapshot.data()?.profile as Partial<ClientProfile> | undefined;
+      onData(stored ? { ...EMPTY_PROFILE, ...stored } : null);
+    },
+    onError
+  );
 
 /**
  * Profilo della struttura, redatto da Revna e tenuto in `users/{uid}`.
  * In ascolto live: se il consulente lo aggiorna, l'app se ne accorge.
  */
-export function useClientProfile(): State & {
-  saveNote: (note: string) => Promise<void>;
-} {
+export function useClientProfile() {
   const { user } = useAuth();
-  const [state, setState] = useState<State>({ profile: null, loading: true, error: null });
-
-  useEffect(() => {
-    if (!isFirebaseConfigured || !user) {
-      setState({ profile: null, loading: false, error: null });
-      return;
-    }
-
-    return onSnapshot(
-      doc(getFirebaseDb(), 'users', user.uid),
-      (snapshot) => {
-        const stored = snapshot.data()?.profile as Partial<ClientProfile> | undefined;
-        setState({
-          profile: stored ? { ...EMPTY_PROFILE, ...stored } : null,
-          loading: false,
-          error: null,
-        });
-      },
-      (cause) => setState({ profile: null, loading: false, error: cause })
-    );
-  }, [user]);
+  const { data: profile, loading, error } = useLiveData(subscribe, null);
 
   async function saveNote(note: string) {
     if (!user) return;
@@ -51,5 +33,5 @@ export function useClientProfile(): State & {
     });
   }
 
-  return { ...state, saveNote };
+  return { profile, loading, error, saveNote };
 }

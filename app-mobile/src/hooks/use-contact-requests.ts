@@ -8,14 +8,27 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { useEffect, useState } from 'react';
 
-import { useAuth } from '@/hooks/use-auth';
-import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from '@/lib/firebase';
+import { useLiveData, type Subscribe } from '@/hooks/use-live-data';
+import { getFirebaseDb, getFirebaseFunctions } from '@/lib/firebase';
 import { toStato, type ContactRequest } from '@/lib/contact-requests';
 
 /** Quante richieste tenere nell'elenco: oltre, non è più uno storico che si scorre. */
 const MAX_LISTED = 100;
+
+const NONE: ContactRequest[] = [];
+
+const subscribe: Subscribe<ContactRequest[]> = (uid, onData, onError) =>
+  onSnapshot(
+    query(
+      collection(getFirebaseDb(), 'contactRequests'),
+      where('uid', '==', uid),
+      orderBy('createdAt', 'desc'),
+      limit(MAX_LISTED)
+    ),
+    (snapshot) => onData(snapshot.docs.map((document) => toRequest(document.id, document.data()))),
+    onError
+  );
 
 /**
  * Le richieste di contatto di questo cliente, in ascolto live.
@@ -29,38 +42,7 @@ const MAX_LISTED = 100;
  * `backend/firestore.rules`).
  */
 export function useContactRequests() {
-  const { user } = useAuth();
-  const [requests, setRequests] = useState<ContactRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    if (!isFirebaseConfigured || !user) {
-      setRequests([]);
-      setLoading(false);
-      return;
-    }
-
-    const ref = query(
-      collection(getFirebaseDb(), 'contactRequests'),
-      where('uid', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(MAX_LISTED)
-    );
-
-    return onSnapshot(
-      ref,
-      (snapshot) => {
-        setRequests(snapshot.docs.map((document) => toRequest(document.id, document.data())));
-        setLoading(false);
-      },
-      (cause) => {
-        setError(cause);
-        setLoading(false);
-      }
-    );
-  }, [user]);
-
+  const { data: requests, loading, error } = useLiveData(subscribe, NONE);
   return { requests, loading, error };
 }
 

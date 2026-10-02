@@ -19,6 +19,7 @@ import {
   DataRow,
   Field,
   IconButton,
+  Loading,
   PasswordField,
   Screen,
   ScreenBar,
@@ -103,9 +104,15 @@ function MemoryCard() {
   return (
     <Card>
       <BlockLabel>{t.impostazioni.memoria.titolo}</BlockLabel>
-      <Text variant="service" color={Ink.secondary}>
-        {loading ? t.comune.caricamento : t.impostazioni.memoria.conteggio(entries.length)}
-      </Text>
+      {loading ? (
+        <Loading />
+      ) : (
+        error === null && (
+          <Text variant="service" color={Ink.secondary}>
+            {t.impostazioni.memoria.conteggio(entries.length)}
+          </Text>
+        )
+      )}
       {error !== null && (
         <Text variant="service" color={Danger.text} style={styles.memoryNote}>
           {errorMessage(t, error, t.comune.nonCaricato)}

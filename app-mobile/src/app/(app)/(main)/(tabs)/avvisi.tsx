@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
 import {
@@ -9,6 +9,7 @@ import {
   BlockLabel,
   EmptyState,
   ErrorNote,
+  Loading,
   PageHeading,
   QuietRow,
   Screen,
@@ -19,7 +20,7 @@ import {
 import { useAnnouncements } from '@/hooks/use-announcements';
 import { useT } from '@/hooks/use-language';
 import { isUnread } from '@/lib/announcements';
-import { Brand, Gutter, Ink, Spacing } from '@/theme';
+import { Gutter, Ink, Spacing } from '@/theme';
 import { errorMessage, type Dictionary } from '@/lib/i18n';
 
 /**
@@ -59,11 +60,11 @@ export default function AnnouncementsScreen() {
           accent={unread > 0}
         />
 
-        {loading && <ActivityIndicator color={Brand.accent} />}
+        {loading && <Loading />}
 
         {error !== null && <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>}
 
-        {!loading && announcements.length === 0 && (
+        {!loading && error === null && announcements.length === 0 && (
           <EmptyState
             icon={<AnnouncementsIcon color={Ink.faint} size={32} />}
             text={t.avvisi.vuoto}

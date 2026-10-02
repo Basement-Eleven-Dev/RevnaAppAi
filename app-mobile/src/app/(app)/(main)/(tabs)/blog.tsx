@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
 import {
@@ -9,6 +9,7 @@ import {
   BlogIcon,
   EmptyState,
   ErrorNote,
+  Loading,
   PageHeading,
   Screen,
   ScreenBar,
@@ -63,7 +64,7 @@ export default function BlogScreen() {
   );
 
   const empty = loading ? (
-    <ActivityIndicator color={Brand.accent} />
+    <Loading />
   ) : (
     <EmptyState
       icon={<BlogIcon color={Ink.faint} size={32} />}
@@ -99,7 +100,7 @@ export default function BlogScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.6}
         ListFooterComponent={
-          loadingMore ? <ActivityIndicator color={Brand.accent} style={styles.footer} /> : null
+          loadingMore ? <Loading style={styles.footer} /> : null
         }
         renderItem={({ item }) => (
           <PostCard

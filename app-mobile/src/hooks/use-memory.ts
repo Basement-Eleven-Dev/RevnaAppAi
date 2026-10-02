@@ -1,10 +1,20 @@
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useAuth } from '@/hooks/use-auth';
-import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from '@/lib/firebase';
+import { useLiveData, type Subscribe } from '@/hooks/use-live-data';
+import { getFirebaseDb, getFirebaseFunctions } from '@/lib/firebase';
 import { MAX_ENTRY_CHARS, type MemoryEntry } from '@/lib/memory';
+
+const NONE: MemoryEntry[] = [];
+
+const subscribe: Subscribe<MemoryEntry[]> = (uid, onData, onError) =>
+  onSnapshot(
+    query(collection(getFirebaseDb(), 'users', uid, 'memory'), orderBy('at', 'desc')),
+    (snapshot) => onData(snapshot.docs.map((document) => toEntry(document.id, document.data()))),
+    onError
+  );
 
 /**
  * La memoria dell'assistente su questo cliente, in ascolto live.
@@ -19,35 +29,7 @@ import { MAX_ENTRY_CHARS, type MemoryEntry } from '@/lib/memory';
  */
 export function useMemory() {
   const { user } = useAuth();
-  const [entries, setEntries] = useState<MemoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    if (!isFirebaseConfigured || !user) {
-      setEntries([]);
-      setLoading(false);
-      return;
-    }
-
-    const ref = query(
-      collection(getFirebaseDb(), 'users', user.uid, 'memory'),
-      orderBy('at', 'desc')
-    );
-
-    return onSnapshot(
-      ref,
-      (snapshot) => {
-        setEntries(snapshot.docs.map((document) => toEntry(document.id, document.data())));
-        setLoading(false);
-        setError(null);
-      },
-      (cause) => {
-        setLoading(false);
-        setError(cause);
-      }
-    );
-  }, [user]);
+  const { data: entries, loading, error } = useLiveData(subscribe, NONE);
 
   /**
    * Corregge una riga.

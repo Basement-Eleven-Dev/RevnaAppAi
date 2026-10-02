@@ -10,6 +10,7 @@ import {
   ErrorNote,
   Field,
   IconButton,
+  Loading,
   Screen,
   ScreenBar,
   Tap,
@@ -92,16 +93,16 @@ export default function MemoryScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Card>
-          <BlockLabel>{t.impostazioni.memoria.conteggio(entries.length)}</BlockLabel>
+          <BlockLabel>
+            {loading || error !== null
+              ? t.impostazioni.memoria.titolo
+              : t.impostazioni.memoria.conteggio(entries.length)}
+          </BlockLabel>
           <Text variant="service" color={Ink.secondary}>
             {t.impostazioni.memoria.aiuto}
           </Text>
 
-          {loading && (
-            <Text variant="service" color={Ink.faint} style={styles.note}>
-              {t.comune.caricamento}
-            </Text>
-          )}
+          {loading && <Loading />}
           {error !== null && (
             <View style={styles.note}>
               <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>

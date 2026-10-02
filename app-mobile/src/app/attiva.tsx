@@ -5,7 +5,7 @@ import {
   verifyPasswordResetCode,
 } from 'firebase/auth';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Wordmark } from '@/components/brand/wordmark';
 import { LegalLinks } from '@/components/legal-links';
@@ -14,6 +14,7 @@ import {
   Field,
   FieldNote,
   FormScreen,
+  Loading,
   PasswordField,
   ScreenBar,
   Text,
@@ -168,7 +169,7 @@ function ActivationForm({ linkCode, linkReset }: { linkCode: string; linkReset: 
       <View style={styles.spacer} />
 
       <View style={styles.form}>
-        {verifying && <ActivityIndicator color={Brand.accent} />}
+        {verifying && <Loading />}
 
         {passwordSet ? (
           <Text variant="service" color={Brand.accent} style={styles.help}>

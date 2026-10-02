@@ -1,4 +1,12 @@
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewProps } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewProps,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Appear } from '@/components/ui/motion';
@@ -130,6 +138,18 @@ export function EmptyState({
   );
 }
 
+/**
+ * L'attesa dei dati, uguale in tutta l'app: dove arriverà il contenuto, o a tutta
+ * pagina (`fill`) quando non c'è ancora niente da impaginare.
+ */
+export function Loading({ fill = false, style }: { fill?: boolean; style?: ViewProps['style'] }) {
+  return (
+    <View style={[fill ? styles.fill : styles.loading, style]}>
+      <ActivityIndicator color={Brand.accent} />
+    </View>
+  );
+}
+
 /** Un errore, dove è successo. Un solo rosso funzionale, mai vicino all'accento. */
 export function ErrorNote({ children }: { children: string }) {
   return (
@@ -155,4 +175,6 @@ export const styles = StyleSheet.create({
   heading: { gap: Spacing.sm },
   empty: { alignItems: 'center', gap: Spacing.lg, paddingVertical: Spacing.xxl },
   emptyText: { textAlign: 'center', maxWidth: 280 },
+  loading: { alignItems: 'center', paddingVertical: Spacing.lg },
+  fill: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Surface.base },
 });

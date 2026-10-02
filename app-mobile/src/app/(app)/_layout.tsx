@@ -2,17 +2,17 @@ import { Redirect } from 'expo-router';
 import Drawer from 'expo-router/drawer';
 import { signOut } from 'firebase/auth';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppSidebar, SIDEBAR_MAX_WIDTH } from '@/components/app-sidebar';
 import { Wordmark } from '@/components/brand/wordmark';
-import { Button, FormScreen, ScreenBar, Text } from '@/components/ui';
+import { Button, FormScreen, Loading, ScreenBar, Text } from '@/components/ui';
 import { AnnouncementsProvider } from '@/hooks/use-announcements';
 import { AssistantProvider } from '@/hooks/use-assistant';
 import { useAuth, useIsRevnaAdmin } from '@/hooks/use-auth';
 import { useT } from '@/hooks/use-language';
 import { getFirebaseAuth } from '@/lib/firebase';
-import { Brand, Gutter, Ink, Spacing, Surface } from '@/theme';
+import { Gutter, Ink, Spacing, Surface } from '@/theme';
 
 /**
  * Area riservata: senza sessione non si entra, e un referente Revna si ferma prima.
@@ -32,11 +32,7 @@ export default function AppLayout() {
   const { width } = useWindowDimensions();
 
   if (loading || (user && admin === null)) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Surface.base }}>
-        <ActivityIndicator color={Brand.accent} />
-      </View>
-    );
+    return <Loading fill />;
   }
 
   if (!user) {

@@ -12,7 +12,6 @@ export const en: Dictionary = {
 
   comune: {
     annulla: 'Cancel',
-    caricamento: 'Loading…',
     chiudi: 'Close',
     continua: 'Continue',
     elimina: 'Delete',

@@ -13,6 +13,7 @@ import {
   ConfirmSheet,
   ErrorNote,
   IconButton,
+  Loading,
   RequestsIcon,
   SettingsIcon,
   stagger,
@@ -44,7 +45,7 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
-  const { conversations, loading, remove } = useConversations();
+  const { conversations, loading, error, remove } = useConversations();
   const { conversationId, open, startNew } = useAssistant();
   const longPressedConversation = useRef<string | null>(null);
   /** La conversazione di cui si sta chiedendo conferma dell'eliminazione. */
@@ -102,10 +103,12 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
       </Text>
 
       <ScrollView contentContainerStyle={styles.list}>
-        {loading && (
-          <Text variant="service" color={Ink.faint} style={styles.note}>
-            {t.comune.caricamento}
-          </Text>
+        {loading && <Loading />}
+
+        {error !== null && (
+          <View style={styles.note}>
+            <ErrorNote>{errorMessage(t, error, t.comune.nonCaricato)}</ErrorNote>
+          </View>
         )}
 
         {removeError !== null && (
@@ -114,7 +117,7 @@ export function AppSidebar({ navigation }: DrawerContentComponentProps) {
           </View>
         )}
 
-        {!loading && conversations.length === 0 && (
+        {!loading && error === null && conversations.length === 0 && (
           <Text variant="service" color={Ink.faint} style={styles.note}>
             {t.conversazioni.vuoto}
           </Text>

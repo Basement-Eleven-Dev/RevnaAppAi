@@ -1,48 +1,28 @@
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { useEffect, useState } from 'react';
 
-import { useAuth } from '@/hooks/use-auth';
-import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from '@/lib/firebase';
+import { useLiveData, type Subscribe } from '@/hooks/use-live-data';
+import { getFirebaseDb, getFirebaseFunctions } from '@/lib/firebase';
 import type { ClientDocument } from '@/lib/documents';
+
+const NONE: ClientDocument[] = [];
+
+const subscribe: Subscribe<ClientDocument[]> = (uid, onData, onError) =>
+  onSnapshot(
+    query(collection(getFirebaseDb(), 'users', uid, 'documents'), orderBy('uploadedAt', 'desc')),
+    (snapshot) =>
+      onData(
+        snapshot.docs.map((document) => ({ id: document.id, ...document.data() }) as ClientDocument)
+      ),
+    onError
+  );
 
 /**
  * Documenti che Revna ha condiviso con questo cliente.
  * In ascolto live: appena il consulente ne carica uno, compare nell'app.
  */
 export function useDocuments() {
-  const { user } = useAuth();
-  const [documents, setDocuments] = useState<ClientDocument[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>(null);
-
-  useEffect(() => {
-    if (!isFirebaseConfigured || !user) {
-      setDocuments([]);
-      setLoading(false);
-      return;
-    }
-
-    const ref = query(
-      collection(getFirebaseDb(), 'users', user.uid, 'documents'),
-      orderBy('uploadedAt', 'desc')
-    );
-
-    return onSnapshot(
-      ref,
-      (snapshot) => {
-        setDocuments(
-          snapshot.docs.map((document) => ({ id: document.id, ...document.data() }) as ClientDocument)
-        );
-        setLoading(false);
-      },
-      (cause) => {
-        setError(cause);
-        setLoading(false);
-      }
-    );
-  }, [user]);
-
+  const { data: documents, loading, error } = useLiveData(subscribe, NONE);
   return { documents, loading, error };
 }
 
