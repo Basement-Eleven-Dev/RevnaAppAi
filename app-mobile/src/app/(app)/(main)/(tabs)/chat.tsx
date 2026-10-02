@@ -1,11 +1,14 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Platform,
   ScrollView,
   StyleSheet,
   TextInput,
+  type TextInputKeyPressEventData,
   View,
 } from 'react-native';
 
@@ -42,6 +45,9 @@ import { useT } from '@/hooks/use-language';
 import { useStarters } from '@/hooks/use-starters';
 import { errorMessage } from '@/lib/i18n';
 import { Brand, Corner, Duration, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
+
+/** Entro questa distanza dal fondo la chat si considera «in fondo» e lo segue. */
+const SOGLIA_FONDO = 64;
 
 /**
  * La chat con l'assistente: la prima schermata dell'app.
@@ -86,6 +92,14 @@ export default function ChatScreen() {
    */
   const [proposing, setProposing] = useState<{ at: string; text: string } | null>(null);
   const scroller = useRef<ScrollView>(null);
+  const input = useRef<TextInput>(null);
+  /**
+   * Se la chat segue il fondo mentre arriva la risposta. Si spegne solo quando il
+   * cliente risale: lo `scrollToEnd` animato scorre sempre verso il basso, e un
+   * pezzo lungo che lo lascia per un attimo lontano dal fondo non lo spegne.
+   */
+  const inFondo = useRef(true);
+  const ultimo = useRef({ y: 0, altezza: 0, contenuto: 0 });
 
   const struttura = profile?.struttura.nome ?? t.chat.strutturaSconosciuta;
 
@@ -100,6 +114,53 @@ export default function ChatScreen() {
    */
   const draft = pending !== '' ? pending : typed;
   const canSend = draft.trim() !== '' && !busy;
+
+  // Un'altra conversazione si legge dall'ultima risposta, ovunque fosse la precedente.
+  useLayoutEffect(() => {
+    inFondo.current = true;
+  }, [conversationId]);
+
+  /**
+   * Sul web il campo è un `textarea`, che non cresce da sé con il testo e non
+   * riporta mai un'altezza minore di quella che ha: si azzera e si rimisura a ogni
+   * cambio, e `maxHeight` fa da tetto. Sul telefono il campo multilinea cresce già.
+   */
+  useLayoutEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node = input.current as unknown as HTMLTextAreaElement | null;
+    if (!node) return;
+    const top = node.scrollTop;
+    node.style.height = '0px';
+    node.style.height = `${node.scrollHeight}px`;
+    node.scrollTop = top;
+  }, [draft]);
+
+  function seguiFondo() {
+    if (inFondo.current) scroller.current?.scrollToEnd({ animated: true });
+  }
+
+  function scrolled({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) {
+    const y = nativeEvent.contentOffset.y;
+    const altezza = nativeEvent.layoutMeasurement.height;
+    const contenuto = nativeEvent.contentSize.height;
+    const prima = ultimo.current;
+    // Risalire anche di poco spegne il seguito: altrimenti il pezzo che arriva mentre
+    // il dito è ancora vicino al fondo lo riporta giù. La posizione però scende anche
+    // da sola, quando la lista si allunga (il composer che si svuota) o il contenuto
+    // si accorcia: quella non è il cliente che risale.
+    const risalito = y < prima.y && altezza <= prima.altezza && contenuto >= prima.contenuto;
+    if (risalito) inFondo.current = false;
+    else if (contenuto - altezza - y <= SOGLIA_FONDO) inFondo.current = true;
+    ultimo.current = { y, altezza, contenuto };
+  }
+
+  /** Da tastiera fisica, sul web: Invio invia, Shift+Invio va a capo. */
+  function keyPressed(event: NativeSyntheticEvent<TextInputKeyPressEventData>) {
+    const { key, shiftKey, isComposing } = event.nativeEvent as unknown as KeyboardEvent;
+    if (key !== 'Enter' || shiftKey || isComposing) return;
+    event.preventDefault();
+    submit(draft);
+  }
 
   /** Il primo tasto premuto rende il testo dell'utente: la proposta ha finito. */
   function edit(next: string) {
@@ -122,6 +183,7 @@ export default function ChatScreen() {
     if (busy || text.trim() === '') return;
     if (pending !== '') takePending();
     setTyped('');
+    inFondo.current = true;
     void send(text).then((ok) => {
       // Se nel frattempo il cliente ha già scritto altro, quello che ha scritto vince.
       if (!ok) setTyped((now) => (now === '' ? text : now));
@@ -160,7 +222,11 @@ export default function ChatScreen() {
           ref={scroller}
           contentContainerStyle={styles.scroll}
           keyboardDismissMode="interactive"
-          onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}>
+          scrollEventThrottle={16}
+          onScroll={scrolled}
+          // Anche la tastiera e il composer che cresce accorciano la lista.
+          onLayout={seguiFondo}
+          onContentSizeChange={seguiFondo}>
           {turns.length === 0 && (
             // Il foglio bianco è la prima cosa che si vede aprendo l'app: il segno
             // e l'incipit arrivano insieme, gli spunti dopo e a scaletta — così si
@@ -257,6 +323,7 @@ export default function ChatScreen() {
         <View style={styles.composerWrap}>
           <GlassPanel style={styles.composer}>
             <TextInput
+              ref={input}
               style={styles.input}
               placeholder={t.chat.scrivi}
               placeholderTextColor={Ink.ghost}
@@ -264,6 +331,7 @@ export default function ChatScreen() {
               maxLength={MAX_MESSAGE_CHARS}
               value={draft}
               onChangeText={edit}
+              onKeyPress={Platform.OS === 'web' ? keyPressed : undefined}
             />
             <IconButton
               tone={canSend ? 'accent' : 'ghost'}

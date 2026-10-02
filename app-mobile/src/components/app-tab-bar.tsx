@@ -1,5 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -41,10 +42,17 @@ const ICONS: Record<string, (props: { color: string }) => React.ReactNode> = {
  * La tessera d'accento invece **non** si anima: non è la risposta a un tocco, è
  * dove ci si trova. Quella la racconta il cambio di schermata, che è una
  * dissolvenza (vedi `(tabs)/_layout.tsx`).
+ *
+ * Su Android con la tastiera aperta la barra sparisce: la finestra si accorcia e
+ * la barra salirebbe sopra la tastiera, togliendo spazio alla chat. L'opzione
+ * `tabBarHideOnKeyboard` la applica solo la barra di serie.
  */
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { unread } = useAnnouncements();
+  const keyboard = useAndroidKeyboard();
+
+  if (keyboard) return null;
 
   return (
     <GlassBar style={[styles.bar, { paddingBottom: insets.bottom + Spacing.sm + 2 }]}>
@@ -90,6 +98,22 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
       })}
     </GlassBar>
   );
+}
+
+/** Se su Android la tastiera è aperta; altrove sempre falso. */
+function useAndroidKeyboard() {
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const subscriptions = [
+      Keyboard.addListener('keyboardDidShow', () => setShown(true)),
+      Keyboard.addListener('keyboardDidHide', () => setShown(false)),
+    ];
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, []);
+
+  return shown;
 }
 
 const styles = StyleSheet.create({
