@@ -28,6 +28,7 @@ export const it = {
     /** Sul campo password: dice cosa fa il tocco, non che cosa sta accadendo ora. */
     mostra: 'Mostra',
     nascondi: 'Nascondi',
+    tornaAllAccesso: 'Torna all’accesso',
   },
 
   nav: {
@@ -61,8 +62,8 @@ export const it = {
     fatto: (email: string) =>
       `Se ${email} corrisponde a un accesso Revna, il link è in arrivo. Controlla anche la posta indesiderata.`,
     riprova: 'Non è arrivato? Riprova',
-    tornaAllAccesso: 'Torna all’accesso',
-    fallito: 'Invio non riuscito.',
+    emailNonValida: 'Indirizzo email non valido.',
+    fallito: 'Invio non riuscito. Riprova tra poco.',
   },
 
   attivazione: {
@@ -75,6 +76,12 @@ export const it = {
     attiva: 'Attiva ed entra',
     inCorso: 'Attivazione in corso…',
     fallita: 'Attivazione non riuscita.',
+    scaduto: 'Il link di attivazione è scaduto. Chiedi al tuo referente Revna di rimandartelo.',
+    nonValido:
+      'Codice di attivazione non valido o già usato. Se hai già scelto la password, accedi.',
+    impostataAccedi: 'Accesso attivato. Ora entra con la tua email e la password scelta.',
+    troppoCorta: (minimo: number) => `La password deve avere almeno ${minimo} caratteri.`,
+    nonCoincidono: 'Le due password non coincidono.',
 
     /**
      * Lo stesso schermo serve due momenti diversi: la prima attivazione e il
@@ -90,6 +97,10 @@ export const it = {
       conferma: 'Salva ed entra',
       inCorso: 'Salvataggio…',
       fallita: 'Password non reimpostata.',
+      scaduto: 'Il link di recupero è scaduto. Chiedine uno nuovo.',
+      nonValido: 'Link di recupero non valido o già usato. Chiedine uno nuovo.',
+      impostataAccedi: 'Password aggiornata. Ora entra con la tua email e la nuova password.',
+      chiediNuovo: 'Chiedi un nuovo link',
     },
   },
 
@@ -460,9 +471,6 @@ export const it = {
     'too-many-requests': 'Troppi tentativi. Riprova tra qualche minuto.',
     'network-request-failed': 'Connessione assente. Riprova.',
     'user-disabled': 'Questa utenza è stata disattivata.',
-    'expired-action-code':
-      'Il link di attivazione è scaduto. Chiedi al tuo referente Revna di rimandartelo.',
-    'invalid-action-code': 'Codice di attivazione non valido o già usato.',
     'operation-not-allowed': 'Operazione non consentita su questo account.',
   },
 };

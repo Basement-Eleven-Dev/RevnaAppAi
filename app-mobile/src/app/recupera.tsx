@@ -4,9 +4,9 @@ import { StyleSheet, View } from 'react-native';
 
 import { Wordmark } from '@/components/brand/wordmark';
 import { LegalLinks } from '@/components/legal-links';
-import { Button, Field, FieldNote, Screen, ScreenBar, Text } from '@/components/ui';
+import { Button, Field, FieldNote, FormScreen, ScreenBar, Text } from '@/components/ui';
 import { useT } from '@/hooks/use-language';
-import { authErrorMessage, requestPasswordReset } from '@/lib/auth';
+import { requestPasswordReset } from '@/lib/auth';
 import { Brand, Family, Gutter, Ink, Spacing } from '@/theme';
 
 /**
@@ -38,14 +38,17 @@ export default function RecoverScreen() {
       await requestPasswordReset(wanted);
       setSentTo(wanted);
     } catch (cause) {
-      setError(authErrorMessage(t, cause, t.recupero.fallito));
+      // La function risponde uguale per ogni email: l'unico rifiuto che dice
+      // qualcosa al cliente è l'indirizzo scritto male, il resto è «riprova».
+      const code = (cause as { code?: string }).code;
+      setError(code === 'functions/invalid-argument' ? t.recupero.emailNonValida : t.recupero.fallito);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Screen>
+    <FormScreen>
       {/* La barra vuota prende lo spazio della status bar: il lettering parte da
           lì, e il form resta ancorato in basso come nella schermata d'accesso. */}
       <ScreenBar />
@@ -111,13 +114,13 @@ export default function RecoverScreen() {
             già nello stack, non se ne impila una seconda. */}
         <Link href="/login" dismissTo style={styles.back}>
           <Text variant="service" color={Ink.secondary} style={styles.backLabel}>
-            {t.recupero.tornaAllAccesso}
+            {t.comune.tornaAllAccesso}
           </Text>
         </Link>
 
         <LegalLinks />
       </View>
-    </Screen>
+    </FormScreen>
   );
 }
 

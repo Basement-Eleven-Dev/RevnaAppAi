@@ -33,7 +33,8 @@ riceve un'email con un link che apre l'app sulla schermata `/attiva`, dove scegl
 password ed entra — la password non si imposta mai su una pagina Firebase.
 
 Se il deep link non scatta (succede in Expo Go, che usa uno schema suo), dalla schermata
-di login c'è «Ho un codice di attivazione»: si incolla lì il `code` preso dall'URL.
+di login c'è «Ho un codice di attivazione»: si incolla lì il `code`, oppure l'URL intero
+dell'email, da cui l'app ricava il codice da sé.
 
 ### Password dimenticata
 

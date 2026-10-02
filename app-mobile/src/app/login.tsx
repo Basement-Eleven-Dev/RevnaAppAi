@@ -2,6 +2,7 @@ import { Link, Redirect } from 'expo-router';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Monogram } from '@/components/brand/monogram';
 import { Wordmark } from '@/components/brand/wordmark';
@@ -12,8 +13,8 @@ import {
   Button,
   Field,
   FieldNote,
+  FormScreen,
   PasswordField,
-  Screen,
   stagger,
   Text,
 } from '@/components/ui';
@@ -46,6 +47,7 @@ const CLAIM = ['Rethink', 'your', 'revenue.'] as const;
 export default function LoginScreen() {
   const t = useT();
   const { user, loading } = useAuth();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -61,7 +63,7 @@ export default function LoginScreen() {
 
   if (user) return <Redirect href="/chat" />;
 
-  const canSubmit = email.trim().length > 0 && password.length >= 6 && !busy;
+  const canSubmit = email.trim().length > 0 && password !== '' && !busy;
 
   async function submit() {
     if (!canSubmit) return;
@@ -77,10 +79,10 @@ export default function LoginScreen() {
   }
 
   return (
-    <Screen>
+    <FormScreen>
       <AccentGlow size={280} opacity={0.22} top={-40} right={-70} />
 
-      <View style={styles.monogram}>
+      <View style={[styles.monogram, { top: insets.top + Spacing.md }]}>
         <Monogram height={46} color={Brand.accent} />
       </View>
 
@@ -148,7 +150,7 @@ export default function LoginScreen() {
 
         <LegalLinks nota intro={t.login.nessunAccesso} />
       </Appear>
-    </Screen>
+    </FormScreen>
   );
 }
 
@@ -159,7 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Surface.base,
   },
-  monogram: { position: 'absolute', top: 58, right: Spacing.xl + 2 },
+  monogram: { position: 'absolute', right: Spacing.xl + 2 },
   hero: {
     flex: 1,
     justifyContent: 'flex-end',

@@ -1,4 +1,4 @@
-import { StyleSheet, View, type ViewProps } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Appear } from '@/components/ui/motion';
@@ -18,6 +18,31 @@ export function Screen({ style, children, ...rest }: ViewProps) {
     <View style={styles.root} {...rest}>
       <View style={[styles.column, style]}>{children}</View>
     </View>
+  );
+}
+
+/**
+ * La schermata di un modulo ancorato in basso, come quelle d'accesso.
+ *
+ * Su iOS la tastiera copre il fondo dello schermo, cioè proprio i campi e il
+ * bottone: qui il contenuto si accorcia della tastiera e, se non ci sta più,
+ * scorre. `handled` lascia arrivare il tocco al bottone anche a tastiera aperta,
+ * invece di spenderlo per chiuderla.
+ */
+export function FormScreen({ style, children, ...rest }: ViewProps) {
+  return (
+    <Screen {...rest}>
+      <KeyboardAvoidingView
+        style={styles.grow}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[styles.form, style]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
@@ -117,6 +142,8 @@ export function ErrorNote({ children }: { children: string }) {
 export const styles = StyleSheet.create({
   root: { flex: 1, flexDirection: 'row', justifyContent: 'center', backgroundColor: Surface.base },
   column: { flex: 1, width: '100%', maxWidth: MaxContentWidth },
+  grow: { flex: 1 },
+  form: { flexGrow: 1 },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',

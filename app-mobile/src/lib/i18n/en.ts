@@ -22,6 +22,7 @@ export const en: Dictionary = {
     password: 'Password',
     mostra: 'Show',
     nascondi: 'Hide',
+    tornaAllAccesso: 'Back to sign-in',
   },
 
   nav: {
@@ -54,8 +55,8 @@ export const en: Dictionary = {
     fatto: (email: string) =>
       `If ${email} matches a Revna account, the link is on its way. Check your spam folder too.`,
     riprova: 'Didn’t arrive? Try again',
-    tornaAllAccesso: 'Back to sign-in',
-    fallito: 'Could not send the link.',
+    emailNonValida: 'That email address is not valid.',
+    fallito: 'Could not send the link. Try again shortly.',
   },
 
   attivazione: {
@@ -68,6 +69,11 @@ export const en: Dictionary = {
     attiva: 'Activate and sign in',
     inCorso: 'Activating…',
     fallita: 'Activation failed.',
+    scaduto: 'The activation link has expired. Ask your Revna contact to send you a new one.',
+    nonValido: 'Activation code invalid or already used. If you already chose a password, sign in.',
+    impostataAccedi: 'Account activated. Now sign in with your email and the password you chose.',
+    troppoCorta: (minimo: number) => `The password must be at least ${minimo} characters long.`,
+    nonCoincidono: 'The two passwords do not match.',
 
     reset: {
       titolo: 'Choose a new password',
@@ -77,6 +83,10 @@ export const en: Dictionary = {
       conferma: 'Save and sign in',
       inCorso: 'Saving…',
       fallita: 'Password not reset.',
+      scaduto: 'The recovery link has expired. Ask for a new one.',
+      nonValido: 'Recovery link invalid or already used. Ask for a new one.',
+      impostataAccedi: 'Password updated. Now sign in with your email and the new password.',
+      chiediNuovo: 'Ask for a new link',
     },
   },
 
@@ -431,9 +441,6 @@ export const en: Dictionary = {
     'too-many-requests': 'Too many attempts. Try again in a few minutes.',
     'network-request-failed': 'No connection. Try again.',
     'user-disabled': 'This account has been deactivated.',
-    'expired-action-code':
-      'The activation link has expired. Ask your Revna contact to send you a new one.',
-    'invalid-action-code': 'Activation code invalid or already used.',
     'operation-not-allowed': 'This operation is not allowed on this account.',
   },
 };
