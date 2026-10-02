@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { MenuButton } from '@/components/menu-button';
 import {
@@ -14,6 +14,7 @@ import {
   ErrorNote,
   Field,
   IconButton,
+  KeyboardScroll,
   Loading,
   PageHeading,
   Screen,
@@ -62,6 +63,7 @@ export default function ProfileScreen() {
   const [editingNote, setEditingNote] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [noteError, setNoteError] = useState('');
+  const [askingDiscard, setAskingDiscard] = useState(false);
   const [askingSignOut, setAskingSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -101,6 +103,19 @@ export default function ProfileScreen() {
     }
   }
 
+  function closeNote() {
+    setAskingDiscard(false);
+    setDrafted(null);
+    setNoteError('');
+    setEditingNote(false);
+  }
+
+  function toggleNote() {
+    if (!editingNote) setEditingNote(true);
+    else if (drafted !== null && drafted !== (profile?.noteCliente ?? '')) setAskingDiscard(true);
+    else closeNote();
+  }
+
   async function onSaveNote() {
     setSavingNote(true);
     setNoteError('');
@@ -119,7 +134,7 @@ export default function ProfileScreen() {
     <Screen>
       {bar}
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <KeyboardScroll contentContainerStyle={styles.scroll}>
         <Appear>
           <PageHeading
             title={profile?.struttura.nome || t.profilo.titolo}
@@ -143,7 +158,7 @@ export default function ProfileScreen() {
           <View style={styles.noteHead}>
             <BlockLabel>{t.profilo.note.titolo}</BlockLabel>
             <Tap
-              onPress={() => setEditingNote((was) => !was)}
+              onPress={toggleNote}
               hitSlop={8}
               accessibilityRole="button">
               <Text variant="service" color={Brand.accent} style={styles.noteAction}>
@@ -187,7 +202,17 @@ export default function ProfileScreen() {
           loadingLabel={t.profilo.uscita.inCorso}
           onPress={() => setAskingSignOut(true)}
         />
-      </ScrollView>
+      </KeyboardScroll>
+
+      <ConfirmSheet
+        visible={askingDiscard}
+        titolo={t.profilo.note.scarta.titolo}
+        testo={t.profilo.note.scarta.testo}
+        conferma={t.profilo.note.scarta.conferma}
+        annulla={t.profilo.note.scarta.annulla}
+        onCancel={() => setAskingDiscard(false)}
+        onConfirm={closeNote}
+      />
 
       <ConfirmSheet
         visible={askingSignOut}
@@ -227,7 +252,7 @@ function ProfileBody({ profile, t }: { profile: ClientProfile; t: Dictionary }) 
     <>
       <Appear delay={stagger(1)} style={styles.stats}>
         <Stat value={totaleUnita} label={statistiche.unita(alloggi.length)} accent />
-        <Stat value={struttura.annoApertura ?? 0} label={statistiche.apertaDal} />
+        <Stat value={struttura.annoApertura ?? 0} label={statistiche.annoApertura} />
         <Stat value={profile.canali.length} label={statistiche.canali(profile.canali.length)} />
       </Appear>
 

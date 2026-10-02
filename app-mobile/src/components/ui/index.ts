@@ -31,7 +31,7 @@ export {
 export { AssistantSignature, Mark } from './mark';
 export { Appear, stagger, Tap } from './motion';
 export { AccentRow, QuietRow, Tile } from './row';
-export { EmptyState, ErrorNote, FormScreen, Loading, PageHeading, Screen, ScreenBar } from './screen';
+export { EmptyState, ErrorNote, FormScreen, KeyboardScroll, Loading, PageHeading, Screen, ScreenBar } from './screen';
 export { AccentCard, BlockLabel, Card, DataRow } from './surface';
 export { Text } from './text';
 export { StreamCaret, TypingDots } from './waiting';

@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type ScrollViewProps,
   type ViewProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,26 +31,30 @@ export function Screen({ style, children, ...rest }: ViewProps) {
 }
 
 /**
- * La schermata di un modulo ancorato in basso, come quelle d'accesso.
+ * Il contenuto di una schermata con dei campi, che scorre.
  *
- * Su iOS la tastiera copre il fondo dello schermo, cioè proprio i campi e il
+ * Su iOS la tastiera copre il fondo dello schermo, cioè spesso proprio il campo e il
  * bottone: qui il contenuto si accorcia della tastiera e, se non ci sta più,
  * scorre. `handled` lascia arrivare il tocco al bottone anche a tastiera aperta,
  * invece di spenderlo per chiuderla.
  */
+export function KeyboardScroll(props: ScrollViewProps) {
+  return (
+    <KeyboardAvoidingView
+      style={styles.grow}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView keyboardShouldPersistTaps="handled" {...props} />
+    </KeyboardAvoidingView>
+  );
+}
+
+/** La schermata di un modulo ancorato in basso, come quelle d'accesso. */
 export function FormScreen({ style, children, ...rest }: ViewProps) {
   return (
     <Screen {...rest}>
-      <KeyboardAvoidingView
-        style={styles.grow}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          contentContainerStyle={[styles.form, style]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          {children}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <KeyboardScroll contentContainerStyle={[styles.form, style]} showsVerticalScrollIndicator={false}>
+        {children}
+      </KeyboardScroll>
     </Screen>
   );
 }

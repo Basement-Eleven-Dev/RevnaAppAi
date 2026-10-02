@@ -270,7 +270,7 @@ export const it = {
     statistiche: {
       unita: (tipologie: number) =>
         tipologie === 1 ? 'unità · 1 tipologia' : `unità · ${tipologie} tipologie`,
-      apertaDal: 'aperta dal',
+      annoApertura: 'anno di apertura',
       canali: (quanti: number): string => (quanti === 1 ? 'canale attivo' : 'canali attivi'),
     },
     nonCompilato:
@@ -316,6 +316,12 @@ export const it = {
       modifica: 'Modifica',
       inCorso: 'Salvataggio…',
       fallito: 'Salvataggio non riuscito.',
+      scarta: {
+        titolo: 'Scartare le modifiche?',
+        testo: 'La nota torna com’era all’ultimo salvataggio.',
+        conferma: 'Scarta',
+        annulla: 'Continua a scrivere',
+      },
     },
 
     liste: {

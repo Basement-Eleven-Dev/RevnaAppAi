@@ -7,7 +7,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   BackIcon,
@@ -19,6 +19,7 @@ import {
   DataRow,
   Field,
   IconButton,
+  KeyboardScroll,
   Loading,
   PasswordField,
   Screen,
@@ -66,16 +67,12 @@ export default function SettingsScreen() {
         </Text>
       </ScreenBar>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <MemoryCard />
-          <LanguageCard />
-          {user && <PasswordCard user={user} />}
-          {user && <EmailCard user={user} />}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      <KeyboardScroll contentContainerStyle={styles.scroll}>
+        <MemoryCard />
+        <LanguageCard />
+        {user && <PasswordCard user={user} />}
+        {user && <EmailCard user={user} />}
+      </KeyboardScroll>
     </Screen>
   );
 }
@@ -376,7 +373,6 @@ function Feedback({ error, done }: { error: string; done: string }) {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
   grow: { flex: 1 },
   scroll: { paddingHorizontal: Gutter, paddingBottom: Spacing.xxl, gap: Spacing.sm + 2 },
   options: { gap: Spacing.sm, marginTop: Spacing.md },

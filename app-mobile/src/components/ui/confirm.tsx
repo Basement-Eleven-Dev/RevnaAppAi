@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Bevel } from '@/components/ui/bevel';
@@ -25,8 +26,12 @@ import { Corner, Duration, Glass, Ink, Line, MaxContentWidth, Spacing, Surface }
  * anche i due movimenti separati: il velo sfuma dove sta, l'unica cosa che si muove è
  * il foglio.
  *
- * Non tiene stato e non aspetta niente: chi lo usa chiude e agisce, e mostra l'attesa
- * dove l'attesa si vede meglio, cioè sul bottone che ha aperto la conferma.
+ * Non aspetta niente: chi lo usa chiude e agisce, e mostra l'attesa dove l'attesa si
+ * vede meglio, cioè sul bottone che ha aperto la conferma.
+ *
+ * Chi lo usa di solito azzera ciò che stava confermando nello stesso tocco che lo
+ * chiude, mentre il foglio sfuma ancora: fino alla prossima apertura restano le
+ * parole dell'ultima, invece di quelle di un soggetto che non c'è più.
  */
 export function ConfirmSheet({
   visible,
@@ -49,6 +54,12 @@ export function ConfirmSheet({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const [last, setLast] = useState({ titolo, testo, conferma });
+  if (visible && (last.titolo !== titolo || last.testo !== testo || last.conferma !== conferma)) {
+    setLast({ titolo, testo, conferma });
+  }
+  const shown = visible ? { titolo, testo, conferma } : last;
+
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onCancel}>
       <View style={styles.backdrop}>
@@ -58,9 +69,9 @@ export function ConfirmSheet({
         <Appear rise={40} duration={Duration.sheet} style={styles.sheet}>
           <Bevel radius={Corner.surface} fill={Surface.raised} highlight={Line.glass}>
             <View style={styles.content}>
-              <Text variant="section">{titolo}</Text>
+              <Text variant="section">{shown.titolo}</Text>
               <Text variant="service" color={Ink.secondary} style={styles.body}>
-                {testo}
+                {shown.testo}
               </Text>
 
               {/* L'azione sotto e l'annullamento sopra: l'ultimo bottone prima del
@@ -68,7 +79,7 @@ export function ConfirmSheet({
                   è giusto che sia quello di cui si è appena letto il testo. */}
               <View style={styles.actions}>
                 <Button label={annulla} variant="secondary" onPress={onCancel} />
-                <Button label={conferma} variant={tone} onPress={onConfirm} />
+                <Button label={shown.conferma} variant={tone} onPress={onConfirm} />
               </View>
             </View>
           </Bevel>

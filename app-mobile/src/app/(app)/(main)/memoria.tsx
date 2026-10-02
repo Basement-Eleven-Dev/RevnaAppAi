@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   BackIcon,
@@ -10,6 +10,7 @@ import {
   ErrorNote,
   Field,
   IconButton,
+  KeyboardScroll,
   Loading,
   Screen,
   ScreenBar,
@@ -91,7 +92,7 @@ export default function MemoryScreen() {
         </Text>
       </ScreenBar>
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardScroll contentContainerStyle={styles.scroll}>
         <Card>
           <BlockLabel>
             {loading || error !== null
@@ -180,7 +181,7 @@ export default function MemoryScreen() {
             </Text>
           )}
         </Card>
-      </ScrollView>
+      </KeyboardScroll>
 
       <ConfirmSheet
         visible={asking !== null}

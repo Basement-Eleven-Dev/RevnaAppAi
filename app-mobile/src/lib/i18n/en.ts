@@ -245,7 +245,7 @@ export const en: Dictionary = {
     statistiche: {
       unita: (tipologie: number) =>
         tipologie === 1 ? 'units · 1 type' : `units · ${tipologie} types`,
-      apertaDal: 'open since',
+      annoApertura: 'year opened',
       canali: (quanti: number) => (quanti === 1 ? 'active channel' : 'active channels'),
     },
     nonCompilato:
@@ -290,6 +290,12 @@ export const en: Dictionary = {
       modifica: 'Edit',
       inCorso: 'Saving…',
       fallito: 'Could not save.',
+      scarta: {
+        titolo: 'Discard your changes?',
+        testo: 'The note goes back to how it was when last saved.',
+        conferma: 'Discard',
+        annulla: 'Keep writing',
+      },
     },
 
     liste: {
