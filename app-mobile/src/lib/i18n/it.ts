@@ -104,6 +104,13 @@ export const it = {
     },
   },
 
+  /** Chi entra nell'app con un account del team Revna invece che da cliente. */
+  soloClienti: {
+    titolo: 'Questa app è per i clienti',
+    testo:
+      'Hai effettuato l’accesso con un account del team Revna. L’app è pensata per le strutture clienti: per il tuo lavoro usa il backoffice.',
+  },
+
   chat: {
     titolo: 'Assistente Revna',
     strutturaSconosciuta: 'La tua struttura',
@@ -223,6 +230,8 @@ export const it = {
     /** Solo a permesso negato: dice dove si rimedia, senza insistere. */
     notificheNegate:
       'Le notifiche sono disattivate per Revna AI. Gli avvisi li trovi comunque qui: per essere avvisato appena arrivano, riattivale nelle impostazioni del telefono.',
+    /** Il nome del canale nelle impostazioni di notifica di Android. */
+    canaleNotifiche: 'Avvisi Revna',
   },
 
   documenti: {
@@ -259,6 +268,12 @@ export const it = {
     nonCompilato:
       'Il tuo profilo non è ancora stato compilato. Lo redige il tuo referente Revna: appena pronto lo trovi qui.',
     esci: 'Esci',
+    uscita: {
+      titolo: 'Uscire dall’account?',
+      testo:
+        'Su questo telefono non riceverai più le notifiche degli avvisi finché non accedi di nuovo.',
+      inCorso: 'Uscita…',
+    },
 
     sezioni: {
       struttura: 'Struttura',

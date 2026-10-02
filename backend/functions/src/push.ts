@@ -11,8 +11,11 @@ import { db } from './admin';
  * a seconda del dispositivo — e ci risparmia di portare in casa certificati APNs e
  * `google-services.json`. Non serve nessuna chiave: il token è già il segreto.
  *
- * I token li scrive l'app in `users/{uid}/pushTokens/{id}`: è l'unica a conoscerli.
- * Qui si leggono, si usano e — quando Expo li dichiara morti — si cancellano.
+ * I token li scrive l'app in `pushTokens/{id}`, con l'id ricavato dal token e l'`uid`
+ * di chi è entrato: è l'unica a conoscerli. Stanno in una collezione sola e non sotto
+ * ciascun utente perché un telefono deve ricevere gli avvisi di un account solo — il
+ * documento è uno per dispositivo, e chi accede per ultimo lo fa suo. Qui si leggono,
+ * si usano e — quando sono malformati o Expo li dichiara morti — si cancellano.
  */
 
 /** Endpoint del servizio push di Expo. Node 22 ha `fetch` di serie. */
@@ -20,6 +23,12 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 /** Quanti messaggi per richiesta: è il tetto documentato da Expo. */
 const CHUNK = 100;
+
+/**
+ * La forma di un token Expo. Un solo `to` fuori forma fa rifiutare a Expo l'intera
+ * richiesta, cioè le notifiche di altri 99 dispositivi: si scarta prima.
+ */
+const EXPO_TOKEN = /^Expo(nent)?PushToken\[[^\]]+\]$/;
 
 /**
  * Quanti destinatari alla volta si interrogano per token e non letti.
@@ -42,7 +51,7 @@ export type PushMessage = {
 
 type Recipient = { uid: string; tokens: TokenDoc[]; badge: number };
 
-type TokenDoc = { id: string; uid: string; token: string };
+type TokenDoc = { id: string; uid: string; token: string; updatedAt: string };
 
 type ExpoTicket = {
   status?: string;
@@ -65,9 +74,16 @@ export async function sendPush(
   message: PushMessage
 ): Promise<{ sent: number; failed: number; devices: number }> {
   const recipients = await loadRecipients(uids);
-  const tokens = recipients.flatMap((recipient) =>
-    recipient.tokens.map((token) => ({ token, badge: recipient.badge }))
+  const { tokens, discarded } = screenTokens(
+    recipients.flatMap((recipient) =>
+      recipient.tokens.map((token) => ({ token, badge: recipient.badge }))
+    )
   );
+
+  if (discarded.length > 0) {
+    logger.warn('Token push malformati o doppi scartati', { quanti: discarded.length });
+    await Promise.all(discarded.map(({ token }) => removeToken(token)));
+  }
 
   if (tokens.length === 0) {
     logger.info('Nessun dispositivo registrato: notifica non inviata', { destinatari: uids.length });
@@ -121,6 +137,34 @@ export async function sendPush(
   return { sent, failed, devices: tokens.length };
 }
 
+/**
+ * I token da usare, uno per dispositivo, e quelli da cancellare.
+ *
+ * Si cancellano quelli fuori forma e i doppioni. Lo stesso token in due documenti vuol
+ * dire lo stesso telefono sotto due account: vale il documento scritto per ultimo, cioè
+ * chi vi ha acceduto dopo, e gli altri non devono più ricevere niente lì.
+ */
+export function screenTokens<T extends { token: TokenDoc }>(
+  entries: T[]
+): { tokens: T[]; discarded: T[] } {
+  const latest = new Map<string, T>();
+  const discarded: T[] = [];
+
+  for (const entry of entries) {
+    const { token, updatedAt } = entry.token;
+    const kept = latest.get(token);
+
+    if (!EXPO_TOKEN.test(token)) discarded.push(entry);
+    else if (!kept) latest.set(token, entry);
+    else if (updatedAt > kept.token.updatedAt) {
+      discarded.push(kept);
+      latest.set(token, entry);
+    } else discarded.push(entry);
+  }
+
+  return { tokens: [...latest.values()], discarded };
+}
+
 /** Una richiesta al servizio Expo. `null` se la risposta non è utilizzabile. */
 async function postChunk(messages: unknown[]): Promise<ExpoTicket[] | null> {
   try {
@@ -172,11 +216,18 @@ async function loadRecipients(uids: string[]): Promise<Recipient[]> {
 }
 
 async function tokensOf(uid: string): Promise<TokenDoc[]> {
-  const snapshot = await db.collection('users').doc(uid).collection('pushTokens').get();
+  const snapshot = await db.collection('pushTokens').where('uid', '==', uid).get();
 
-  return snapshot.docs
-    .map((document) => ({ id: document.id, uid, token: document.get('token') as string }))
-    .filter((entry) => typeof entry.token === 'string' && entry.token !== '');
+  return snapshot.docs.map((document) => {
+    const token: unknown = document.get('token');
+    const updatedAt: unknown = document.get('updatedAt');
+    return {
+      id: document.id,
+      uid,
+      token: typeof token === 'string' ? token : '',
+      updatedAt: typeof updatedAt === 'string' ? updatedAt : '',
+    };
+  });
 }
 
 async function unreadCount(uid: string): Promise<number> {
@@ -193,12 +244,10 @@ async function unreadCount(uid: string): Promise<number> {
 
 async function removeToken(token: TokenDoc): Promise<void> {
   await db
-    .collection('users')
-    .doc(token.uid)
     .collection('pushTokens')
     .doc(token.id)
     .delete()
     .catch((cause: unknown) => logger.warn('Token non rimosso', { cause }));
 
-  logger.info('Token push rimosso: dispositivo non più registrato', { uid: token.uid });
+  logger.info('Token push rimosso', { uid: token.uid });
 }

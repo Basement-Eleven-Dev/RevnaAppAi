@@ -1,7 +1,9 @@
+import { signOut } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 
-import { getFirebaseFunctions } from '@/lib/firebase';
+import { getFirebaseAuth, getFirebaseFunctions } from '@/lib/firebase';
 import type { Dictionary } from '@/lib/i18n';
+import { unregisterPushToken } from '@/lib/push';
 
 /** Lunghezza minima della password che l'app impone quando la fa scegliere. */
 export const MIN_PASSWORD = 8;
@@ -49,4 +51,16 @@ export async function requestPasswordReset(email: string): Promise<void> {
   );
 
   await call({ email });
+}
+
+/**
+ * Esce dall'account, dopo aver dimenticato questo dispositivo.
+ *
+ * Prima il token e poi la sessione, perché cancellare il token è una scrittura su
+ * Firestore e la vogliono fare le regole di chi è ancora dentro. La cancellazione ha
+ * un tempo massimo (vedi `unregisterPushToken`): offline si esce lo stesso.
+ */
+export async function signOutDevice(): Promise<void> {
+  await unregisterPushToken();
+  await signOut(getFirebaseAuth());
 }

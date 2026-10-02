@@ -13,10 +13,11 @@
  * avvisi si vedono nell'app con il loro pallino rosso, che è la stessa cosa che vede
  * chi ha negato le notifiche.
  *
- * Il token è **per dispositivo**: il documento su Firestore è uno per telefono, con l'id
- * ricavato dal token stesso. Così riaprire l'app non moltiplica i documenti, e cambiare
- * telefono non porta a mandare notifiche a un apparecchio che non c'è più — quelle le
- * pota il server quando il servizio push le rifiuta (vedi `backend/functions/src/push.ts`).
+ * Il token è **per dispositivo**: il documento su Firestore (`pushTokens/{id}`) è uno per
+ * telefono, con l'id ricavato dal token stesso e l'`uid` di chi è entrato. Così riaprire
+ * l'app non moltiplica i documenti, e un telefono passato a un altro cliente riceve solo
+ * gli avvisi di chi vi ha acceduto per ultimo. I token di apparecchi che non ci sono più
+ * li pota il server quando il servizio push li rifiuta (vedi `backend/functions/src/push.ts`).
  */
 
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -32,6 +33,12 @@ const CHANNEL_ID = 'avvisi';
 
 /** Il dato che il server mette nella notifica: quale avviso aprire al tocco. */
 export const ANNOUNCEMENT_DATA_KEY = 'avvisoId';
+
+/**
+ * Quanto può durare la cancellazione del token all'uscita. Senza rete Firestore non
+ * conferma mai la scrittura, e chi preme «Esci» non deve restare appeso.
+ */
+const UNREGISTER_TIMEOUT_MS = 3000;
 
 export type PushState =
   /** Non ancora provato. */
@@ -72,7 +79,7 @@ Notifications.setNotificationHandler({
  * sistema davanti alla schermata di accesso è la richiesta fuori contesto per
  * eccellenza — quella che si nega per riflesso.
  */
-export async function registerPushToken(uid: string): Promise<PushState> {
+export async function registerPushToken(uid: string, channelName: string): Promise<PushState> {
   if (!isFirebaseConfigured) return 'nonDisponibili';
   if (Platform.OS === 'web') return 'nonDisponibili';
   // Un emulatore non ha un apparecchio a cui recapitare: il token non esiste.
@@ -87,7 +94,7 @@ export async function registerPushToken(uid: string): Promise<PushState> {
     // portare importanza e suono, e una notifica senza canale arriva muta.
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-        name: 'Avvisi Revna',
+        name: channelName,
         importance: Notifications.AndroidImportance.HIGH,
         sound: 'default',
       });
@@ -102,16 +109,15 @@ export async function registerPushToken(uid: string): Promise<PushState> {
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
     if (!token) return 'nonDisponibili';
 
-    await setDoc(
-      doc(getFirebaseDb(), 'users', uid, 'pushTokens', tokenId(token)),
-      {
-        token,
-        piattaforma: Platform.OS,
-        dispositivo: Device.modelName ?? '',
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    // Riscritto per intero, senza `merge`: se il documento era di un altro account
+    // passa a questo, e niente del precedente deve restarci dentro.
+    await setDoc(doc(getFirebaseDb(), 'pushTokens', tokenId(token)), {
+      uid,
+      token,
+      piattaforma: Platform.OS,
+      dispositivo: (Device.modelName ?? '').slice(0, 100),
+      updatedAt: new Date().toISOString(),
+    });
 
     return 'attive';
   } catch {
@@ -122,28 +128,35 @@ export async function registerPushToken(uid: string): Promise<PushState> {
 }
 
 /**
- * Dimentica questo dispositivo. Si chiama all'uscita dall'account.
+ * Dimentica questo dispositivo. Si chiama all'uscita dall'account, e non dura mai più
+ * di `UNREGISTER_TIMEOUT_MS`.
  *
  * Senza, il telefono continuerebbe a ricevere gli avvisi di chi non è più dentro: sono
  * comunicazioni di Revna a una struttura, e su un telefono passato di mano o condiviso
- * non devono più comparire.
+ * non devono più comparire. Se non riesce in tempo (offline) il documento resta, e
+ * passa al prossimo cliente che accede da questo telefono.
  */
-export async function unregisterPushToken(uid: string): Promise<void> {
+export async function unregisterPushToken(): Promise<void> {
   if (!isFirebaseConfigured || Platform.OS === 'web' || inExpoGo) return;
 
-  try {
-    const projectId = easProjectId();
-    if (!projectId) return;
+  await setBadgeCount(0);
 
+  const projectId = easProjectId();
+  if (!projectId) return;
+
+  const forget = async () => {
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
-    if (!token) return;
+    if (token) await deleteDoc(doc(getFirebaseDb(), 'pushTokens', tokenId(token)));
+  };
 
-    await deleteDoc(doc(getFirebaseDb(), 'users', uid, 'pushTokens', tokenId(token)));
-    await setBadgeCount(0);
-  } catch {
-    // Se il token non si riesce più a leggere non c'è niente da cancellare di preciso:
-    // al primo rifiuto del servizio push lo pota il server.
-  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, UNREGISTER_TIMEOUT_MS);
+  });
+
+  // Un errore non blocca l'uscita: restare dentro per un token è la reazione sbagliata.
+  await Promise.race([forget().catch(() => {}), timeout]);
+  clearTimeout(timer);
 }
 
 /**
@@ -168,12 +181,21 @@ export function announcementIdOf(notification: Notifications.Notification): stri
 }
 
 /**
+ * Le notifiche già aperte in questa esecuzione dell'app, per identificativo.
+ *
+ * A livello di modulo e non di componente: chi le ascolta si smonta e si rimonta a ogni
+ * uscita e nuovo accesso, e una notifica toccata ore prima non deve riaprire un avviso
+ * a chi entra dopo — magari un altro cliente.
+ */
+const handledResponses = new Set<string>();
+
+/**
  * Chiama `handler` quando si apre l'app toccando la notifica di un avviso.
  *
  * Copre i due casi in cui succede, che sono diversi: l'app era in memoria e la
  * notifica arriva come risposta, oppure l'app era chiusa ed è la notifica ad averla
  * aperta — e in quel caso non c'è nessun evento da ascoltare, c'è una risposta già
- * consumata da chiedere (`getLastNotificationResponseAsync`).
+ * consumata da chiedere (`getLastNotificationResponse`). Usata, la si cancella.
  *
  * Torna la funzione per smettere di ascoltare.
  */
@@ -183,25 +205,31 @@ export function onAnnouncementOpened(handler: (id: string) => void): () => void 
   // esiste è solo un rischio in più su una piattaforma che non usa questa strada.
   if (Platform.OS === 'web') return () => {};
 
-  let alive = true;
+  const open = (response: Notifications.NotificationResponse) => {
+    const key = response.notification.request.identifier;
+    if (handledResponses.has(key)) return;
+    handledResponses.add(key);
 
-  void Notifications.getLastNotificationResponseAsync()
-    .then((response) => {
-      if (!alive || !response) return;
-      const id = announcementIdOf(response.notification);
-      if (id) handler(id);
-    })
-    .catch(() => {});
+    try {
+      Notifications.clearLastNotificationResponse();
+    } catch {
+      // Modulo nativo senza questa funzione: basta il ricordo qui sopra.
+    }
 
-  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
     const id = announcementIdOf(response.notification);
     if (id) handler(id);
-  });
-
-  return () => {
-    alive = false;
-    subscription.remove();
   };
+
+  try {
+    const last = Notifications.getLastNotificationResponse();
+    if (last) open(last);
+  } catch {
+    // Ambiente senza notifiche native (Expo Go, emulatore): niente da aprire.
+  }
+
+  const subscription = Notifications.addNotificationResponseReceivedListener(open);
+
+  return () => subscription.remove();
 }
 
 /** L'id del progetto EAS, da cui il servizio push riconosce l'app. */
@@ -215,8 +243,9 @@ function easProjectId(): string | undefined {
  *
  * Un token Expo è `ExponentPushToken[xxxxxxxx]`: ripulito dai caratteri che in un id
  * sono un fastidio, resta stabile per dispositivo — che è tutto quello che serve,
- * perché è ciò che rende la registrazione ripetibile senza creare doppioni.
+ * perché è ciò che rende la registrazione ripetibile senza creare doppioni. Le regole
+ * di Firestore rifanno lo stesso conto: se cambia qui, cambia anche là.
  */
 function tokenId(token: string): string {
-  return token.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 200);
+  return token.replace(/[^A-Za-z0-9_-]/g, '');
 }

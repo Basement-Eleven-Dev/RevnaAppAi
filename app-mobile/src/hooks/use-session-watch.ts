@@ -8,6 +8,18 @@ import { getFirebaseAuth, isFirebaseConfigured } from '@/lib/firebase';
 const INTERVAL_MS = 5 * 60 * 1000;
 
 /**
+ * Gli errori per cui la sessione va chiusa: utenza disattivata o cancellata, token
+ * revocato. Tutto il resto — rete assente, server lento, troppe richieste — dice solo
+ * che il controllo non si è potuto fare, e chi è offline deve restare dentro.
+ */
+const SESSION_OVER = new Set([
+  'auth/user-disabled',
+  'auth/user-token-expired',
+  'auth/user-not-found',
+  'auth/invalid-user-token',
+]);
+
+/**
  * Butta fuori l'utente se il backoffice ha disattivato la sua utenza.
  *
  * Disattivare un account non invalida l'ID token già in mano al client, che vive
@@ -26,9 +38,10 @@ export function useSessionWatch(): void {
 
       try {
         await user.getIdToken(true);
-      } catch {
-        // Utenza disattivata, cancellata o token revocato.
-        await signOut(auth).catch(() => {});
+      } catch (cause) {
+        if (SESSION_OVER.has((cause as { code?: string }).code ?? '')) {
+          await signOut(auth).catch(() => {});
+        }
       }
     }
 

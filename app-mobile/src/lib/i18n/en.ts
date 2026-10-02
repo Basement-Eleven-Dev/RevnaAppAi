@@ -90,6 +90,12 @@ export const en: Dictionary = {
     },
   },
 
+  soloClienti: {
+    titolo: 'This app is for clients',
+    testo:
+      'You signed in with a Revna team account. The app is meant for client properties: for your work, use the back office.',
+  },
+
   chat: {
     titolo: 'Revna Assistant',
     strutturaSconosciuta: 'Your property',
@@ -204,6 +210,7 @@ export const en: Dictionary = {
     tuttiGliAvvisi: 'See all notices',
     notificheNegate:
       'Notifications are turned off for Revna AI. Notices still appear here: to be told as soon as they arrive, turn notifications back on in your phone settings.',
+    canaleNotifiche: 'Revna notices',
   },
 
   documenti: {
@@ -238,6 +245,11 @@ export const en: Dictionary = {
     nonCompilato:
       'Your profile has not been filled in yet. Your Revna contact writes it: it will show up here as soon as it is ready.',
     esci: 'Sign out',
+    uscita: {
+      titolo: 'Sign out?',
+      testo: 'This phone will stop receiving notice notifications until you sign in again.',
+      inCorso: 'Signing out…',
+    },
 
     sezioni: {
       struttura: 'Property',

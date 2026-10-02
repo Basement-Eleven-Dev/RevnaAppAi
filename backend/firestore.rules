@@ -63,18 +63,6 @@ service cloud.firestore {
         allow create, update, delete: if false;
       }
 
-      // Token per le notifiche push, uno per dispositivo.
-      //
-      // È l'unica sottocollezione che il cliente scrive da sé, e non c'era altro modo:
-      // il token lo rilascia il servizio push al dispositivo, e nessun altro lo conosce.
-      // Non è un dato riservato in senso stretto — serve solo a recapitare una notifica
-      // a quel telefono — ma resta chiuso a tutti gli altri, referenti Revna compresi:
-      // l'elenco dei dispositivi di un cliente non serve a nessuno dal backoffice.
-      // Chi manda le notifiche li legge con l'Admin SDK (vedi `push.ts`).
-      match /pushTokens/{tokenId} {
-        allow read, write: if isSelf(userId);
-      }
-
       // Conversazioni con l'assistente.
       //
       // Le rilegge anche il backoffice, nella rotta «Conversazioni» del cliente:
@@ -155,6 +143,35 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if isRevnaAdmin();
       allow create, update, delete: if false;
+    }
+
+    // Token per le notifiche push, uno per dispositivo.
+    //
+    // Il cliente li scrive da sé, e non c'era altro modo: il token lo rilascia il
+    // servizio push al dispositivo, e nessun altro lo conosce. Stanno qui e non sotto
+    // l'utente perché un telefono deve ricevere gli avvisi di un account solo: l'id è
+    // il token ripulito (come fa `tokenId` in `lib/push.ts`), quindi il documento è uno
+    // per telefono, e chi accede per ultimo lo riscrive col proprio `uid` anche se
+    // prima era di un altro. Leggerlo e cancellarlo resta solo di chi lo ha adesso.
+    // Chiuso ai referenti Revna: l'elenco dei dispositivi non serve al backoffice, e
+    // chi manda le notifiche li legge con l'Admin SDK (vedi `push.ts`).
+    match /pushTokens/{tokenId} {
+      allow read, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'token', 'piattaforma', 'dispositivo', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['uid', 'token', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.token is string
+        && request.resource.data.token.size() < 256
+        && request.resource.data.token.matches('^Expo(nent)?PushToken\\[[^\\]]+\\]$')
+        && tokenId == request.resource.data.token.replace('[^A-Za-z0-9_-]', '')
+        && request.resource.data.get('piattaforma', '') is string
+        && request.resource.data.get('piattaforma', '').size() <= 20
+        && request.resource.data.get('dispositivo', '') is string
+        && request.resource.data.get('dispositivo', '').size() <= 100
+        && request.resource.data.updatedAt is string
+        && request.resource.data.updatedAt.size() <= 40;
     }
 
     // Personalità dell'assistente, redatta dal backoffice.

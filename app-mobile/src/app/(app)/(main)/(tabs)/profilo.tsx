@@ -1,5 +1,4 @@
 import { useRouter } from 'expo-router';
-import { signOut } from 'firebase/auth';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -10,6 +9,7 @@ import {
   Button,
   Card,
   CharCount,
+  ConfirmSheet,
   DataRow,
   ErrorNote,
   Field,
@@ -25,10 +25,9 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useClientProfile } from '@/hooks/use-client-profile';
 import { useT } from '@/hooks/use-language';
-import { getFirebaseAuth } from '@/lib/firebase';
+import { signOutDevice } from '@/lib/auth';
 import { labelOf, labelsOf, type Dictionary } from '@/lib/i18n';
 import { MAX_NOTE_CHARS, type ClientProfile } from '@/lib/profile';
-import { unregisterPushToken } from '@/lib/push';
 import { Brand, Family, Gutter, Ink, Spacing, Surface } from '@/theme';
 
 /**
@@ -62,6 +61,8 @@ export default function ProfileScreen() {
   const [editingNote, setEditingNote] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [noteError, setNoteError] = useState('');
+  const [askingSignOut, setAskingSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const note = drafted ?? profile?.noteCliente ?? '';
 
@@ -73,17 +74,16 @@ export default function ProfileScreen() {
     );
   }
 
-  /**
-   * Esce dall'account, dopo aver dimenticato questo dispositivo.
-   *
-   * Prima il token e poi la sessione, perché cancellare il token è una scrittura su
-   * Firestore e la vogliono fare le regole di chi è ancora dentro. Se non riesce non si
-   * blocca l'uscita — restare dentro per un token è la reazione sbagliata — e al primo
-   * rifiuto del servizio push lo pota il server.
-   */
   async function esci() {
-    if (user) await unregisterPushToken(user.uid).catch(() => {});
-    await signOut(getFirebaseAuth());
+    setAskingSignOut(false);
+    setSigningOut(true);
+    try {
+      await signOutDevice();
+    } catch {
+      // `signOut` di Firebase è locale e non fallisce in pratica: se succede, si resta
+      // dentro con il bottone di nuovo premibile.
+      setSigningOut(false);
+    }
   }
 
   async function onSaveNote() {
@@ -174,8 +174,25 @@ export default function ProfileScreen() {
           )}
         </Card>
 
-        <Button label={t.profilo.esci} variant="secondary" onPress={() => void esci()} />
+        <Button
+          label={t.profilo.esci}
+          variant="secondary"
+          loading={signingOut}
+          loadingLabel={t.profilo.uscita.inCorso}
+          onPress={() => setAskingSignOut(true)}
+        />
       </ScrollView>
+
+      <ConfirmSheet
+        visible={askingSignOut}
+        tone="primary"
+        titolo={t.profilo.uscita.titolo}
+        testo={t.profilo.uscita.testo}
+        conferma={t.profilo.esci}
+        annulla={t.comune.annulla}
+        onCancel={() => setAskingSignOut(false)}
+        onConfirm={() => void esci()}
+      />
     </Screen>
   );
 }

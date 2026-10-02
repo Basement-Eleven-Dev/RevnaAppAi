@@ -4,6 +4,7 @@ import { httpsCallable } from 'firebase/functions';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import { useAuth } from '@/hooks/use-auth';
+import { useT } from '@/hooks/use-language';
 import { isUnread, MAX_LISTED, type Announcement } from '@/lib/announcements';
 import { getFirebaseDb, getFirebaseFunctions, isFirebaseConfigured } from '@/lib/firebase';
 import {
@@ -52,6 +53,7 @@ export function useAnnouncements(): AnnouncementsState {
 function useAnnouncementsState() {
   const { user } = useAuth();
   const router = useRouter();
+  const channelName = useT().avvisi.canaleNotifiche;
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -111,14 +113,14 @@ function useAnnouncementsState() {
     if (!user) return;
 
     let alive = true;
-    void registerPushToken(user.uid).then((stato) => {
+    void registerPushToken(user.uid, channelName).then((stato) => {
       if (alive) setNotifiche(stato);
     });
 
     return () => {
       alive = false;
     };
-  }, [user]);
+  }, [user, channelName]);
 
   /** Toccando la notifica si apre quell'avviso, non l'elenco. */
   useEffect(() => {

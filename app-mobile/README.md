@@ -55,11 +55,21 @@ oggi sono **segnaposto**: vanno sostituiti con gli URL definitivi quando Revna l
 fornisce, in quell'unico file.
 
 `useSessionWatch` forza il rinnovo del token all'apertura e ogni 5 minuti: se il
-backoffice ha disattivato l'utenza, la sessione cade da sola.
+backoffice ha disattivato l'utenza, la sessione cade da sola. Cade **solo** per utenza
+disattivata o cancellata e token revocato o scaduto (`auth/user-disabled`,
+`auth/user-not-found`, `auth/user-token-expired`, `auth/invalid-user-token`): senza rete
+il controllo fallisce e si resta dentro.
 
 Le due app condividono lo stesso progetto Firebase e la stessa base utenti: chi ha il
 custom claim `revnaAdmin` è un referente Revna e usa il backoffice, chi non ce l'ha è
-un cliente e usa l'app.
+un cliente e usa l'app. Un referente che accede all'app si ferma su una schermata che lo
+dice, con «Esci», prima che si monti l'area riservata e si registrino le notifiche
+(`useIsRevnaAdmin` in `hooks/use-auth.ts`).
+
+«Esci» chiede conferma, dimentica il token push del telefono e chiude la sessione
+(`signOutDevice` in `lib/auth.ts`). La cancellazione del token aspetta al massimo 3
+secondi: offline si esce lo stesso, e il documento passa al prossimo cliente che accede da
+quel telefono.
 
 ## Struttura
 
@@ -364,12 +374,19 @@ apre **quell'avviso**, non l'elenco. Il numero sull'icona dell'app segue i non l
 salita e in discesa: lo tiene allineato l'app, perché deve scendere quando un avviso viene
 letto e di quello le notifiche non sanno niente.
 
-Il token del dispositivo lo scrive l'app in `users/{uid}/pushTokens/{id}`. Il permesso si
+Il token del dispositivo lo scrive l'app in `pushTokens/{id}`, un documento per telefono con
+l'`uid` di chi è entrato per ultimo: un telefono passato a un altro cliente riceve solo gli
+avvisi del nuovo (vedi `backend/README.md`, «Notifiche push»). Il permesso si
 chiede **all'ingresso nell'area riservata** e non alla prima apertura: prima del login non
 c'è nessuno a cui mandare niente, e un pannello di sistema davanti alla schermata di
 accesso è la richiesta fuori contesto per eccellenza — quella che si nega per riflesso.
 All'uscita dall'account il token viene dimenticato: su un telefono passato di mano non
 devono più comparire le comunicazioni di Revna a quella struttura.
+
+La notifica che ha aperto l'app si usa una volta sola: dopo averla seguita la si cancella
+(`clearLastNotificationResponse`) e se ne ricorda l'identificativo, così uscire e rientrare
+— anche con un altro account — non riapre quell'avviso. Il nome del canale Android viene
+dal dizionario, nella lingua dell'app.
 
 **Servono una development build e un `projectId` EAS** (`expo.extra.eas.projectId` in
 `app.json`, da `eas init`): da Expo SDK 53 Expo Go non riceve più notifiche remote. Senza

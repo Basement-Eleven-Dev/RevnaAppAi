@@ -95,11 +95,6 @@ users/{uid}/announcements/{id}      la copia consegnata di una comunicazione
 ├── inviatoAt
 └── lettoAt      null finché il cliente non l'apre: è il pallino rosso nell'app
 
-users/{uid}/pushTokens/{id}        un documento per dispositivo
-├── token         ExponentPushToken[…], scritto dall'app
-├── piattaforma · dispositivo
-└── updatedAt
-
 users/{uid}/conversations/{id}
 ├── title       riassunto in ≤5 parole, generato alla prima risposta
 ├── createdAt · updatedAt
@@ -594,10 +589,29 @@ l'Admin SDK, benché Firebase ci sia già: l'app è una build Expo e i suoi toke
 Expo. Il servizio di Expo è il ponte verso APNs e FCM, e ci risparmia certificati APNs e
 `google-services.json`. Nessuna chiave da custodire: il token *è* il segreto.
 
-I token li scrive l'app in `users/{uid}/pushTokens/{id}`, uno per dispositivo — è l'unica
-sottocollezione che il cliente scrive da sé, perché il token lo rilascia il servizio push
-al telefono e nessun altro lo conosce. Il server li legge con l'Admin SDK e **pota** quelli
-che Expo dichiara `DeviceNotRegistered`: app disinstallata o notifiche revocate.
+I token li scrive l'app in `pushTokens/{id}`, **uno per dispositivo**: l'id è il token
+ripulito dai caratteri non ammessi, e il documento porta l'`uid` di chi è entrato. Il
+cliente li scrive da sé perché il token lo rilascia il servizio push al telefono e nessun
+altro lo conosce. Stanno in una collezione sola, e non sotto ciascun utente, perché un
+telefono deve ricevere gli avvisi di **un account solo**: chi vi accede per ultimo
+riscrive il documento col proprio `uid`, anche se prima era di un altro cliente. Le regole
+lo permettono solo con il proprio `uid`, con l'id che corrisponde al token e con un token
+nella forma `ExponentPushToken[…]`; leggerlo e cancellarlo resta di chi lo ha adesso.
+
+```
+pushTokens/{id}                    un documento per dispositivo
+├── uid           chi vi ha acceduto per ultimo
+├── token         ExponentPushToken[…], scritto dall'app
+├── piattaforma · dispositivo
+└── updatedAt
+```
+
+All'invio il server li legge con l'Admin SDK per `uid` e prima di chiamare Expo **scarta e
+cancella** i token fuori forma — uno solo farebbe rifiutare a Expo l'intera richiesta da
+100 — e gli eventuali doppioni, tenendo il documento con `updatedAt` più recente. Dopo
+l'invio **pota** quelli che Expo dichiara `DeviceNotRegistered`: app disinstallata o
+notifiche revocate. Gli errori sono letti messaggio per messaggio, e un blocco rifiutato
+per intero non ferma gli altri.
 
 Il numero sul badge dell'icona viaggia nella notifica e vale i **non letti di quel
 cliente**, contati al momento dell'invio: mandarlo senza vorrebbe dire un'icona che dice

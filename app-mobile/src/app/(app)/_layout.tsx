@@ -1,15 +1,21 @@
 import { Redirect } from 'expo-router';
 import Drawer from 'expo-router/drawer';
-import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import { signOut } from 'firebase/auth';
+import { useState } from 'react';
+import { ActivityIndicator, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppSidebar, SIDEBAR_MAX_WIDTH } from '@/components/app-sidebar';
+import { Wordmark } from '@/components/brand/wordmark';
+import { Button, FormScreen, ScreenBar, Text } from '@/components/ui';
 import { AnnouncementsProvider } from '@/hooks/use-announcements';
 import { AssistantProvider } from '@/hooks/use-assistant';
-import { useAuth } from '@/hooks/use-auth';
-import { Brand, Surface } from '@/theme';
+import { useAuth, useIsRevnaAdmin } from '@/hooks/use-auth';
+import { useT } from '@/hooks/use-language';
+import { getFirebaseAuth } from '@/lib/firebase';
+import { Brand, Gutter, Ink, Spacing, Surface } from '@/theme';
 
 /**
- * Area riservata: senza sessione non si entra.
+ * Area riservata: senza sessione non si entra, e un referente Revna si ferma prima.
  *
  * La navigazione ha due piani, e non è una ridondanza. In fondo, la **tab bar**
  * con le cinque sezioni: si passa da una all'altra con il pollice, senza aprire
@@ -22,9 +28,10 @@ import { Brand, Surface } from '@/theme';
  */
 export default function AppLayout() {
   const { user, loading } = useAuth();
+  const admin = useIsRevnaAdmin(user);
   const { width } = useWindowDimensions();
 
-  if (loading) {
+  if (loading || (user && admin === null)) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Surface.base }}>
         <ActivityIndicator color={Brand.accent} />
@@ -35,6 +42,10 @@ export default function AppLayout() {
   if (!user) {
     return <Redirect href="/login" />;
   }
+
+  // Prima dei provider: un referente non deve nemmeno registrare il telefono alle
+  // notifiche dei clienti.
+  if (admin) return <ClientsOnly />;
 
   return (
     // Gli avvisi stanno sopra la navigazione e non dentro una schermata: il contatore
@@ -62,3 +73,49 @@ export default function AppLayout() {
     </AnnouncementsProvider>
   );
 }
+
+/** Il rifiuto per chi entra con un account del team Revna: spiega e fa uscire. */
+function ClientsOnly() {
+  const t = useT();
+  const [busy, setBusy] = useState(false);
+
+  async function esci() {
+    setBusy(true);
+    await signOut(getFirebaseAuth()).catch(() => setBusy(false));
+  }
+
+  return (
+    <FormScreen>
+      <ScreenBar />
+
+      <View style={styles.hero}>
+        <Wordmark width={112} />
+        <Text variant="title" style={styles.title}>
+          {t.soloClienti.titolo}
+        </Text>
+      </View>
+
+      <View style={styles.spacer} />
+
+      <View style={styles.form}>
+        <Text variant="service" color={Ink.secondary} style={styles.help}>
+          {t.soloClienti.testo}
+        </Text>
+        <Button
+          label={t.profilo.esci}
+          loading={busy}
+          loadingLabel={t.profilo.uscita.inCorso}
+          onPress={() => void esci()}
+        />
+      </View>
+    </FormScreen>
+  );
+}
+
+const styles = StyleSheet.create({
+  hero: { paddingHorizontal: Gutter + 2 },
+  spacer: { flex: 1 },
+  title: { marginTop: Spacing.xl },
+  form: { paddingHorizontal: Gutter + 2, paddingBottom: Spacing.huge - 4, gap: Spacing.md - 1 },
+  help: { lineHeight: 20 },
+});
