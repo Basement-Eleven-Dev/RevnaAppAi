@@ -238,7 +238,11 @@ export default function ChatScreen() {
 
           {error !== null && (
             <View style={styles.failed}>
-              <ErrorNote>{errorMessage(t, error, t.chat.fallita)}</ErrorNote>
+              <ErrorNote>
+                {errorMessage(t, error, t.chat.fallita, {
+                  'failed-precondition': t.chat.nonRisponde,
+                })}
+              </ErrorNote>
               {canSend && (
                 <Tap onPress={() => submit(draft)} accessibilityRole="button">
                   <Text variant="service" color={Brand.accent} style={styles.retry}>

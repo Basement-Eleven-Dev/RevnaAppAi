@@ -329,6 +329,8 @@ export type PreviewDiagnostics = {
   conoscenza: { titolo: string; citata: boolean }[];
   disponibili: number;
   profilo: string;
+  /** La memoria del cliente impersonato: la prova la legge e non la cambia. */
+  memoria: string[];
   systemInstruction: string;
 };
 

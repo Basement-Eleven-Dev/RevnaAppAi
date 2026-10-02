@@ -102,6 +102,75 @@ test('le citazioni a tre cifre vengono rinumerate come quelle a una', () => {
   ]);
 });
 
+test('gli elenchi annidati tengono il rientro', () => {
+  const selected = [entry('a', 10, 'Tariffe')];
+  const answer = [
+    '- Leve principali [1]',
+    '  - tariffe del weekend [4]',
+    '    - minimo due notti  in alta stagione',
+    '  - restrizioni',
+  ].join('\n');
+
+  const { text } = resolveCitations(answer, selected);
+
+  assert.equal(
+    text,
+    [
+      '- Leve principali [1]',
+      '  - tariffe del weekend',
+      '    - minimo due notti  in alta stagione',
+      '  - restrizioni',
+    ].join('\n'),
+  );
+});
+
+test('il codice resta com’è, anche quando contiene numeri fra quadre', () => {
+  const selected = [entry('a', 10, 'Tariffe')];
+  const answer = [
+    'Usa la formula [1]:',
+    '```',
+    'adr = ricavi[2] / notti[3]',
+    '    if adr  > 100:',
+    '```',
+    'e la cella `B[5]` del foglio.',
+  ].join('\n');
+
+  const { text, sources } = resolveCitations(answer, selected);
+
+  assert.equal(text, answer);
+  assert.deepEqual(sources, [{ n: 1, titolo: 'Tariffe' }]);
+});
+
+test('le tabelle tengono gli spazi di allineamento', () => {
+  const selected = [entry('a', 10, 'ADR'), entry('b', 10, 'RevPAR')];
+  const answer = [
+    '| Mese    | ADR   |',
+    '|---------|-------|',
+    '| Agosto  | 140 [2] |',
+    '| Ottobre |  95 [9] |',
+  ].join('\n');
+
+  const { text, sources } = resolveCitations(answer, selected);
+
+  assert.equal(
+    text,
+    [
+      '| Mese    | ADR   |',
+      '|---------|-------|',
+      '| Agosto  | 140 [1] |',
+      '| Ottobre |  95 |',
+    ].join('\n'),
+  );
+  assert.deepEqual(sources, [{ n: 1, titolo: 'RevPAR' }]);
+});
+
+test('un marcatore tolto in mezzo alla frase porta via un solo spazio', () => {
+  const { text } = resolveCitations('Alza [8] le tariffe [1] [9], poi\n  - rivedi [8]', [
+    entry('a', 10),
+  ]);
+  assert.equal(text, 'Alza le tariffe [1], poi\n  - rivedi');
+});
+
 test('la proposta di contatto perde anche le citazioni a tre cifre', () => {
   const { text, proposal } = extractContactProposal(
     'Serve un consulente [104].\n<<<CONTATTO: Vorrei un parere [104] sul contratto [7] >>>',

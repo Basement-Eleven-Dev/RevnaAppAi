@@ -83,6 +83,7 @@ export const askAssistant = onCall<Request, Promise<Response>, Chunk>(
     const stored: StoredTurn[] = (conversation.data()?.['messages'] as StoredTurn[]) ?? [];
 
     const answer = await respond({
+      uid,
       profile,
       history: stored,
       message,

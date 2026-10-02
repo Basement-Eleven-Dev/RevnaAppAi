@@ -5,6 +5,7 @@ import { auth, db } from './admin';
 import type { Source } from './agent';
 import type { StoredTurn } from './conversations';
 import { idDoc, requireAdmin, stringa } from './guards';
+import { loadMemory } from './memory';
 import { respond } from './model';
 import { describeProfile, sanitizeProfile } from './profile';
 
@@ -24,6 +25,8 @@ type Diagnostics = {
   disponibili: number;
   /** Il profilo così come lo legge il modello. */
   profilo: string;
+  /** Le preferenze del cliente in memoria, come le riceve il modello. */
+  memoria: string[];
   /** Il prompt di sistema completo, per capire perché ha risposto così. */
   systemInstruction: string;
 };
@@ -57,8 +60,9 @@ type Chunk = { text: string };
  * Firestore: è l'unico caso in cui il contesto lo tiene il client, e va bene perché
  * qui il client è il backoffice e la conversazione non è di nessuno.
  *
- * Il profilo, invece, si legge dal server: si indica quale cliente impersonare, non
- * si manda un profilo inventato. Provare l'assistente su dati finti direbbe poco.
+ * Il profilo e la memoria, invece, si leggono dal server: si indica quale cliente
+ * impersonare, non si mandano dati inventati. Provare l'assistente su dati finti
+ * direbbe poco.
  */
 export const previewAssistant = onCall<Request, Promise<Response>, Chunk>(
   { region: 'europe-west1', timeoutSeconds: 120 },
@@ -85,7 +89,12 @@ export const previewAssistant = onCall<Request, Promise<Response>, Chunk>(
       throw new HttpsError('permission-denied', 'I referenti Revna non hanno una struttura.');
     }
 
-    const snapshot = await db.collection('users').doc(uid).get();
+    // La memoria si legge soltanto: la prova non è una conversazione del cliente, e
+    // non deve insegnare all'assistente niente su di lui.
+    const [snapshot, memory] = await Promise.all([
+      db.collection('users').doc(uid).get(),
+      loadMemory(uid),
+    ]);
     const profile = sanitizeProfile(snapshot.data()?.['profile']);
 
     const history = (Array.isArray(request.data.history) ? request.data.history : [])
@@ -99,9 +108,11 @@ export const previewAssistant = onCall<Request, Promise<Response>, Chunk>(
       .slice(-MAX_PREVIEW_TURNS);
 
     const answer = await respond({
+      uid,
       profile,
       history,
       message,
+      memory,
       onChunk: (text) => streamed?.sendChunk({ text }) ?? Promise.resolve(),
     });
 
@@ -114,6 +125,7 @@ export const previewAssistant = onCall<Request, Promise<Response>, Chunk>(
       by: request.auth?.token['email'] ?? request.auth?.uid,
       fonti: answer.sources.length,
       conoscenzaInContesto: answer.selected.length,
+      memoriaInContesto: memory.length,
     });
 
     return {
@@ -127,6 +139,7 @@ export const previewAssistant = onCall<Request, Promise<Response>, Chunk>(
         })),
         disponibili: answer.disponibili,
         profilo: describeProfile(profile),
+        memoria: memory.map((entry) => entry.testo),
         systemInstruction: answer.systemInstruction,
       },
     };

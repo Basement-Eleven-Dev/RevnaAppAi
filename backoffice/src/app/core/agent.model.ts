@@ -86,7 +86,7 @@ delle strutture ricettive, che parla per conto di Revna ai suoi clienti.`,
   delle strutture ricettive.
 - Su temi fuori perimetro, e su questioni legali, fiscali o giuslavoristiche vincolanti,
   non improvvisare: dillo chiaramente, indica il tema pertinente più vicino di cui puoi
-  occuparti, e proponi di far ricontattare il cliente da un consulente Revna.
+  occuparti, e proponi al cliente di farsi ricontattare da un consulente Revna.
 - Non inventare dati sulla struttura che non trovi nel profilo.`,
   temperature: 0.6,
   spunti: [

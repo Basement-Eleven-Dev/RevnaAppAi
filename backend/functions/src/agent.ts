@@ -78,7 +78,7 @@ delle strutture ricettive, che parla per conto di Revna ai suoi clienti.`,
   delle strutture ricettive.
 - Su temi fuori perimetro, e su questioni legali, fiscali o giuslavoristiche vincolanti,
   non improvvisare: dillo chiaramente, indica il tema pertinente più vicino di cui puoi
-  occuparti, e proponi di far ricontattare il cliente da un consulente Revna.
+  occuparti, e proponi al cliente di farsi ricontattare da un consulente Revna.
 - Non inventare dati sulla struttura che non trovi nel profilo.`,
   temperature: 0.6,
 };
@@ -335,7 +335,7 @@ Quando devi passare la mano
 - Se la domanda esce dal tuo perimetro, o se per rispondere servirebbe una decisione
   che spetta a un consulente in carne e ossa, o se il materiale Revna e la tua
   competenza non bastano, non girare intorno alla cosa: dillo in una riga e proponi
-  di far ricontattare il cliente da un consulente Revna.
+  al cliente di farsi ricontattare da un consulente Revna.
 - Solo in quel caso, dopo la risposta, chiudi il messaggio con una riga così:
   ${HANDOFF_OPEN} testo della richiesta ${HANDOFF_CLOSE}
 - Dentro il marcatore scrivi la richiesta come la scriverebbe il cliente al suo
@@ -472,24 +472,38 @@ export function buildSystemInstruction(
 }
 
 /**
+ * Codice in blocco o in linea: lì dentro `[1]` è un indice, non una citazione. Fra
+ * parentesi per `split`, che così restituisce anche i pezzi di codice, nelle
+ * posizioni dispari. Un blocco non chiuso arriva fino in fondo.
+ */
+const CODE = /(```[\s\S]*?(?:```|$)|`[^`\n]*`)/;
+
+/**
  * Trasforma i marcatori del modello in fonti da mostrare, e ripulisce il testo.
  *
  * Due cose che il modello sbaglia e che vanno corrette prima di far vedere la
  * risposta: cita numeri che non esistono (via, insieme al marcatore), e cita
  * [2] e [5] senza aver mai citato [1] — la numerazione viene compattata, perché
  * un elenco di fonti che parte da 2 sembra un pezzo mancante.
+ *
+ * Il resto del testo non si tocca: gli spazi sono rientri di elenchi annidati,
+ * colonne di tabelle, codice. Va via solo lo spazio prima di un marcatore tolto,
+ * perché «testo [7].» diventi «testo.»; a inizio riga quello spazio è un rientro, e
+ * resta.
  */
 export function resolveCitations(
   answer: string,
   selected: KnowledgeEntry[],
 ): { text: string; sources: Source[] } {
-  const marker = /\[(\d+)\]/g;
+  const marker = /([ \t]*)\[(\d+)\]/g;
+  const parts = answer.split(CODE);
+  const prose = parts.filter((_, i) => i % 2 === 0);
 
   // Ordine di prima apparizione: è quello in cui il cliente legge le fonti.
   const used: number[] = [];
   const unknown: number[] = [];
-  for (const match of answer.matchAll(marker)) {
-    const n = Number(match[1]);
+  for (const match of prose.flatMap((part) => [...part.matchAll(marker)])) {
+    const n = Number(match[2]);
     if (n >= 1 && n <= selected.length) {
       if (!used.includes(n)) used.push(n);
     } else if (!unknown.includes(n)) {
@@ -507,13 +521,18 @@ export function resolveCitations(
   // Un solo passaggio di sostituzione: rinumerare a tappe farebbe collidere le
   // vecchie posizioni con le nuove ([3] → [1] e poi [1] → [2]).
   const renumbered = new Map(used.map((n, index) => [n, index + 1]));
-  const text = answer
-    .replace(marker, (whole, digits: string) => {
-      const to = renumbered.get(Number(digits));
-      return to ? `[${to}]` : '';
-    })
-    .replace(/ +([.,;:])/g, '$1')
-    .replace(/ {2,}/g, ' ')
+  const text = parts
+    .map((part, i) =>
+      i % 2
+        ? part
+        : part.replace(marker, (_, lead: string, digits: string, offset: number) => {
+            const to = renumbered.get(Number(digits));
+            if (to) return `${lead}[${to}]`;
+            const lineStart = (i === 0 && offset === 0) || part[offset - 1] === '\n';
+            return lineStart ? lead : '';
+          }),
+    )
+    .join('')
     .trim();
 
   const sources = used.map((n, index) => ({ n: index + 1, titolo: selected[n - 1].titolo }));

@@ -169,19 +169,22 @@ export type Answer = {
  * comunque intera alla fine — un solo percorso di codice per entrambi i casi.
  */
 export async function respond({
+  uid,
   profile,
   history,
   message,
   memory = [],
   onChunk,
 }: {
+  /** Il cliente che parla, o quello impersonato dalla prova: serve solo ai log. */
+  uid: string;
   profile: ClientProfile;
   history: StoredTurn[];
   message: string;
   /**
-   * I fatti che l'assistente ha imparato su questo cliente. Vuota per la prova dal
-   * backoffice: là non c'è un cliente vero che parla, e mettergli in bocca una
-   * memoria che non ha proverebbe un assistente diverso da quello che risponde.
+   * I fatti che l'assistente ha imparato su questo cliente. Anche la prova dal
+   * backoffice la passa, in sola lettura: senza, un referente vedrebbe un tono che il
+   * cliente non riceve, e correggerebbe un problema che non esiste.
    */
   memory?: MemoryEntry[];
   /** `Promise<unknown>` e non `void`: `sendChunk` restituisce un booleano che non ci serve. */
@@ -226,15 +229,41 @@ export async function respond({
   // diventa un bottone a risposta finita, e il marcatore non si vede mai.
   let full = '';
   let shown = 0;
-  for await (const piece of stream) {
-    const chunk = piece.text;
-    if (!chunk) continue;
-    full += chunk;
-    const visible = visibleSoFar(full);
-    if (visible.length > shown) {
-      await onChunk?.(visible.slice(shown));
-      shown = visible.length;
+  // Perché il modello ha smesso di scrivere, e se ha rifiutato la domanda prima di
+  // cominciare: arrivano sull'ultimo pezzo, quando arrivano.
+  let finishReason: string | undefined;
+  let blockReason: string | undefined;
+  try {
+    for await (const piece of stream) {
+      finishReason = piece.candidates?.[0]?.finishReason ?? finishReason;
+      blockReason = piece.promptFeedback?.blockReason ?? blockReason;
+      const chunk = piece.text;
+      if (!chunk) continue;
+      full += chunk;
+      const visible = visibleSoFar(full);
+      if (visible.length > shown) {
+        await onChunk?.(visible.slice(shown));
+        shown = visible.length;
+      }
     }
+  } catch (cause) {
+    logger.error('Risposta del modello interrotta', {
+      uid,
+      model: geminiModel.value(),
+      ricevuti: full.length,
+      cause,
+    });
+    throw new HttpsError('internal', "La risposta dell'assistente si è interrotta.");
+  }
+
+  if (blockReason || (finishReason && finishReason !== 'STOP')) {
+    logger.warn('Risposta del modello incompleta', {
+      uid,
+      model: geminiModel.value(),
+      finishReason,
+      blockReason,
+      ricevuti: full.length,
+    });
   }
 
   // Prima la proposta di contatto, poi le citazioni: il marcatore va tolto dal testo
@@ -243,7 +272,16 @@ export async function respond({
   const { text: spoken, proposal } = extractContactProposal(full);
 
   if (!spoken && !proposal) {
-    logger.error('Risposta vuota dal modello');
+    // Fermato dai filtri (sicurezza, contenuti vietati, lingua…) e non da un guasto:
+    // il cliente deve sapere che riformulare serve, e riprovare uguale no. Con
+    // MAX_TOKENS il tetto se l'è mangiato il ragionamento, e la domanda non c'entra.
+    if (blockReason || (finishReason && !['STOP', 'MAX_TOKENS'].includes(finishReason))) {
+      throw new HttpsError(
+        'failed-precondition',
+        "L'assistente non può rispondere a questa domanda.",
+      );
+    }
+    logger.error('Risposta vuota dal modello', { uid, finishReason });
     throw new HttpsError('internal', 'Il modello non ha prodotto una risposta.');
   }
   const { text, sources } = resolveCitations(spoken, selected);

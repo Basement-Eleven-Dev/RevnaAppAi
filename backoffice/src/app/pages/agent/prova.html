@@ -3,8 +3,8 @@
   <p class="hint">
     Scegli una struttura e fai le domande che farebbe il suo albergatore. L'assistente risponde
     esattamente come risponderebbe nell'app: stessa personalità, stessa base di conoscenza, stesso
-    profilo struttura. <strong>Niente viene salvato</strong> — questa conversazione non comparirà
-    nello storico del cliente, e sparisce ricaricando la pagina.
+    profilo struttura, stessa memoria delle sue preferenze. <strong>Niente viene salvato</strong> —
+    questa conversazione non comparirà nello storico del cliente, e sparisce ricaricando la pagina.
   </p>
 
   <section class="card">
@@ -128,6 +128,25 @@
           }
         </p>
 
+        @if (!d.memoria.length) {
+          <p class="hint">Nessuna preferenza in memoria per questo cliente.</p>
+        } @else {
+          <table>
+            <thead>
+              <tr>
+                <th>In memoria (la prova non la modifica)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (fatto of d.memoria; track $index) {
+                <tr>
+                  <td>{{ fatto }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+
         @if (!d.conoscenza.length) {
           <p class="hint">
             Nessuna voce in contesto.
@@ -177,8 +196,8 @@
           </button>
         </div>
         <p class="hint">
-          Personalità, regole di citazione, profilo della struttura e materiale, esattamente come li
-          ha ricevuti il modello. È qui che si capisce perché ha risposto così.
+          Personalità, regole di citazione, profilo della struttura, memoria e materiale,
+          esattamente come li ha ricevuti il modello. È qui che si capisce perché ha risposto così.
         </p>
         @if (mostraPrompt()) {
           <pre class="prompt">{{ d.systemInstruction }}</pre>

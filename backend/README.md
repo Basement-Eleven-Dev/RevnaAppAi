@@ -672,15 +672,18 @@ l'unico caso in cui il contesto lo tiene il client, e va bene perché lì il cli
 backoffice e la conversazione non è di nessuno. Arrivando dal client va limitata qui, ed
 è quello che fa `MAX_PREVIEW_TURNS`.
 
-Il profilo, invece, si legge dal server: si indica **quale** cliente impersonare, non si
-manda un profilo inventato. Provare l'assistente su dati finti direbbe poco. Non si
+Il profilo e la memoria, invece, si leggono dal server: si indica **quale** cliente
+impersonare, non si mandano dati inventati. Provare l'assistente su dati finti direbbe poco.
+La memoria entra nel prompt come nell'app ma in sola lettura: la prova non è una
+conversazione del cliente e non aggiunge né toglie preferenze. Senza, un referente vedrebbe
+un tono che il cliente non riceve. Non si
 possono impersonare altri referenti Revna, che non hanno una struttura, e ogni prova
 finisce nei log con chi l'ha fatta: legge il profilo di un cliente, e su dati di un
 cliente serve sapere chi ha guardato cosa.
 
 Oltre alla risposta torna una diagnostica: quali voci sono entrate in contesto, quali
 sono state **davvero citate**, quante voci attive c'erano in tutto, il profilo come lo
-legge il modello e il prompt di sistema completo. È la parte che serve di più: dice se una
+legge il modello, la memoria del cliente e il prompt di sistema completo. È la parte che serve di più: dice se una
 voce non è stata usata perché non è stata scelta o perché il modello l'ha ignorata.
 
 ## Deploy
